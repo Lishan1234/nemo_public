@@ -267,40 +267,11 @@ class TransposeConvBlock(tf.keras.Model):
 
         return output
 
-def _phase_shift(I, scale):
-    bsize, a, b, c = I.get_shape().as_list()
-    X = tf.reshape(I, (bsize, a, b, scale, scale))
-    X = tf.transpose(X, (0, 1, 2, 4, 3))  # bsize, a, b, 1, 1
-    X = tf.split(axis=1, num_or_size_splits=a, value=X)  # a, [bsize, b, scale, scale]
-    X = tf.concat(axis=2, values=[tf.squeeze(x, [1]) for x in X])  # bsize, b, a*scale, scale
-    X = tf.split(axis=1, num_or_size_splits=b, value=X)  # b, [bsize, a*scale, scale]
-    X = tf.concat(axis=2, values=[tf.squeeze(x, [1]) for x in X])  # bsize, a*scale, b*scale
-    return tf.reshape(X, (bsize, a*scale, b*scale, 1))
-
-def _subpixel_v1_func(x, scale, color=True):
-    if color:
-        xc = tf.split(axis=3, num_or_size_splits=3, value=x)
-        x = tf.concat(axis=3, values=[_phase_shift(I, scale) for I in xc])
-    else:
-        x = _phase_shift(x, scale)
-    return x
-
-def _subpixel_v2_func(x, scale):
-    return tf.depth_to_space(x, scale)
-
 def _subpixel_func(x):
     input = x[0]
     scale = x[1]
-    version = x[2]
+    return tf.depth_to_space(input, scale)
 
-    assert version in [1,2]
-
-    if version == 1:
-        return _subpixel_v1_func(input, scale)
-    elif version == 2:
-        return _subpixel_v2_func(input, scale)
-
-#Caution: Version 1 is not fully tested yet (Unofficial version of subpixel convolution)
 class SubpixelConvBlock(tf.keras.Model):
     """ SubpixelConvBlock for x2,x3,x4 upscale
 
@@ -310,19 +281,14 @@ class SubpixelConvBlock(tf.keras.Model):
         weight_decay:
         add_act:
         max_act:
-        version:
     """
 
-    def __init__(self, num_filters, scale, weight_decay, add_act, max_act, version):
+    def __init__(self, num_filters, scale, weight_decay, add_act, max_act):
         super(SubpixelConvBlock, self).__init__()
         assert scale in [2,3,4]
-        assert version in [1,2]
-        if version == 1:
-            assert num_filters == 3
 
         self.add_act = add_act
         self.scale = scale
-        self.version = version
 
         if self.scale in [2,3]:
             self.conv1 = tf.keras.layers.Conv2D(num_filters * (self.scale ** 2),
@@ -354,12 +320,12 @@ class SubpixelConvBlock(tf.keras.Model):
     def call(self, x):
         if self.scale in [2,3]:
             output = self.conv1(x)
-            output = self.sconv1([output, self.scale, self.version])
+            output = self.sconv1([output, self.scale])
         elif self.scale in [4]:
             output = self.conv1(x)
-            output = self.sconv1([output, self.scale, self.version])
+            output = self.sconv1([output, self.scale])
             output = self.conv2(output)
-            output = self.sconv2([output, self.scale, self.version])
+            output = self.sconv2([output, self.scale])
 
         if self.add_act:
             output = self.relu1(output)
@@ -368,10 +334,12 @@ class SubpixelConvBlock(tf.keras.Model):
 
         return output
 
+#Caution: Not supported on Tensorflow Lite
 def _resize_bilinear_func(x, scale):
     shape = x.get_shape().as_list()
     return tf.image.resize_bilinear(x, (shape[1] * scale, shape[2] * scale))
 
+#Caution: Not supported on Snapdragon DSP
 def _resize_nearest_func(x, scale):
     shape = x.get_shape().as_list()
     return tf.image.resize_nearest_neighbor(x, (shape[1] * scale, shape[2] * scale))
@@ -379,12 +347,11 @@ def _resize_nearest_func(x, scale):
 def _resize_func(x):
     input = x[0]
     scale = x[1]
-    version = x[2]
-    assert version in [1,2]
+    interpolation = x[2]
 
-    if version == 1:
+    if interpolation == 'bilinear':
         return _resize_bilinear_func(input, scale)
-    elif version == 2:
+    elif interpolation == 'nearest':
         return _resize_nearest_func(input, scale)
 
 class ResizeBlock(tf.keras.Model):
@@ -396,16 +363,16 @@ class ResizeBlock(tf.keras.Model):
         weight_decay:
         add_act:
         max_act:
-        version:
+        interpolation:
     """
 
-    def __init__(self, num_filters, scale, weight_decay, add_act, max_act, version):
+    def __init__(self, num_filters, scale, weight_decay, add_act, max_act, interpolation):
         super(ResizeBlock, self).__init__()
         assert scale in [2,3,4]
-        assert version in [1,2]
+        assert interpolation in ['bilinear', 'nearest']
         self.add_act = add_act
         self.scale = scale
-        self.version = version
+        self.interpolation = interpolation
 
         self.resize1= tf.keras.layers.Lambda(_resize_func)
 
@@ -418,7 +385,7 @@ class ResizeBlock(tf.keras.Model):
                                         kernel_regularizer=l2(weight_decay))
 
     def call(self, x):
-        output = self.resize1([x, self.scale, self.version])
+        output = self.resize1([x, self.scale, self.interpolation])
 
         if self.add_act:
             output = self.relu1(output)
@@ -453,14 +420,12 @@ if __name__ == "__main__":
 
         z = tf.random_normal([1, 100, 100, 32])
         g = TransposeConvBlock(32, 3, 0, False, 6)
-        #h = SubpixelConvBlock(32, 3, 0, False, 6, 1)
-        h_ = SubpixelConvBlock(32, 3, 0, False, 6, 2)
-        i  = ResizeBlock(32, 3, 0, False, 6, 1)
-        i_  = ResizeBlock(32, 3, 0, False, 6, 2)
+        h = SubpixelConvBlock(32, 3, 0, False, 6)
+        i  = ResizeBlock(32, 3, 0, False, 6, 'bilinear')
+        i_  = ResizeBlock(32, 3, 0, False, 6, 'nearest')
 
         print(g(z).shape)
-        #print(h(z).shape)
-        print(h_(z).shape)
+        print(h(z).shape)
         print(i(z).shape)
         print(i_(z).shape)
 
