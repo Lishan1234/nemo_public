@@ -252,18 +252,11 @@ class TransposeConvBlock(tf.keras.Model):
         if self.add_act:
             self.relu1 = tf.keras.layers.ReLU(max_value=max_act)
 
-        self.conv1 = tf.keras.layers.Conv2D(3,
-                                        (3,3),
-                                        padding='same',
-                                        kernel_regularizer=l2(weight_decay))
-
     def call(self, x):
         output = self.tconv1(x)
 
         if self.add_act:
             output = self.relu1(output)
-
-        output = self.conv1(output)
 
         return output
 
@@ -312,11 +305,6 @@ class SubpixelConvBlock(tf.keras.Model):
         if self.add_act:
             self.relu1 = tf.keras.layers.ReLU(max_value=max_act)
 
-        self.conv3 = tf.keras.layers.Conv2D(3,
-                                        (3,3),
-                                        padding='same',
-                                        kernel_regularizer=l2(weight_decay))
-
     def call(self, x):
         if self.scale in [2,3]:
             output = self.conv1(x)
@@ -329,8 +317,6 @@ class SubpixelConvBlock(tf.keras.Model):
 
         if self.add_act:
             output = self.relu1(output)
-
-        output = self.conv3(output)
 
         return output
 
@@ -379,10 +365,6 @@ class ResizeBlock(tf.keras.Model):
         if self.add_act:
             self.relu1 = tf.keras.layers.ReLU(max_value=max_act)
 
-        self.conv1 = tf.keras.layers.Conv2D(3,
-                                        (3,3),
-                                        padding='same',
-                                        kernel_regularizer=l2(weight_decay))
 
     def call(self, x):
         output = self.resize1([x, self.scale, self.interpolation])
@@ -390,10 +372,7 @@ class ResizeBlock(tf.keras.Model):
         if self.add_act:
             output = self.relu1(output)
 
-        output = self.conv1(output)
-
         return output
-
 
 #Simple test script
 if __name__ == "__main__":
