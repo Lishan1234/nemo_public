@@ -126,7 +126,6 @@ class SingleMnasNetV0(tf.keras.Model):
 
         return output
 
-
 #Simple test script
 if __name__ == "__main__":
     tf.enable_eager_execution()
