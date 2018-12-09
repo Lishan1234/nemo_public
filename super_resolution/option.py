@@ -16,9 +16,18 @@ parser.add_argument('--max_act', type=float, default=None)
 parser.add_argument('--expand_factor', type=int, default=6)
 
 #Network-Training
-parser.add_argument('--weight_decay', type=float, default=1e-04, help='number of convolution block filter')
+parser.add_argument('--weight_decay', type=float, default=1e-04)
 
 #Training
+parser.add_argument('--num_batch', type=int, default=16)
+parser.add_argument('--patch_size', type=int, default=48)
+parser.add_argument('--load_on_memory', action='store_true')
+
+#Dataset
+parser.add_argument('--data_dir', type=str, default='data/bigbuckbunny_v0')
+
+#Dataset (bigbuckbunny_v0)
+parser.add_argument('--fps', type=float, default=0.1)
 
 #Configuration
 parser.add_argument('--custom_name', type=str, default=None, help='additional model name')

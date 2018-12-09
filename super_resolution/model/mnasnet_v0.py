@@ -1,6 +1,12 @@
 import tensorflow as tf
+
 import ops
-from option import *
+from mnasnet import MnasNet
+
+#for testing
+import sys
+sys.path.append('..')
+from option import args
 
 l2 = tf.keras.regularizers.l2
 
@@ -58,7 +64,7 @@ def create_upsample_block(args, scale):
                                 max_act=args.max_act,
                                 interpolation=args.interpolation)
 
-class SingleMnasNetV0(tf.keras.Model):
+class SingleMnasNetV0(MnasNet):
     """Mnas Network baseline model using VDSR architecture
     """
     def __init__(self, args, scale):
