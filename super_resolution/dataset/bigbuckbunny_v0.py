@@ -22,6 +22,8 @@ class BigbuckbunnyV0(MnasDataset):
         self.lr_image_filenames = glob.glob('{}/*.png'.format(lr_image_path))
         self.hr_image_filenames = glob.glob('{}/*.png'.format(hr_image_path))
 
+        assert len(self.lr_image_filenames) == len(self.hr_image_filenames)
+
         if self.load_on_memory:
             self.lr_images = []
             self.hr_images = []
@@ -43,9 +45,9 @@ class BigbuckbunnyV0(MnasDataset):
             hr_image_string = tf.io.read_file(hr_filename)
 
             #decode
-            lr_image_decoded = tf.image.decode_image(lr_filename)
+            lr_image_decoded = tf.image.decode_image(lr_image_string)
             lr_image_decoded = tf.image.convert_image_dtype(lr_image_decoded, tf.float32)
-            hr_image_decoded = tf.image.decode_image(hr_filename)
+            hr_image_decoded = tf.image.decode_image(hr_image_string)
             hr_image_decoded = tf.image.convert_image_dtype(hr_image_decoded, tf.float32)
 
             return lr_image_decoded, hr_image_decoded
@@ -63,9 +65,9 @@ class BigbuckbunnyV0(MnasDataset):
             hr_image_string = tf.io.read_file(hr_filename)
 
             #decode
-            lr_image_decoded = tf.image.decode_image(lr_filename)
+            lr_image_decoded = tf.image.decode_image(lr_image_string)
             lr_image_decoded = tf.image.convert_image_dtype(lr_image_decoded, tf.float32)
-            hr_image_decoded = tf.image.decode_image(hr_filename)
+            hr_image_decoded = tf.image.decode_image(hr_image_string)
             hr_image_decoded = tf.image.convert_image_dtype(hr_image_decoded, tf.float32)
 
             #crop
@@ -115,5 +117,7 @@ if __name__ == '__main__':
         dataset = BigbuckbunnyV0(args, 3)
         train_dataset = dataset.create_train_dataset()
         valid_dataset = dataset.create_train_dataset()
-        print(train_dataset.take(1))
-        print(valid_dataset.take(1))
+
+        for batch in train_dataset.take(1):
+            print(tf.shape(batch[0]))
+            print(tf.shape(batch[1]))
