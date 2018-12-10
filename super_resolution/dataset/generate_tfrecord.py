@@ -118,7 +118,7 @@ for i in range(len(lr_images)):
         'hr_image_raw': _bytes_feature(hr_binary_image),
         'hr_height': _int64_feature(hr_image_shape[0]),
         'hr_width': _int64_feature(hr_image_shape[1]),
-        'hr_bicubic_raw': _bytes_feature(hr_bicubic_binary_image),
+        'hr_bicubic_image_raw': _bytes_feature(hr_bicubic_binary_image),
         }
 
     tf_example = tf.train.Example(features=tf.train.Features(feature=feature))

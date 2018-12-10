@@ -16,22 +16,21 @@ def loss_func(loss_type):
 model_module = import_module('model.' + args.model_name.lower())
 dataset_module = import_module('dataset.' + args.data_name.lower())
 
-model = model_module.make_model(args, 3)
-dataset = dataset_module.make_dataset(args, 3)
+model = model_module.make_model(args, 4)
+dataset = dataset_module.make_dataset(args, 4)
 loss = loss_func(args.loss_type)
 trainer = Trainer(args, model, dataset, loss)
 
-with tf.device('gpu:{}'.format(args.gpu_idx)):
-    trainer.load_model( args.checkpoint_path)
+trainer.load_model( args.checkpoint_path)
 
-    for epoch in range(args.num_epoch):
-        print('[Train-{}epoch] Start'.format(epoch))
-        trainer.train()
-        """
-        print('[Train-{}epoch] End'.format(epoch))
-        print('[Validation-{}epoch] Start'.format(epoch))
-        trainer.validate()
-        print('[Validation-{}epoch] End'.format(epoch))
-        trainer.visualize()
-        trainer.save_model()
-        """
+for epoch in range(args.num_epoch):
+    print('[Train-{}epoch] Start'.format(epoch))
+    trainer.train()
+    print('[Train-{}epoch] End'.format(epoch))
+    print('[Validation-{}epoch] Start'.format(epoch))
+    trainer.validate()
+    print('[Validation-{}epoch] End'.format(epoch))
+    print('[Visualization-{}epoch] Start'.format(epoch))
+    trainer.visualize(3)
+    print('[Visualization-{}epoch] End'.format(epoch))
+    trainer.save_model()

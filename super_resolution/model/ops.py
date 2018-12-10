@@ -311,9 +311,9 @@ class SubpixelConvBlock(tf.keras.Model):
             output = self.sconv1([output, self.scale])
         elif self.scale in [4]:
             output = self.conv1(x)
-            output = self.sconv1([output, self.scale])
+            output = self.sconv1([output, self.scale / 2])
             output = self.conv2(output)
-            output = self.sconv2([output, self.scale])
+            output = self.sconv2([output, self.scale / 2])
 
         if self.add_act:
             output = self.relu1(output)

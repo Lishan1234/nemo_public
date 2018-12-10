@@ -24,35 +24,45 @@ class BigbuckbunnyV0_tfrecord(mnasdataset.MnasDataset):
         self.train_tfrecord_path = os.path.join('data', args.data_name, '{}_train.tfrecords'.format(args.data_name))
         self.test_tfrecord_path= os.path.join('data', args.data_name, '{}_test.tfrecords'.format(args.data_name))
         """
+        print(self.train_tfrecord_path)
         assert os.path.isfile(self.train_tfrecord_path)
         assert os.path.isfile(self.test_tfrecord_path)
 
     def _train_parse_function(self, example_proto):
         features = {'lr_image_raw': tf.FixedLenFeature((), tf.string, default_value=""),
-                'hr_image_raw': tf.FixedLenFeature((), tf.string, default_value="")}
+                'lr_height': tf.FixedLenFeature((), tf.int64),
+                'lr_width': tf.FixedLenFeature((), tf.int64),
+                'hr_image_raw': tf.FixedLenFeature((), tf.string, default_value=""),
+                'hr_height': tf.FixedLenFeature((), tf.int64),
+                'hr_width': tf.FixedLenFeature((), tf.int64)}
         parsed_features = tf.parse_single_example(example_proto, features)
 
         lr_image = tf.decode_raw(parsed_features['lr_image_raw'], tf.float32)
         hr_image = tf.decode_raw(parsed_features['hr_image_raw'], tf.float32)
 
-        lr_image = tf.reshape(lr_image, [48, 48, 3]) #TODO: replace by read shape
-        hr_image = tf.reshape(hr_image, [144, 144, 3])
+        lr_image = tf.reshape(lr_image, [parsed_features['lr_height'], parsed_features['lr_width'], 3])
+        #hr_image = tf.reshape(hr_image, [parsed_features['lr_height'], parsed_features['lr_width'], 3])
+        hr_image = tf.reshape(hr_image, [parsed_features['hr_height'], parsed_features['hr_width'], 3])
 
         return lr_image, hr_image
 
     def _test_parse_function(self, example_proto):
         features = {'lr_image_raw': tf.FixedLenFeature((), tf.string, default_value=""),
+                'lr_height': tf.FixedLenFeature((), tf.int64),
+                'lr_width': tf.FixedLenFeature((), tf.int64),
                 'hr_image_raw': tf.FixedLenFeature((), tf.string, default_value=""),
+                'hr_height': tf.FixedLenFeature((), tf.int64),
+                'hr_width': tf.FixedLenFeature((), tf.int64),
                 'hr_bicubic_image_raw': tf.FixedLenFeature((), tf.string, default_value="")}
         parsed_features = tf.parse_single_example(example_proto, features)
 
         lr_image = tf.decode_raw(parsed_features['lr_image_raw'], tf.float32)
-        hr_bicubic_image = tf.decode_raw(parsed_features['hr_image_raw'], tf.float32)
-        hr_image = tf.decode_raw(parsed_features['hr_bicubic_image_raw'], tf.float32)
+        hr_image = tf.decode_raw(parsed_features['hr_image_raw'], tf.float32)
+        hr_bicubic_image = tf.decode_raw(parsed_features['hr_bicubic_image_raw'], tf.float32)
 
-        lr_image = tf.reshape(lr_image, [48, 48, 3]) #TODO: replace by read shape
-        hr_bicubic_image = tf.reshape(hr_bicubic_image, [144, 144, 3])
-        hr_image = tf.reshape(hr_image, [144, 144, 3])
+        lr_image = tf.reshape(lr_image, [parsed_features['lr_height'], parsed_features['lr_width'], 3])
+        hr_image = tf.reshape(hr_image, [parsed_features['hr_height'], parsed_features['hr_width'], 3])
+        hr_bicubic_image = tf.reshape(hr_bicubic_image, [parsed_features['hr_height'], parsed_features['hr_width'], 3])
 
         return lr_image, hr_image, hr_bicubic_image
 
@@ -70,15 +80,20 @@ class BigbuckbunnyV0_tfrecord(mnasdataset.MnasDataset):
 
         return dataset
 
-    def create_test_dataset(self):
+    def create_test_dataset(self, num_sample=None):
         dataset = tf.data.TFRecordDataset(self.test_tfrecord_path)
         dataset = dataset.map(self._test_parse_function, num_parallel_calls=4)
+
+        if num_sample is not None:
+            dataset = dataset.take(num_sample)
 
         if self.load_on_memory:
             dataset = dataset.cache()
 
-        dataset = dataset.repeat(None)
+        dataset = dataset.repeat(1)
+        dataset = dataset.batch(1)
         dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
+
         return dataset
 
 class BigbuckbunnyV0_preprocess(mnasdataset.MnasDataset):
@@ -103,8 +118,8 @@ class BigbuckbunnyV0_preprocess(mnasdataset.MnasDataset):
         self.hr_images = []
 
         for lr_filename, hr_filename in zip(self.lr_image_filenames, self.hr_image_filenames):
-            self.lr_images.append(ops.load_image_float(lr_filename))
-            self.hr_images.append(ops.load_image_float(hr_filename))
+            self.lr_images.append(ops.load_image(lr_filename))
+            self.hr_images.append(ops.load_image(hr_filename))
 
     def create_train_dataset(self):
         dataset = tf.data.Dataset.from_tensor_slices((self.lr_images, self.hr_images))
