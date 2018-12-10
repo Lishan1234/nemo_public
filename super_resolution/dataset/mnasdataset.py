@@ -10,9 +10,5 @@ class MnasDataset(metaclass = ABCMeta):
         pass
 
     @abstractmethod
-    def create_valid_dataset(self):
-        pass
-
-    @abstractmethod
     def create_test_dataset(self):
         pass

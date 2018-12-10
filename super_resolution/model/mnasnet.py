@@ -1,5 +1,5 @@
 import tensorflow as tf
-import ops
+from model import ops
 from abc import abstractmethod
 
 class MnasNet(tf.keras.Model):

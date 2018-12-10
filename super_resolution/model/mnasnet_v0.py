@@ -1,14 +1,18 @@
 import tensorflow as tf
-
-import ops
-from mnasnet import MnasNet
+from model import ops
+from model import mnasnet
 
 #for testing
+"""
 import sys
 sys.path.append('..')
 from option import args
+"""
 
 l2 = tf.keras.regularizers.l2
+
+def make_model(args, scale):
+    return SingleMnasNetV0(args, scale)
 
 def create_conv_block(args):
     if args.conv_type == 'residual':
@@ -64,7 +68,7 @@ def create_upsample_block(args, scale):
                                 max_act=args.max_act,
                                 interpolation=args.interpolation)
 
-class SingleMnasNetV0(MnasNet):
+class SingleMnasNetV0(mnasnet.MnasNet):
     """Mnas Network baseline model using VDSR architecture
     """
     def __init__(self, args, scale):
@@ -90,6 +94,7 @@ class SingleMnasNetV0(MnasNet):
                                         (3,3),
                                         padding='same',
                                         kernel_regularizer=l2(self.args.weight_decay))
+
 
     def get_name(self):
         name = ''
@@ -140,3 +145,4 @@ if __name__ == "__main__":
         model = SingleMnasNetV0(args, 3)
         print(model.get_name())
         print(model(x).shape)
+        print(model.summary())

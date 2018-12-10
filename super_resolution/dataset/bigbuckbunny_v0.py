@@ -2,15 +2,20 @@ import tensorflow as tf   # only work from tensorflow==1.9.0-rc1 and after
 import cv2
 import os, glob
 
-from mnasdataset import MnasDataset
-from ops import load_image
+from dataset import mnasdataset
+from dataset import ops
 
 #for testing
+"""
 import sys
 sys.path.append('..')
 from option import args
+"""
 
-class BigbuckbunnyV0(MnasDataset):
+def make_dataset(args, scale):
+    return BigbuckbunnyV0(args, scale)
+
+class BigbuckbunnyV0(mnasdataset.MnasDataset):
     def __init__(self, args, scale):
         self.load_on_memory = args.load_on_memory
         self.patch_size = args.patch_size
@@ -23,14 +28,15 @@ class BigbuckbunnyV0(MnasDataset):
         self.hr_image_filenames = glob.glob('{}/*.png'.format(hr_image_path))
 
         assert len(self.lr_image_filenames) == len(self.hr_image_filenames)
+        assert len(self.lr_image_filenames) != 0
 
         if self.load_on_memory:
             self.lr_images = []
             self.hr_images = []
 
             for lr_filename, hr_filename in zip(self.lr_image_filenames, self.hr_image_filenames):
-                self.lr_images.append(load_image(lr_filename))
-                self.hr_images.append(load_image(hr_filename))
+                self.lr_images.append(ops.load_image(lr_filename))
+                self.hr_images.append(ops.load_image(hr_filename))
 
     def _crop_image(self, lr_image, hr_image):
             #crop
@@ -51,13 +57,6 @@ class BigbuckbunnyV0(MnasDataset):
             hr_image_decoded = tf.image.convert_image_dtype(hr_image_decoded, tf.float32)
 
             return lr_image_decoded, hr_image_decoded
-
-    def _crop_image(self, lr_image, hr_image):
-            #crop
-            lr_image_cropped = tf.image.random_crop(lr_image, [self.patch_size, self.patch_size, 3])
-            hr_image_cropped = tf.image.random_crop(hr_image, [self.patch_size * self.scale, self.patch_size * self.scale, 3])
-
-            return lr_image_cropped, hr_image_cropped
 
     def _load_decode_crop_image(self, lr_filename, hr_filename):
             #load
@@ -81,43 +80,43 @@ class BigbuckbunnyV0(MnasDataset):
             dataset = tf.data.Dataset.from_tensor_slices((self.lr_images, self.hr_images))
             dataset = dataset.shuffle(10000)
             dataset = dataset.repeat(None)
-            dataset = dataset.map(self._crop_image, num_parallel_calls=4)
+            dataset = dataset.map(self._crop_image, num_parallel_calls=8)
             dataset = dataset.batch(self.num_batch)
             dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
         else:
             dataset = tf.data.Dataset.from_tensor_slices((self.lr_image_filenames, self.hr_image_filenames))
-            #dataset = dataset.map(self._load_decode_image, num_parallel_calls=4)
+            #dataset = dataset.map(self._load_decode_image, num_parallel_calls=8)
             dataset = dataset.shuffle(10000)
             dataset = dataset.repeat(None)
-            dataset = dataset.map(self._load_decode_crop_image, num_parallel_calls=4)
+            dataset = dataset.map(self._load_decode_crop_image, num_parallel_calls=8)
             dataset = dataset.batch(self.num_batch)
-            dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
-
-        return dataset
-
-    def create_valid_dataset(self):
-        if self.load_on_memory:
-            dataset = tf.data.Dataset.from_tensor_slices((self.lr_images, self.hr_images))
-            dataset = dataset.repeat(1)
-            dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
-        else:
-            dataset = tf.data.Dataset.from_tensor_slices((self.lr_image_filenames, self.hr_image_filenames))
-            dataset = dataset.map(self._load_decode_image, num_parallel_calls=4)
-            dataset = dataset.repeat(1)
             dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
 
         return dataset
 
     def create_test_dataset(self):
-        return self.create_valid_dataset()
+        if self.load_on_memory:
+            dataset = tf.data.Dataset.from_tensor_slices((self.lr_images, self.hr_images))
+            dataset = dataset.repeat(None)
+            dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
+        else:
+            dataset = tf.data.Dataset.from_tensor_slices((self.lr_image_filenames, self.hr_image_filenames))
+            dataset = dataset.map(self._load_decode_image, num_parallel_calls=4)
+            dataset = dataset.repeat(None)
+            dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
+
+        return dataset
 
 if __name__ == '__main__':
     tf.enable_eager_execution()
     with tf.device('/cpu:0'):
         dataset = BigbuckbunnyV0(args, 3)
         train_dataset = dataset.create_train_dataset()
-        valid_dataset = dataset.create_train_dataset()
+        valid_dataset = dataset.create_test_dataset()
 
         for batch in train_dataset.take(1):
             print(tf.shape(batch[0]))
             print(tf.shape(batch[1]))
+
+        print(len(train_dataset))
+        print(len(test_dataset))
