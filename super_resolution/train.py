@@ -27,9 +27,11 @@ with tf.device('gpu:{}'.format(args.gpu_idx)):
     for epoch in range(args.num_epoch):
         print('[Train-{}epoch] Start'.format(epoch))
         trainer.train()
+        """
         print('[Train-{}epoch] End'.format(epoch))
         print('[Validation-{}epoch] Start'.format(epoch))
         trainer.validate()
         print('[Validation-{}epoch] End'.format(epoch))
         trainer.visualize()
         trainer.save_model()
+        """

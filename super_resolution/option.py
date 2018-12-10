@@ -32,12 +32,14 @@ parser.add_argument('--loss_type', type=str, default='l1')
 parser.add_argument('--checkpoint_path', type=str, default=None)
 
 #Directory
-parser.add_argument('--data_dir', type=str, default='dataset/data/bigbuckbunny_v0')
+parser.add_argument('--data_dir', type=str, default='dataset/data')
 parser.add_argument('--model_dir', type=str, default='model')
 parser.add_argument('--board_dir', type=str, default='./tb/')
 
 #Dataset (bigbuckbunny_v0)
 parser.add_argument('--fps', type=float, default=0.1)
+parser.add_argument('--num_patch', type=int, default=10000)
+#parser.add_argument('--use_tfrecord', action='store_true')
 
 #Hardware
 parser.add_argument('--gpu_idx', type=int, default=0)
