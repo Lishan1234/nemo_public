@@ -59,14 +59,14 @@ def create_upsample_block(args, scale):
                                 weight_decay=args.weight_decay,
                                 add_act=args.add_act_upsample,
                                 max_act=args.max_act,
-                                interpolation=args.interpolation)
+                                interpolation='bilinear')
     elif args.upsample_type == 'resize_nearest':
         return ops.ResizeBlock(num_filters=args.num_filters,
                                 scale=scale,
                                 weight_decay=args.weight_decay,
                                 add_act=args.add_act_upsample,
                                 max_act=args.max_act,
-                                interpolation=args.interpolation)
+                                interpolation='nearest')
 
 class SingleMnasNetV0(mnasnet.MnasNet):
     """Mnas Network baseline model using VDSR architecture
