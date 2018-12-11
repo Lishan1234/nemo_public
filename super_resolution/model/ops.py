@@ -191,7 +191,7 @@ class DSResConvBlock_v3(tf.keras.Model):
         self.add_act = add_act
 
         self.split1 = tf.keras.layers.Lambda(_split_func)
-        self.pwconv1 = tf.keras.layers.Conv2D(num_filters,
+        self.pwconv1 = tf.keras.layers.Conv2D(num_filters // 2,
                                             (1,1),
                                             padding='same',
                                             kernel_regularizer=l2(weight_decay))
@@ -200,7 +200,7 @@ class DSResConvBlock_v3(tf.keras.Model):
                                             padding='same',
                                             depth_multiplier=num_multiplier,
                                             depthwise_regularizer=l2(weight_decay))
-        self.pwconv2 = tf.keras.layers.Conv2D(num_filters,
+        self.pwconv2 = tf.keras.layers.Conv2D(num_filters // 2,
                                             (1,1),
                                             padding='same',
                                             kernel_regularizer=l2(weight_decay))
@@ -216,8 +216,8 @@ class DSResConvBlock_v3(tf.keras.Model):
         output_right = self.pwconv1(x_right)
         output_right = self.relu1(output_right)
         output_right = self.dwconv1(output_right)
-        output_right = self.relu2(output_right)
         output_right = self.pwconv2(output_right)
+        output_right = self.relu2(output_right)
 
         if self.add_act:
             output_right = self.relu3(output_right)
