@@ -13,14 +13,15 @@ class ConvBlock(tf.keras.Model):
         add_act:
         max_act:
     """
-    def __init__(self, num_filters, weight_decay, add_act, max_act):
+    def __init__(self, num_filters, weight_decay, add_act, max_act, data_format='channels_first'):
         super(ConvBlock, self).__init__()
         self.add_act = add_act
 
         self.conv1 = tf.keras.layers.Conv2D(num_filters,
                                             (3,3),
                                             padding='same',
-                                            kernel_regularizer=l2(weight_decay))
+                                            kernel_regularizer=l2(weight_decay),
+                                            data_format=data_format)
         if self.add_act:
             self.relu1 = tf.keras.layers.ReLU(max_value=max_act)
 
@@ -41,10 +42,10 @@ class ResBlock(tf.keras.Model):
         add_act:
         max_act
     """
-    def __init__(self, num_filters, weight_decay, add_act, max_act):
+    def __init__(self, num_filters, weight_decay, add_act, max_act, data_format='channels_first'):
         super(ResBlock, self).__init__()
-        self.conv_block1 = ConvBlock(num_filters, weight_decay, True, max_act)
-        self.conv_block2 = ConvBlock(num_filters, weight_decay, add_act, max_act)
+        self.conv_block1 = ConvBlock(num_filters, weight_decay, True, max_act, data_format)
+        self.conv_block2 = ConvBlock(num_filters, weight_decay, add_act, max_act, data_format)
 
     def call(self, x):
         input = x
@@ -64,19 +65,21 @@ class DSConvBlock_v1(tf.keras.Model):
         add_act:
         max_act
     """
-    def __init__(self, num_filters, num_multiplier, weight_decay, add_act, max_act):
+    def __init__(self, num_filters, num_multiplier, weight_decay, add_act, max_act, data_format='channels_first'):
         super(DSConvBlock_v1, self).__init__()
         self.add_act = add_act
 
         self.dwconv1 = tf.keras.layers.DepthwiseConv2D((3,3),
                                             padding='same',
                                             depth_multiplier=num_multiplier,
-                                            depthwise_regularizer=l2(weight_decay))
+                                            depthwise_regularizer=l2(weight_decay),
+                                            data_format=data_format)
         self.relu1 = tf.keras.layers.ReLU(max_value=max_act)
         self.pwconv1 = tf.keras.layers.Conv2D(num_filters,
                                             (1,1),
                                             padding='same',
-                                            kernel_regularizer=l2(weight_decay))
+                                            kernel_regularizer=l2(weight_decay),
+                                            data_format=data_format)
 
         if self.add_act:
             self.relu2 = tf.keras.layers.ReLU(max_value=max_act)
@@ -101,10 +104,10 @@ class DSResConvBlock_v1(tf.keras.Model):
         add_act:
         max_act:
     """
-    def __init__(self, num_filters, num_multiplier, weight_decay, add_act, max_act):
+    def __init__(self, num_filters, num_multiplier, weight_decay, add_act, max_act, data_format='channels_first'):
         super(DSResConvBlock_v1, self).__init__()
-        self.dsconv_block1 = DSConvBlock_v1(num_filters, num_multiplier, weight_decay, True, max_act)
-        self.dsconv_block2 = DSConvBlock_v1(num_filters, num_multiplier, weight_decay, add_act, max_act)
+        self.dsconv_block1 = DSConvBlock_v1(num_filters, num_multiplier, weight_decay, True, max_act, data_format)
+        self.dsconv_block2 = DSConvBlock_v1(num_filters, num_multiplier, weight_decay, add_act, max_act, data_format)
 
     def call(self, x):
         input = x
@@ -125,24 +128,27 @@ class DSResConvBlock_v2(tf.keras.Model):
         add_act:
         max_act:
     """
-    def __init__(self, num_filters, num_multiplier, expand_factor, weight_decay, add_act, max_act):
+    def __init__(self, num_filters, num_multiplier, expand_factor, weight_decay, add_act, max_act, data_format='channels_first'):
         super(DSResConvBlock_v2, self).__init__()
         self.add_act = add_act
 
         self.pwconv1 = tf.keras.layers.Conv2D(num_filters * expand_factor,
                                             (1,1),
                                             padding='same',
-                                            kernel_regularizer=l2(weight_decay))
+                                            kernel_regularizer=l2(weight_decay),
+                                            data_format=data_format)
         self.relu1 = tf.keras.layers.ReLU(max_value=max_act)
         self.dwconv1 = tf.keras.layers.DepthwiseConv2D((3,3),
                                             padding='same',
                                             depth_multiplier=num_multiplier,
-                                            depthwise_regularizer=l2(weight_decay))
+                                            depthwise_regularizer=l2(weight_decay),
+                                            data_format=data_format)
         self.relu2 = tf.keras.layers.ReLU(max_value=max_act)
         self.pwconv2 = tf.keras.layers.Conv2D(num_filters,
                                             (1,1),
                                             padding='same',
-                                            kernel_regularizer=l2(weight_decay))
+                                            kernel_regularizer=l2(weight_decay),
+                                            data_format=data_format)
         if self.add_act:
             self.relu3 = tf.keras.layers.ReLU(max_value=max_act)
 
@@ -186,7 +192,7 @@ class DSResConvBlock_v3(tf.keras.Model):
         max_act:
     """
 
-    def __init__(self, num_filters, num_multiplier, weight_decay, add_act, max_act):
+    def __init__(self, num_filters, num_multiplier, weight_decay, add_act, max_act, data_format='channels_first'):
         super(DSResConvBlock_v3, self).__init__()
         self.add_act = add_act
 
@@ -194,16 +200,19 @@ class DSResConvBlock_v3(tf.keras.Model):
         self.pwconv1 = tf.keras.layers.Conv2D(num_filters // 2,
                                             (1,1),
                                             padding='same',
-                                            kernel_regularizer=l2(weight_decay))
+                                            kernel_regularizer=l2(weight_decay),
+                                            data_format=data_format)
         self.relu1 = tf.keras.layers.ReLU(max_value=max_act)
         self.dwconv1 = tf.keras.layers.DepthwiseConv2D((3,3),
                                             padding='same',
                                             depth_multiplier=num_multiplier,
-                                            depthwise_regularizer=l2(weight_decay))
+                                            depthwise_regularizer=l2(weight_decay),
+                                            data_format=data_format)
         self.pwconv2 = tf.keras.layers.Conv2D(num_filters // 2,
                                             (1,1),
                                             padding='same',
-                                            kernel_regularizer=l2(weight_decay))
+                                            kernel_regularizer=l2(weight_decay),
+                                            data_format=data_format)
         self.relu2 = tf.keras.layers.ReLU(max_value=max_act)
 
         if self.add_act:
@@ -237,7 +246,7 @@ class TransposeConvBlock(tf.keras.Model):
         max_act:
     """
 
-    def __init__(self, num_filters, scale, weight_decay, add_act, max_act):
+    def __init__(self, num_filters, scale, weight_decay, add_act, max_act, data_format='channels_first'):
         super(TransposeConvBlock, self).__init__()
         assert scale in [2,3,4]
         self.add_act = add_act
@@ -246,7 +255,8 @@ class TransposeConvBlock(tf.keras.Model):
                                                     (3,3),
                                                     (scale,scale),
                                                     padding='same',
-                                                    kernel_regularizer=l2(weight_decay))
+                                                    kernel_regularizer=l2(weight_decay),
+                                                    data_format)
 
         if self.add_act:
             self.relu1 = tf.keras.layers.ReLU(max_value=max_act)
@@ -275,7 +285,7 @@ class SubpixelConvBlock(tf.keras.Model):
         max_act:
     """
 
-    def __init__(self, num_filters, scale, weight_decay, add_act, max_act):
+    def __init__(self, num_filters, scale, weight_decay, add_act, max_act, data_format='channels_first'):
         super(SubpixelConvBlock, self).__init__()
         assert scale in [2,3,4]
 
@@ -286,18 +296,21 @@ class SubpixelConvBlock(tf.keras.Model):
             self.conv1 = tf.keras.layers.Conv2D(num_filters * (self.scale ** 2),
                                                 (3,3),
                                                 padding='same',
-                                                kernel_regularizer=l2(weight_decay))
+                                                kernel_regularizer=l2(weight_decay),
+                                                data_format=data_format)
             self.sconv1= tf.keras.layers.Lambda(_subpixel_func)
         elif self.scale in [4]:
             self.conv1 = tf.keras.layers.Conv2D(num_filters * (2 ** 2),
                                                 (3,3),
                                                 padding='same',
-                                                kernel_regularizer=l2(weight_decay))
+                                                kernel_regularizer=l2(weight_decay),
+                                                data_format=data_format)
             self.sconv1= tf.keras.layers.Lambda(_subpixel_func)
             self.conv2 = tf.keras.layers.Conv2D(num_filters * (2 ** 2),
                                                 (3,3),
                                                 padding='same',
-                                                kernel_regularizer=l2(weight_decay))
+                                                kernel_regularizer=l2(weight_decay),
+                                                data_format=data_format)
             self.sconv2= tf.keras.layers.Lambda(_subpixel_func)
 
 

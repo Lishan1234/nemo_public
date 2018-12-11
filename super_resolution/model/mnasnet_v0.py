@@ -19,26 +19,30 @@ def create_conv_block(args):
         return ops.ResBlock(num_filters=args.num_filters,
                         weight_decay=args.weight_decay,
                         add_act=args.add_act_conv,
-                        max_act=args.max_act)
+                        max_act=args.max_act,
+                        data_format=args.data_format)
     elif args.conv_type == 'depthwise_v1':
         return ops.DSResConvBlock_v1(num_filters=args.num_filters,
                                 num_multiplier=1,
                                 weight_decay=args.weight_decay,
                                 add_act=args.add_act_conv,
-                                max_act=args.max_act)
+                                max_act=args.max_act,
+                                data_format=args.data_format)
     elif args.conv_type == 'depthwise_v2':
         return ops.DSResConvBlock_v2(num_filters=args.num_filters,
                                 num_multiplier=1,
                                 expand_factor=args.expand_factor,
                                 weight_decay=args.weight_decay,
                                 add_act=args.add_act_conv,
-                                max_act=args.max_act)
+                                max_act=args.max_act,
+                                data_format=args.data_format)
     elif args.conv_type == 'depthwise_v3':
         return ops.DSResConvBlock_v3(num_filters=args.num_filters,
                                 num_multiplier=1,
                                 weight_decay=args.weight_decay,
                                 add_act=args.add_act_conv,
-                                max_act=args.max_act)
+                                max_act=args.max_act,
+                                data_format=args.data_format)
 
 def create_upsample_block(args, scale):
     if args.upsample_type == 'transpose':
@@ -46,13 +50,15 @@ def create_upsample_block(args, scale):
                                 scale=scale,
                                 weight_decay=args.weight_decay,
                                 add_act=args.add_act_upsample,
-                                max_act=args.max_act)
+                                max_act=args.max_act,
+                                data_format=args.data_format)
     elif args.upsample_type == 'subpixel':
         return ops.SubpixelConvBlock(num_filters=args.num_filters,
                                 scale=scale,
                                 weight_decay=args.weight_decay,
                                 add_act=args.add_act_upsample,
-                                max_act=args.max_act)
+                                max_act=args.max_act,
+                                data_format=args.data_format)
     elif args.upsample_type == 'resize_bilinear':
         return ops.ResizeBlock(num_filters=args.num_filters,
                                 scale=scale,
