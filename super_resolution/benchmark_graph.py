@@ -21,16 +21,21 @@ from __future__ import print_function
 import time
 import numpy as np
 import tensorflow as tf
+from importlib import import_module
 
 from option import args
 
 def data_format():
-    return 'channels_first' if tf.test.is_gpu_available() else 'channels_last'
+    #return 'channels_first' if tf.test.is_gpu_available() else 'channels_last'
+    #return 'channels_first' if tf.test.is_gpu_available() else 'channels_last'
+    #return 'channels_last'
+    return 'channels_first'
 
 def image_shape(batch_size):
     if data_format() == 'channels_first':
-    return [batch_size, 3, 270, 480]
-    return [batch_size, 270, 480, 3]
+        return [batch_size, 3, 270, 480]
+    else:
+        return [batch_size, 270, 480, 3]
 
 def random_batch(batch_size):
     images = np.random.rand(*image_shape(batch_size)).astype(np.float32)
@@ -40,6 +45,7 @@ class DensenetBenchmark(tf.test.Benchmark):
     def __init__(self):
         model_module = import_module('model.' + args.model_name.lower())
         dataset_module = import_module('dataset.' + args.data_name.lower())
+        args.data_format = data_format()
         self.model = model_module.make_model(args, 4)
 
     def _report(self, label, start, num_iters, batch_size):
@@ -60,14 +66,14 @@ class DensenetBenchmark(tf.test.Benchmark):
             batch_size = 1
             with tf.Session() as sess:
                 sess.run(init)
-                np_images, _ = random_batch(batch_size)
+                np_images = random_batch(batch_size)
                 num_burn, num_iters = (3, 30)
-            for _ in range(num_burn):
-                sess.run(predictions, feed_dict={images: np_images})
-            start = time.time()
-            for _ in range(num_iters):
-                sess.run(predictions, feed_dict={images: np_images})
-            self._report('apply', start, num_iters, batch_size)
+                for _ in range(num_burn):
+                    sess.run(predictions, feed_dict={images: np_images})
+                start = time.time()
+                for _ in range(num_iters):
+                    sess.run(predictions, feed_dict={images: np_images})
+                self._report('apply', start, num_iters, batch_size)
 
 if __name__ == '__main__':
-    tf.test.main()
+    DensenetBenchmark().benchmark_graph_apply()

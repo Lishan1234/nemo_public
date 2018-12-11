@@ -85,7 +85,8 @@ class SingleMnasNetV0(mnasnet.MnasNet):
         self.conv_head= tf.keras.layers.Conv2D(self.args.num_filters,
                                         (3,3),
                                         padding='same',
-                                        kernel_regularizer=l2(self.args.weight_decay))
+                                        kernel_regularizer=l2(self.args.weight_decay),
+                                        data_format=args.data_format)
         self.conv_blocks = []
 
         for _ in range(self.args.num_blocks):
@@ -95,11 +96,13 @@ class SingleMnasNetV0(mnasnet.MnasNet):
         self.conv_body = tf.keras.layers.Conv2D(self.args.num_filters,
                                         (3,3),
                                         padding='same',
-                                        kernel_regularizer=l2(self.args.weight_decay))
+                                        kernel_regularizer=l2(self.args.weight_decay),
+                                        data_format=args.data_format)
         self.conv_tail = tf.keras.layers.Conv2D(3,
                                         (3,3),
                                         padding='same',
-                                        kernel_regularizer=l2(self.args.weight_decay))
+                                        kernel_regularizer=l2(self.args.weight_decay),
+                                        data_format=args.data_format)
 
 
     def get_name(self):

@@ -256,7 +256,7 @@ class TransposeConvBlock(tf.keras.Model):
                                                     (scale,scale),
                                                     padding='same',
                                                     kernel_regularizer=l2(weight_decay),
-                                                    data_format)
+                                                    data_format=data_format)
 
         if self.add_act:
             self.relu1 = tf.keras.layers.ReLU(max_value=max_act)
