@@ -26,10 +26,7 @@ from importlib import import_module
 from option import args
 
 def data_format():
-    #return 'channels_first' if tf.test.is_gpu_available() else 'channels_last'
-    #return 'channels_first' if tf.test.is_gpu_available() else 'channels_last'
-    #return 'channels_last'
-    return 'channels_first'
+    return 'channels_first' if tf.test.is_gpu_available() else 'channels_last'
 
 def image_shape(batch_size):
     if data_format() == 'channels_first':
