@@ -10,7 +10,8 @@ class Trainer():
         self.loss = loss
         self.model = model
         self.dataset = dataset
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=self.args.lr)
+        self.learning_rate = tfe.Variable(self.args.lr, dtype=tf.float32)
+        self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
         self.root = tf.train.Checkpoint(optimizer=self.optimizer,
                             model=self.model,
                             optimizer_step=tf.train.get_or_create_global_step())
@@ -27,6 +28,8 @@ class Trainer():
         self.validation_baseline_loss= tfe.metrics.Mean("Validation Baseline Loss")
         self.validation_baseline_psnr = tfe.metrics.Mean("Validation Baseline PSNR")
 
+    def apply_lr_decay(self):
+        self.learning_rate.assign(self.learning_rate / 2)
 
     def load_model(self, checkpoint_path=None):
         if checkpoint_path is None:
@@ -52,6 +55,7 @@ class Trainer():
                 self.training_loss(loss_value)
 
             tf.contrib.summary.scalar('Average Traning Loss', self.training_loss.result())
+            tf.contrib.summary.scalar('Learning rate', self.learning_rate)
             tf.contrib.summary.flush(self.writer)
 
             self.training_loss.init_variables()

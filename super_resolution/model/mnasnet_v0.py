@@ -129,7 +129,7 @@ class SingleMnasNetV0(mnasnet.MnasNet):
         output = self.conv_body(output)
 
         #Residual connection
-        output = x_ = output
+        output = x_ + output
 
         #Upsample
         output = self.upsample_block(output)

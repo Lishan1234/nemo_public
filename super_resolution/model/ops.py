@@ -143,8 +143,6 @@ class DSResConvBlock_v2(tf.keras.Model):
                                             (1,1),
                                             padding='same',
                                             kernel_regularizer=l2(weight_decay))
-        self.relu2 = tf.keras.layers.ReLU(max_value=max_act)
-
         if self.add_act:
             self.relu3 = tf.keras.layers.ReLU(max_value=max_act)
 
@@ -202,11 +200,12 @@ class DSResConvBlock_v3(tf.keras.Model):
                                             padding='same',
                                             depth_multiplier=num_multiplier,
                                             depthwise_regularizer=l2(weight_decay))
-        self.relu2 = tf.keras.layers.ReLU(max_value=max_act)
         self.pwconv2 = tf.keras.layers.Conv2D(num_filters,
                                             (1,1),
                                             padding='same',
                                             kernel_regularizer=l2(weight_decay))
+        self.relu2 = tf.keras.layers.ReLU(max_value=max_act)
+
         if self.add_act:
             self.relu3 = tf.keras.layers.ReLU(max_value=max_act)
 
@@ -217,11 +216,11 @@ class DSResConvBlock_v3(tf.keras.Model):
         output_right = self.pwconv1(x_right)
         output_right = self.relu1(output_right)
         output_right = self.dwconv1(output_right)
-        output_right = self.relu1(output_right)
+        output_right = self.relu2(output_right)
         output_right = self.pwconv2(output_right)
 
         if self.add_act:
-            output_right = self.relu1(output_right)
+            output_right = self.relu3(output_right)
 
         output = self.concat_shuffle1([x_left, output_right])
 
@@ -407,4 +406,3 @@ if __name__ == "__main__":
         print(h(z).shape)
         print(i(z).shape)
         print(i_(z).shape)
-

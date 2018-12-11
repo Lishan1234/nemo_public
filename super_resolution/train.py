@@ -34,3 +34,6 @@ for epoch in range(args.num_epoch):
     trainer.visualize(3)
     print('[Visualization-{}epoch] End'.format(epoch))
     trainer.save_model()
+
+    if epoch != 0 and epoch % args.lr_decay_epoch == 0:
+        trainer.apply_lr_decay()
