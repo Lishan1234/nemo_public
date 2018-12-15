@@ -5,9 +5,9 @@ from tensorflow.keras import Model
 from model import ops
 
 def make_model(args):
-    return EDSR(args)
+    return MobileV1SR(args)
 
-class EDSR:
+class MobileV1SR:
     def __init__(self, args):
         self.num_blocks = args.num_blocks
         self.num_filters = args.num_filters
@@ -64,7 +64,7 @@ class EDSR:
         res = outputs
 
         for _ in range(self.num_blocks):
-            outputs = ops.residual_block(x=outputs,
+            outputs = ops.mobilenetv1_block(x=outputs,
                                         num_filters=self.num_filters,
                                         kernel_size=3,
                                         max_relu=self.max_relu,

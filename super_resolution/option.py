@@ -12,7 +12,7 @@ parser.add_argument('--load_on_memory', action='store_true')
 
 #Network architecture
 parser.add_argument('--model_type', type=str, default='edsr',
-                    choices=('edsr'),
+                    choices=('edsr, mobilenetv1, mobilenetv2, shufflenetv2'),
                     help='type of model')
 parser.add_argument('--upsample_type', type=str, default='subpixel',
                     choices=('transpose', 'subpixel', 'resize_bilinear', 'resize_nearest'),
@@ -32,7 +32,7 @@ parser.add_argument('--expand_factor', type=int, default=6)
 
 #Training
 parser.add_argument('--lr', type=float, default=1e-04)
-parser.add_argument('--num_batch', type=int, default=16)
+parser.add_argument('--num_batch', type=int, default=64)
 parser.add_argument('--num_epoch', type=int, default=300)
 parser.add_argument('--num_batch_per_epoch', type=int, default=1000)
 parser.add_argument('--loss_type', type=str, default='l1',
@@ -47,7 +47,7 @@ parser.add_argument('--log_dir', type=str, default='log', help='Tensorboard logg
 
 #Data
 parser.add_argument('--data_type', type=str, default='bigbuckbunny_v0')
-parser.add_argument('--num_patch', type=int, default=10000)
+parser.add_argument('--num_patch', type=int, default=100000)
 parser.add_argument('--patch_size', type=int, default=32)
 parser.add_argument('--train_data', type=str, default='291')
 parser.add_argument('--valid_data', type=str, default='Set5')

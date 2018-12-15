@@ -45,8 +45,13 @@ with tf.Graph().as_default():
     checkpoint_dir = os.path.join(args.checkpoint_dir, model_builder.get_name())
     root.restore(tf.train.latest_checkpoint(checkpoint_dir))
 
+    #Save input, output tensor names to a config file
+    with open(os.path.join(checkpoint_dir, 'config'), 'w') as f:
+        f.write("{}\n".format(model.inputs[0].name))
+        f.write("{}\n".format(model.outputs[0].name))
+
     #Save HDF5 file
-    model.save(os.path.join(checkpoint_dir, 'final.h5'))
+    model.save(os.path.join(checkpoint_dir, 'final_{}_{}_{}.h5').format(args.hwc[0], args.hwc[1], args.hwc[2]))
 
     #Save fronzen graph (.pb) file
     init = tf.global_variables_initializer()
@@ -55,4 +60,4 @@ with tf.Graph().as_default():
 
         my_graph=tf.get_default_graph()
         frozen_graph = freeze_session(sess, output_names=[out.name for out in my_graph.get_operations()])
-        tf.train.write_graph(frozen_graph, checkpoint_dir, 'final.pb', as_text=False)
+        tf.train.write_graph(frozen_graph, checkpoint_dir, 'final_{}_{}_{}.pb'.format(args.hwc[0], args.hwc[1], args.hwc[2]), as_text=False)

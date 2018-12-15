@@ -10,9 +10,9 @@ tf.enable_eager_execution()
 
 model_module = import_module('model.' + args.model_type.lower())
 
-model = model_module.make_model(args)
+model_builder = model_module.make_model(args)
 dataset = TFRecordDataset(args)
-trainer = Trainer(args, model, dataset)
+trainer = Trainer(args, model_builder, dataset)
 
 """transfer learning or continual learning
 #trainer.load_model(args.checkpoint_path)
