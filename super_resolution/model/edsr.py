@@ -4,9 +4,6 @@ from tensorflow.keras import Model
 
 from model import ops
 
-#Train: 1epoch -> save
-#Valid: load -> inference
-
 def make_model(args):
     return EDSR(args)
 
@@ -19,13 +16,15 @@ class EDSR:
         self.scale = args.scale
         self.hwc = args.hwc
         self.upsample_type = args.upsample_type
+        self.custom_name = args.custom_name
+        self.channel_in = args.channel_in
 
     def get_name(self):
         name = ''
 
         name += type(self).__name__
         name += '_'
-        name += self.args.upsample_type
+        name += self.upsample_type
         name += '_'
         name += 'B{}'.format(self.num_blocks)
         name += '_'
@@ -51,12 +50,12 @@ class EDSR:
 
     def build(self):
         if self.hwc is not None:
-            if self.data_format == 'channels_last':
-                inputs = layers.Input(shape=(self.hwc[0], self.hwc[1], self.hwc[2]))
-            else:
+            if self.data_format == 'channels_first':
                 inputs = layers.Input(shape=(self.hwc[2], self.hwc[0], self.hwc[1]))
+            else:
+                inputs = layers.Input(shape=(self.hwc[0], self.hwc[1], self.hwc[2]))
         else:
-            inputs = layers.Input(shape=(None, None, 3))
+            inputs = layers.Input(shape=(None, None, self.channel_in))
 
         outputs = layers.Conv2D(self.num_filters,
                                         (3,3),
@@ -77,10 +76,12 @@ class EDSR:
                                         data_format=self.data_format)(outputs)
         outputs = layers.Add()([outputs, res])
         outputs = self._build_upsample(outputs)
-        predictions = layers.Conv2D(self.num_filters,
+        predictions = layers.Conv2D(self.channel_in,
                                         (3,3),
                                         padding='same',
                                         data_format=self.data_format)(outputs)
 
         model = Model(inputs=inputs, outputs=predictions)
+        model.summary()
+
         return model

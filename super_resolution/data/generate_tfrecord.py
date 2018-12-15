@@ -9,7 +9,7 @@ import common
 tf.enable_eager_execution()
 
 #Training dataset
-train_tf_records_filename = os.path.join('process', args.train_data, '{}_{}_{}_train.tfrecords'.format(args.train_data, args.patch_size, args.num_patches))
+train_tf_records_filename = os.path.join('process', args.train_data, '{}_{}_{}_train.tfrecords'.format(args.train_data, args.patch_size, args.num_patch))
 train_writer = tf.io.TFRecordWriter(train_tf_records_filename)
 
 train_hr_image_path = os.path.join('process', args.train_data, 'hr_x{}'.format(args.scale))
@@ -35,7 +35,7 @@ assert len(train_lr_images) != 0
 print('dataset length: {}'.format(len(train_lr_images)))
 
 count = 0
-while count < args.num_patches:
+while count < args.num_patch:
     rand_idx = random.randint(0, len(train_lr_images) - 1)
     height, width, channel = train_lr_images[rand_idx].get_shape().as_list()
     if height < (args.patch_size + 1) or width < (args.patch_size + 1):
@@ -46,7 +46,7 @@ while count < args.num_patches:
     if count == 1:
         start_time = time.time()
     elif count % 1000 == 0:
-        print('Train TFRecord Process status: [{}/{}] / Take {} seconds'.format(count, args.num_patches, time.time() - start_time))
+        print('Train TFRecord Process status: [{}/{}] / Take {} seconds'.format(count, args.num_patch, time.time() - start_time))
         start_time = time.time()
 
     hr_image, lr_image, lr_bicubic_image = common.crop_augment_image(train_hr_images[rand_idx], train_lr_images[rand_idx], train_lr_bicubic_images[rand_idx], args.scale, args.patch_size)
@@ -80,7 +80,7 @@ while count < args.num_patches:
 train_writer.close()
 
 #Validation dataset
-valid_tf_records_filename = os.path.join('process', args.valid_data, '{}_{}_{}_valid.tfrecords'.format(args.train_data, args.patch_size, args.num_patches))
+valid_tf_records_filename = os.path.join('process', args.valid_data, '{}_valid.tfrecords'.format(args.valid_data))
 valid_writer = tf.io.TFRecordWriter(valid_tf_records_filename)
 
 valid_hr_image_path = os.path.join('process', args.valid_data, 'hr_x{}'.format(args.scale))

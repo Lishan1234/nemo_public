@@ -4,47 +4,63 @@ from importlib import import_module
 
 tfe = tf.contrib.eager
 
+def loss_func(loss_type):
+    assert loss_type in ['l1', 'l2']
+
+    if loss_type == 'l1':
+        return tf.losses.absolute_difference
+    elif loss_type == 'l2':
+        return tf.losses.mean_squared_error
+
 class Trainer():
-    def __init__(self, args, model, dataset, loss):
+    def __init__(self, args, model_builder, dataset):
         self.args = args
-        self.loss = loss
-        self.model = model
-        self.dataset = dataset
+        self.model = model_builder.build()
+        self.loss = loss_func(args.loss_type)
+
+        #Optimizer
         self.learning_rate = tfe.Variable(self.args.lr, dtype=tf.float32)
         self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+
+        #Checkpoint
         self.root = tf.train.Checkpoint(optimizer=self.optimizer,
                             model=self.model,
                             optimizer_step=tf.train.get_or_create_global_step())
-        self.checkpoint_dir = os.path.join(self.args.model_dir, self.model.get_name())
+        self.checkpoint_dir = os.path.join(self.args.checkpoint_dir, model_builder.get_name())
         os.makedirs(self.checkpoint_dir, exist_ok=True)
-        board_dir = os.path.join(self.args.board_dir, self.model.get_name())
-        os.makedirs(board_dir, exist_ok=True)
-        self.writer = tf.contrib.summary.create_file_writer(board_dir)
+
+        #Dataset
+        self.train_dataset = dataset.create_train_dataset()
+        self.valid_dataset = dataset.create_valid_dataset()
 
         #Tensorboard
+        log_dir = os.path.join(self.args.log_dir, model_builder.get_name())
+        os.makedirs(log_dir, exist_ok=True)
+        self.writer = tf.contrib.summary.create_file_writer(log_dir)
         self.training_loss = tfe.metrics.Mean("Training Loss")
         self.validation_loss = tfe.metrics.Mean("Validation Loss")
         self.validation_psnr = tfe.metrics.Mean("Validation PSNR")
         self.validation_baseline_loss= tfe.metrics.Mean("Validation Baseline Loss")
         self.validation_baseline_psnr = tfe.metrics.Mean("Validation Baseline PSNR")
 
-    def apply_lr_decay(self):
-        self.learning_rate.assign(self.learning_rate / 2)
+    def apply_lr_decay(self, lr_decay_rate):
+        self.learning_rate.assign(self.learning_rate * lr_decay_rate)
 
-    def load_model(self, checkpoint_path=None):
-        if checkpoint_path is None:
-            self.root.restore(checkpoint_path)
+    #TODO: save model for .pb, .h5 with input shape
+    def load_model(self, checkpoint_dir=None):
+        if checkpoint_dir is None:
+            self.root.restore(checkpoint_dir)
         else:
             self.root.restore(tf.train.latest_checkpoint(self.checkpoint_dir))
 
+    #TODO: save model for .pb, .h5 with input shape
     def save_model(self):
         checkpoint_prefix = os.path.join(self.checkpoint_dir, 'ckpt')
         self.root.save(checkpoint_prefix)
 
     def train(self):
-        train_dataset = self.dataset.create_train_dataset()
         with self.writer.as_default(), tf.contrib.summary.always_record_summaries(), tf.device('gpu:{}'.format(self.args.gpu_idx)):
-            for input_images, target_images in train_dataset.take(self.args.num_batch_per_epoch):
+            for input_images, target_images in self.train_dataset:
                 with tf.GradientTape() as tape:
                     output_images = self.model(input_images)
                     loss_value = self.loss(output_images, target_images)
@@ -60,10 +76,10 @@ class Trainer():
 
             self.training_loss.init_variables()
 
+    #TODO: measure PSNR in uint8 precision (slight difference)
     def validate(self):
-        valid_dataset = self.dataset.create_test_dataset()
         with self.writer.as_default(), tf.contrib.summary.always_record_summaries(), tf.device('gpu:{}'.format(self.args.gpu_idx)):
-            for input_image, target_image, baseline_image in valid_dataset:
+            for input_image, target_image, baseline_image in self.valid_dataset:
                 output_image = self.model(input_image)
                 output_image = tf.clip_by_value(output_image, 0.0, 1.0)
 
@@ -90,10 +106,9 @@ class Trainer():
             self.validation_baseline_psnr.init_variables()
 
     def visualize(self, num_image):
-        valid_dataset = self.dataset.create_test_dataset(num_image)
         with self.writer.as_default(), tf.contrib.summary.always_record_summaries(), tf.device('gpu:{}'.format(self.args.gpu_idx)):
             count = 0
-            for input_image, target_image, baseline_image in valid_dataset:
+            for input_image, target_image, baseline_image in self.valid_dataset.take(num_image):
                 output_image = self.model(input_image)
                 output_image = tf.clip_by_value(output_image, 0.0, 1.0)
 

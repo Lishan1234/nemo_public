@@ -25,8 +25,13 @@ from importlib import import_module
 
 from option import args
 
+builder = tf.profiler.ProfileOptionBuilder
+
 def data_format():
-    return 'channels_first' if tf.test.is_gpu_available() else 'channels_last'
+    if args.data_format is None:
+        return 'channels_first' if tf.test.is_gpu_available() else 'channels_last'
+    else:
+        return args.data_format
 
 def image_shape(batch_size):
     if data_format() == 'channels_first':
@@ -53,9 +58,32 @@ class DensenetBenchmark(tf.test.Benchmark):
         self.report_benchmark(
             iters=num_iters, wall_time=avg_time, name=name, extras=extras)
 
-    def benchmark_graph_apply(self):
+    def benchmark_graph_parameters_apply(self):
+        g = tf.Graph()
+        run_meta = tf.RunMetadata()
+        with g.as_default():
+            images = tf.placeholder(tf.float32, image_shape(1))
+            predictions = self.model(images)
+            print(self.model.summary())
+
+    def benchmark_graph_flops_apply(self):
+        g = tf.Graph()
+        run_meta = tf.RunMetadata()
+        with g.as_default():
+            images = tf.placeholder(tf.float32, image_shape(1))
+            predictions = self.model(images)
+            print(self.model.summary())
+
+            #opts = tf.profiler.ProfileOptionBuilder.float_operation()
+            opts = builder.float_operation()
+            flops = tf.profiler.profile(g, run_meta=run_meta, cmd='op', options=opts)
+            if flops is not None:
+                print(flops.total_float_ops)
+
+    def benchmark_graph_latency_apply(self):
         with tf.Graph().as_default():
-            images = tf.placeholder(tf.float32, image_shape(None))
+            #images = tf.placeholder(tf.float32, image_shape(None))
+            images = tf.placeholder(tf.float32, image_shape(1))
             predictions = self.model(images)
 
             init = tf.global_variables_initializer()
@@ -73,4 +101,6 @@ class DensenetBenchmark(tf.test.Benchmark):
                 self._report('apply', start, num_iters, batch_size)
 
 if __name__ == '__main__':
-    DensenetBenchmark().benchmark_graph_apply()
+    DensenetBenchmark().benchmark_graph_latency_apply()
+    #DensenetBenchmark().benchmark_graph_flops_apply()
+    #DensenetBenchmark().benchmark_graph_parameters_apply()

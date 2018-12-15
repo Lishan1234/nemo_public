@@ -1,4 +1,7 @@
 tb/
+checkpoint/
+tmp/
+log/
+deprecated/
 *.png
-model/
 *.sh

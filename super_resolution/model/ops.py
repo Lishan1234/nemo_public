@@ -100,10 +100,10 @@ class SubPixelUpscaling(tf.keras.layers.Layer):
     def compute_output_shape(self, input_shape):
         if self.data_format == 'channels_first':
             b, k, r, c = input_shape
-            return (b, k // (self.scale_factor ** 2), r * self.scale_factor, c * self.scale_factor)
+            return tf.TensorShape([b, k // (self.scale_factor ** 2), r * self.scale_factor, c * self.scale_factor])
         else:
             b, r, c, k = input_shape
-            return (b, r * self.scale_factor, c * self.scale_factor, k // (self.scale_factor ** 2))
+            return tf.TensorShape([b, r * self.scale_factor, c * self.scale_factor, k // (self.scale_factor ** 2)])
 
     def get_config(self):
         config = {'scale_factor': self.scale_factor,
