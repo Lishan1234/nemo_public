@@ -42,6 +42,7 @@ with tf.Graph().as_default():
 
     #Restore parameters
     checkpoint_dir = os.path.join(args.checkpoint_dir, model_builder.get_name())
+    os.makedirs(checkpoint_dir, exist_ok=True)
     if args.use_random_weights is not True:
         root = tf.train.Checkpoint(model=model)
         root.restore(tf.train.latest_checkpoint(checkpoint_dir))
