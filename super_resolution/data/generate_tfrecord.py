@@ -9,7 +9,7 @@ import common
 tf.enable_eager_execution()
 
 #Training dataset
-train_tf_records_filename = os.path.join('process', args.train_data, '{}_{}_{}_train.tfrecords'.format(args.train_data, args.patch_size, args.num_patch))
+train_tf_records_filename = os.path.join('process', args.train_data, '{}_{}_{}_{}_train.tfrecords'.format(args.train_data, args.patch_size, args.num_patch, args.scale))
 train_writer = tf.io.TFRecordWriter(train_tf_records_filename)
 
 train_hr_image_path = os.path.join('process', args.train_data, 'hr_x{}'.format(args.scale))
@@ -80,7 +80,7 @@ while count < args.num_patch:
 train_writer.close()
 
 #Validation dataset
-valid_tf_records_filename = os.path.join('process', args.valid_data, '{}_valid.tfrecords'.format(args.valid_data))
+valid_tf_records_filename = os.path.join('process', args.valid_data, '{}_{}_valid.tfrecords'.format(args.valid_data, args.scale))
 valid_writer = tf.io.TFRecordWriter(valid_tf_records_filename)
 
 valid_hr_image_path = os.path.join('process', args.valid_data, 'hr_x{}'.format(args.scale))

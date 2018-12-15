@@ -41,9 +41,10 @@ with tf.Graph().as_default():
     model = model_builder.build()
 
     #Restore parameters
-    root = tf.train.Checkpoint(model=model)
     checkpoint_dir = os.path.join(args.checkpoint_dir, model_builder.get_name())
-    root.restore(tf.train.latest_checkpoint(checkpoint_dir))
+    if args.use_random_weights is not True:
+        root = tf.train.Checkpoint(model=model)
+        root.restore(tf.train.latest_checkpoint(checkpoint_dir))
 
     #Save input, output tensor names to a config file
     with open(os.path.join(checkpoint_dir, 'config'), 'w') as f:

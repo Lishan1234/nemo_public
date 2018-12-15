@@ -10,8 +10,8 @@ class TFRecordDataset():
     def __init__(self, args):
         self.num_batch = args.num_batch
         self.num_batch_per_epoch = args.num_batch_per_epoch
-        self.train_tfrecord_path = os.path.join(args.data_dir, args.train_data, '{}_{}_{}_train.tfrecords'.format(args.train_data, args.patch_size, args.num_patch))
-        self.valid_tfrecord_path = os.path.join(args.data_dir, args.valid_data, '{}_valid.tfrecords'.format(args.valid_data))
+        self.train_tfrecord_path = os.path.join(args.data_dir, args.train_data, '{}_{}_{}_{}_train.tfrecords'.format(args.train_data, args.patch_size, args.num_patch, args.scale))
+        self.valid_tfrecord_path = os.path.join(args.data_dir, args.valid_data, '{}_{}_valid.tfrecords'.format(args.valid_data, args.scale))
         assert os.path.isfile(self.train_tfrecord_path)
         assert os.path.isfile(self.valid_tfrecord_path)
 

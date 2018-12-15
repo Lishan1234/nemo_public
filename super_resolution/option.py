@@ -61,6 +61,7 @@ parser.add_argument('--gpu_idx', type=int, default=0)
 #Configuration
 parser.add_argument('--custom_name', type=str, default=None, help='additional model name')
 parser.add_argument('--num_sample', type=int, default=5)
+parser.add_argument('--use_random_weights', action='store_true', default=5)
 
 args = parser.parse_args()
 if args.hwc is not None:
