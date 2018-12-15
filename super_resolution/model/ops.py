@@ -40,16 +40,19 @@ def mobilenetv1_block(x, num_filters, kernel_size, max_relu, data_format='channe
         x = layers.DepthwiseConv2D((kernel_size,kernel_size),
                             padding='same',
                             data_format=data_format)(x)
-        x = tf.keras.layers.ReLU(max_value=max_relu)(x)
+        #x = tf.keras.layers.ReLU(max_value=max_relu)(x)
+        x = ReLU()(x)
         x = layers.Conv2D(num_filters,
                             (1,1),
                             padding='same',
                             data_format=data_format)(x)
-        x = tf.keras.layers.ReLU(max_value=max_relu)(x)
+        #x = tf.keras.layers.ReLU(max_value=max_relu)(x)
+        x = ReLU()(x)
         x = layers.DepthwiseConv2D((kernel_size,kernel_size),
                             padding='same',
                             data_format=data_format)(x)
-        x = tf.keras.layers.ReLU(max_value=max_relu)(x)
+        #x = tf.keras.layers.ReLU(max_value=max_relu)(x)
+        x = ReLU()(x)
         x = layers.Conv2D(num_filters,
                             (1,1),
                             padding='same',
@@ -65,11 +68,13 @@ def mobilenetv2_block(x, num_filters, kernel_size, expand_factor, max_relu, data
                             (1,1),
                             padding='same',
                             data_format=data_format)(x)
-        x = tf.keras.layers.ReLU(max_value=max_relu)(x)
+        #x = tf.keras.layers.ReLU(max_value=max_relu)(x)
+        x = ReLU()(x)
         x = layers.DepthwiseConv2D((kernel_size,kernel_size),
                             padding='same',
                             data_format=data_format)(x)
-        x = tf.keras.layers.ReLU(max_value=max_relu)(x)
+        #x = tf.keras.layers.ReLU(max_value=max_relu)(x)
+        x = ReLU()(x)
         x = layers.Conv2D(num_filters,
                             (1,1),
                             padding='same',
