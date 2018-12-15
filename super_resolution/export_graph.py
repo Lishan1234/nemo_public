@@ -53,7 +53,13 @@ with tf.Graph().as_default():
         f.write("{}\n".format(model.outputs[0].name))
 
     #Save HDF5 file
-    model.save(os.path.join(checkpoint_dir, 'final_{}_{}_{}.h5').format(args.hwc[0], args.hwc[1], args.hwc[2]))
+    keras_file=os.path.join(checkpoint_dir, 'final_{}_{}_{}.h5').format(args.hwc[0], args.hwc[1], args.hwc[2])
+    model.save(keras_file)
+    #Save tflite model
+    lite_model=os.path.join(checkpoint_dir, 'final_{}_{}_{}.tflite').format(args.hwc[0], args.hwc[1], args.hwc[2])
+    converter = tf.contrib.lite.TFLiteConverter.from_keras_model_file(keras_file)
+    tflite_model = converter.convert()
+    open(lite_model, "wb").write(tflite_model)
 
     #Save fronzen graph (.pb) file
     init = tf.global_variables_initializer()
