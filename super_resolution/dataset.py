@@ -58,7 +58,7 @@ class TFRecordDataset():
         dataset = tf.data.TFRecordDataset(self.train_tfrecord_path, num_parallel_reads=4)
         dataset = dataset.map(self._train_parse_function, num_parallel_calls=4)
         dataset = dataset.shuffle(10000)
-        dataset = dataset.repeat(self.num_batch_per_epoch)
+        dataset = dataset.repeat()
         dataset = dataset.batch(self.num_batch)
         dataset = dataset.prefetch(tf.contrib.data.AUTOTUNE)
 

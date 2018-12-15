@@ -2,6 +2,20 @@ import sys
 import tensorflow as tf
 from tensorflow.keras import layers
 
+class ReLU(tf.keras.layers.Layer):
+    def __init__(self, **kwargs):
+        super(ReLU, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        pass
+
+    def call(self, x, mask=None):
+        y = tf.nn.relu(x)
+        return y
+
+    def compute_output_shape(self, input_shape):
+        return tf.TensorShape(input_shape)
+
 def residual_block(x, num_filters, kernel_size, max_relu, data_format='channel_last'):
     with tf.variable_scope('residual_block'):
         res = x
@@ -9,7 +23,9 @@ def residual_block(x, num_filters, kernel_size, max_relu, data_format='channel_l
                             (kernel_size,kernel_size),
                             padding='same',
                             data_format=data_format)(x)
-        x = tf.keras.layers.ReLU(max_value=max_relu)(x)
+
+        #x = tf.keras.layers.ReLU(max_value=max_relu)(x)
+        x = ReLU()(x)
         x = layers.Conv2D(num_filters,
                             (kernel_size,kernel_size),
                             padding='same',

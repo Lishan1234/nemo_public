@@ -60,7 +60,14 @@ class Trainer():
 
     def train(self):
         with self.writer.as_default(), tf.contrib.summary.always_record_summaries(), tf.device('gpu:{}'.format(self.args.gpu_idx)):
-            for input_images, target_images in self.train_dataset:
+            count = 0
+            #for idx, input_images, target_images in enumerate(self.train_dataset):
+            for idx, batch in enumerate(self.train_dataset):
+                #Iterate until num_batch_per_epoch
+                if idx == self.args.num_batch_per_epoch:
+                    break
+                input_images = batch[0]
+                target_images = batch[1]
                 with tf.GradientTape() as tape:
                     output_images = self.model(input_images)
                     loss_value = self.loss(output_images, target_images)
