@@ -3,6 +3,12 @@ import os, glob, sys
 
 from option import args
 
+def load_image(filename):
+    img = tf.io.read_file(filename)
+    img = tf.image.decode_image(img)
+    img = tf.image.convert_image_dtype(img, tf.float32)
+    return img
+
 def make_dataset(args, scale):
     return TFRecordDataset(args)
 
@@ -68,6 +74,42 @@ class TFRecordDataset():
         dataset = tf.data.TFRecordDataset(self.valid_tfrecord_path)
         dataset = dataset.repeat(1)
         dataset = dataset.map(self._valid_parse_function)
+        dataset = dataset.batch(1)
+
+        return dataset
+
+class ImageDataset():
+    def __init__(self, args):
+        #TODO: option for lazy loading approach
+        hr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/original'.format(args.hr))
+        lr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/original'.format(args.lr))
+        lr_bicubic_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/bicubic_{}p'.format(args.lr, args.hr))
+        print(hr_image_path)
+
+        hr_image_filenames = glob.glob('{}/*.png'.format(hr_image_path))
+        lr_image_filenames = glob.glob('{}/*.png'.format(lr_image_path))
+        lr_bicubic_image_filenames = glob.glob('{}/*.png'.format(lr_bicubic_image_path))
+
+        self.hr_images = []
+        self.lr_images = []
+        self.lr_bicubic_images = []
+
+        with tf.device('cpu:0'):
+            for lr_filename, lr_bicubic_filename, hr_filename in zip(lr_image_filenames, lr_bicubic_image_filenames, hr_image_filenames):
+                self.hr_images.append(load_image(hr_filename))
+                self.lr_images.append(load_image(lr_filename))
+                self.lr_bicubic_images.append(load_image(lr_bicubic_filename))
+
+        assert len(self.hr_images) != 0
+        assert len(self.lr_images) != 0
+        assert len(self.lr_bicubic_images) != 0
+
+    def get_length(self):
+        return len(self.hr_images)
+
+    def create_dataset(self, num_sample=None):
+        dataset = tf.data.Dataset.from_tensor_slices((self.lr_images, self.hr_images, self.lr_bicubic_images))
+        dataset = dataset.repeat(1)
         dataset = dataset.batch(1)
 
         return dataset

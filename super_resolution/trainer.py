@@ -20,7 +20,7 @@ class Trainer():
         self.loss = loss_func(args.loss_type)
 
         #Optimizer
-        self.learning_rate = tfe.Variable(self.args.lr, dtype=tf.float32)
+        self.learning_rate = tfe.Variable(self.args.lr_init, dtype=tf.float32)
         self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
 
         #Checkpoint

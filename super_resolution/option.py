@@ -30,8 +30,8 @@ parser.add_argument('--hwc', type=str, default=None)
 #Network architecture (MobileNet v2)
 parser.add_argument('--expand_factor', type=int, default=6)
 
-#Training
-parser.add_argument('--lr', type=float, default=1e-04)
+#Train
+parser.add_argument('--lr_init', type=float, default=1e-04)
 parser.add_argument('--num_batch', type=int, default=64)
 parser.add_argument('--num_epoch', type=int, default=100)
 parser.add_argument('--num_batch_per_epoch', type=int, default=1000)
@@ -40,10 +40,14 @@ parser.add_argument('--loss_type', type=str, default='l1',
 parser.add_argument('--lr_decay_rate', type=float, default=0.5)
 parser.add_argument('--lr_decay_epoch', type=int, default=100)
 
+#Test
+parser.add_argument('--lr', type=int, default=270)
+parser.add_argument('--hr', type=int, default=1080)
+
 #Directory
 parser.add_argument('--checkpoint_dir', type=str, default='checkpoint')
-#parser.add_argument('--data_dir', type=str, default='data')
-parser.add_argument('--data_dir', type=str, default='/ssd1')
+parser.add_argument('--data_dir', type=str, default='data')
+#parser.add_argument('--data_dir', type=str, default='/ssd1')
 parser.add_argument('--log_dir', type=str, default='log', help='Tensorboard loggin directory')
 
 #Data
