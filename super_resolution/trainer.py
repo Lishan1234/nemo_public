@@ -64,7 +64,8 @@ class Trainer():
             count = 0
             #Iterate until num_batch_per_epoch
             start_time = time.time()
-            for idx, batch in enumerate(self.train_dataset):
+            for idx, batch in enumerate(self.train_dataset.take(self.args.num_batch_per_epoch)):
+                """@deprecated
                 #validate & visualize
                 if idx != 0 and idx % self.args.num_batch_per_epoch == 0:
                     print('[Train-{}epoch] End (take {} seconds)'.format(idx//self.args.num_batch_per_epoch, time.time()-start_time))
@@ -78,6 +79,7 @@ class Trainer():
                 #finish training
                 if idx == self.args.num_batch_per_epoch * self.args.num_epoch:
                     break
+                """
 
                 #train
                 input_images = batch[0]
@@ -103,6 +105,7 @@ class Trainer():
     def validate(self):
         with self.writer.as_default(), tf.contrib.summary.always_record_summaries(), tf.device('gpu:{}'.format(self.args.gpu_idx)):
             for input_image, target_image, baseline_image in self.valid_dataset:
+            #.take(self.args.num_sample):
                 output_image = self.model(input_image)
                 output_image = tf.clip_by_value(output_image, 0.0, 1.0)
 
@@ -128,10 +131,10 @@ class Trainer():
             self.validation_psnr.init_variables()
             self.validation_baseline_psnr.init_variables()
 
-    def visualize(self, num_image):
+    def visualize(self):
         with self.writer.as_default(), tf.contrib.summary.always_record_summaries(), tf.device('gpu:{}'.format(self.args.gpu_idx)):
             count = 0
-            for input_image, target_image, baseline_image in self.valid_dataset.take(num_image):
+            for input_image, target_image, baseline_image in self.valid_dataset.take(self.args.num_sample):
                 output_image = self.model(input_image)
                 output_image = tf.clip_by_value(output_image, 0.0, 1.0)
 

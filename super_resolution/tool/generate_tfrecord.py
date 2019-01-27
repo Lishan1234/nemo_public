@@ -1,4 +1,4 @@
-import os, glob, random, sys, time
+import os, glob, random, sys, time, argparse
 import tensorflow as tf
 from PIL import Image
 import numpy as np
@@ -6,17 +6,28 @@ import numpy as np
 from option import args
 import common
 
+parser = argparse.ArgumentParser(description='MnasNet')
+
+parser.add_argument('--train_data', type=str, default='291')
+parser.add_argument('--valid_data', type=str, default='Set5')
+parser.add_argument('--data_root', type=str, default='../data')
+parser.add_argument('--patch_size', type=int, default=48)
+parser.add_argument('--num_patch', type=int, default=50000)
+parser.add_argument('--enable_debug', action='store_true')
+parser.add_argument('--scale', type=int, default=4) #for image based dataset
+parser.add_argument('--hr', type=int, default=1080) #for video based dataset
+
+args = parser.parse_args()
+
 tf.enable_eager_execution()
 
-"""dataset for single HR-LR video pair"""
-
 #Training dataset
-train_tf_records_filename = os.path.join('process', args.train_data, '{}_{}_{}_{}_train.tfrecords'.format(args.train_data, args.patch_size, args.num_patch, args.scale))
+train_tf_records_filename = os.path.join(args.data_root, args.train_data, '{}_{}_{}_{}_train.tfrecords'.format(args.train_data, args.patch_size, args.num_patch, args.scale))
 train_writer = tf.io.TFRecordWriter(train_tf_records_filename)
 
-train_hr_image_path = os.path.join('process', args.train_data, '{}p/original'.format(args.hr))
-train_lr_image_path = os.path.join('process', args.train_data, '{}p/original'.format(args.hr//args.scale))
-train_lr_bicubic_image_path = os.path.join('process', args.train_data, '{}p/bicubic_{}p'.format(args.hr//args.scale, args.hr))
+train_hr_image_path = os.path.join(args.data_root, args.train_data, 'hr_x{}'.format(args.scale))
+train_lr_image_path = os.path.join(args.data_root, args.train_data, 'lr_x{}'.format(args.scale))
+train_lr_bicubic_image_path = os.path.join(args.data_root, args.train_data, 'lr_bicubic_x{}'.format(args.scale))
 
 train_hr_image_filenames = glob.glob('{}/*.png'.format(train_hr_image_path))
 train_lr_image_filenames = glob.glob('{}/*.png'.format(train_lr_image_path))
@@ -40,7 +51,6 @@ count = 0
 while count < args.num_patch:
     rand_idx = random.randint(0, len(train_lr_images) - 1)
     height, width, channel = train_lr_images[rand_idx].get_shape().as_list()
-
     if height < (args.patch_size + 1) or width < (args.patch_size + 1):
         continue
     else:
@@ -83,14 +93,36 @@ while count < args.num_patch:
 train_writer.close()
 
 #Validation dataset
-valid_tf_records_filename = os.path.join('process', args.valid_data, '{}_{}_valid.tfrecords'.format(args.valid_data, args.scale))
+valid_tf_records_filename = os.path.join(args.data_root, args.valid_data, '{}_{}_valid.tfrecords'.format(args.valid_data, args.scale))
 valid_writer = tf.io.TFRecordWriter(valid_tf_records_filename)
 
-for i in range(len(train_hr_images)):
-    if i % 1 == 0:
-        print('Valid TFRecord Process status: [{}/{}]'.format(i+1, len(train_hr_images)))
+valid_hr_image_path = os.path.join(args.data_root, args.valid_data, 'hr_x{}'.format(args.scale))
+valid_lr_image_path = os.path.join(args.data_root, args.valid_data, 'lr_x{}'.format(args.scale))
+valid_lr_bicubic_image_path = os.path.join(args.data_root, args.valid_data, 'lr_bicubic_x{}'.format(args.scale))
 
-    hr_image, lr_image, lr_bicubic_image = train_hr_images[i], train_lr_images[i], train_lr_bicubic_images[i]
+valid_hr_image_filenames = glob.glob('{}/*.png'.format(valid_hr_image_path))
+valid_lr_image_filenames = glob.glob('{}/*.png'.format(valid_lr_image_path))
+valid_lr_bicubic_image_filenames = glob.glob('{}/*.png'.format(valid_lr_bicubic_image_path))
+
+valid_hr_images = []
+valid_lr_images = []
+valid_lr_bicubic_images = []
+
+for lr_filename, lr_bicubic_filename, hr_filename in zip(valid_lr_image_filenames, valid_lr_bicubic_image_filenames, valid_hr_image_filenames):
+    with tf.device('cpu:0'):
+        valid_hr_images.append(common.load_image(hr_filename))
+        valid_lr_images.append(common.load_image(lr_filename))
+        valid_lr_bicubic_images.append(common.load_image(lr_bicubic_filename))
+
+assert len(valid_lr_images) == len(valid_hr_images) == len(valid_lr_bicubic_images)
+assert len(valid_lr_images) != 0
+print('dataset length: {}'.format(len(valid_lr_images)))
+
+for i in range(len(valid_lr_images)):
+    if i % 1 == 0:
+        print('Valid TFRecord Process status: [{}/{}]'.format(i+1, len(valid_lr_images)))
+
+    hr_image, lr_image, lr_bicubic_image = valid_hr_images[i], valid_lr_images[i], valid_lr_bicubic_images[i]
 
     hr_binary_image = hr_image.numpy().tostring()
     lr_binary_image = lr_image.numpy().tostring()

@@ -1,7 +1,6 @@
-tb/
 checkpoint/
-tmp/
 log/
+tmp/
+data/
 deprecated/
 *.png
-*.sh

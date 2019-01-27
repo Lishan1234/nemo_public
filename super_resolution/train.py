@@ -9,17 +9,16 @@ from dataset import TFRecordDataset
 tf.enable_eager_execution()
 
 model_module = import_module('model.' + args.model_type.lower())
-
 model_builder = model_module.make_model(args)
 dataset = TFRecordDataset(args)
 trainer = Trainer(args, model_builder, dataset)
-trainer.train()
+
+#trainer.train()
 
 """transfer learning or continual learning
 #trainer.load_model(args.checkpoint_path)
 """
 
-"""
 for epoch in range(args.num_epoch):
     start_time = time.time()
     print('[Train-{}epoch] Start'.format(epoch))
@@ -31,10 +30,9 @@ for epoch in range(args.num_epoch):
     print('[Validation-{}epoch] End (take {} seconds)'.format(epoch, time.time()-start_time))
     start_time = time.time()
     print('[Visualization-{}epoch] Start'.format(epoch))
-    trainer.visualize(args.num_sample)
+    trainer.visualize()
     print('[Visualization-{}epoch] End (take {} seconds)'.format(epoch, time.time()-start_time))
     trainer.save_model()
 
     if epoch != 0 and epoch % args.lr_decay_epoch == 0:
         trainer.apply_lr_decay(args.lr_decay_rate)
-"""
