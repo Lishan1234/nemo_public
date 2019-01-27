@@ -5,7 +5,7 @@ from tensorflow.keras import Model
 from model import ops
 
 def make_model(args):
-    return MobileV1SR(args)
+    return MobileV2SR(args)
 
 class MobileV2SR:
     def __init__(self, args):

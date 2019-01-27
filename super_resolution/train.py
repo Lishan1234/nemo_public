@@ -13,11 +13,13 @@ model_module = import_module('model.' + args.model_type.lower())
 model_builder = model_module.make_model(args)
 dataset = TFRecordDataset(args)
 trainer = Trainer(args, model_builder, dataset)
+trainer.train()
 
 """transfer learning or continual learning
 #trainer.load_model(args.checkpoint_path)
 """
 
+"""
 for epoch in range(args.num_epoch):
     start_time = time.time()
     print('[Train-{}epoch] Start'.format(epoch))
@@ -35,3 +37,4 @@ for epoch in range(args.num_epoch):
 
     if epoch != 0 and epoch % args.lr_decay_epoch == 0:
         trainer.apply_lr_decay(args.lr_decay_rate)
+"""

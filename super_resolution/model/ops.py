@@ -88,7 +88,7 @@ def shufflev2_block():
 """
 
 def bilinear_upsample(x, scale, data_format='channel_last'):
-    return layers.UpSampling2D(size=(scale, scale), data_format=data_format)(x)
+    return layers.UpSampling2D(size=(scale, scale), data_format=data_format, interpolation='bilinear')(x)
 
 def transpose_upsample(x, scale, num_filters, data_format='channel_last'):
     x = layers.Conv2DTranspose(num_filters,

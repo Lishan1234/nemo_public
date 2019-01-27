@@ -90,7 +90,7 @@ for i in range(len(train_hr_images)):
     if i % 1 == 0:
         print('Valid TFRecord Process status: [{}/{}]'.format(i+1, len(train_hr_images)))
 
-    hr_image, lr_image, lr_bicubic_image = train_hr_images[i], train_hr_images[i], train_lr_bicubic_images[i]
+    hr_image, lr_image, lr_bicubic_image = train_hr_images[i], train_lr_images[i], train_lr_bicubic_images[i]
 
     hr_binary_image = hr_image.numpy().tostring()
     lr_binary_image = lr_image.numpy().tostring()

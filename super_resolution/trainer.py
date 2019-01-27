@@ -1,6 +1,7 @@
 import tensorflow as tf
 import os, time
 from importlib import import_module
+import utility as util
 
 tfe = tf.contrib.eager
 
@@ -26,7 +27,7 @@ class Trainer():
         self.root = tf.train.Checkpoint(optimizer=self.optimizer,
                             model=self.model,
                             optimizer_step=tf.train.get_or_create_global_step())
-        self.checkpoint_dir = os.path.join(self.args.checkpoint_dir, model_builder.get_name())
+        self.checkpoint_dir = os.path.join(self.args.checkpoint_dir, self.args.train_data, model_builder.get_name())
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
         #Dataset
@@ -34,7 +35,7 @@ class Trainer():
         self.valid_dataset = dataset.create_valid_dataset()
 
         #Tensorboard
-        log_dir = os.path.join(self.args.log_dir, model_builder.get_name())
+        log_dir = os.path.join(self.args.log_dir, self.args.train_data, model_builder.get_name())
         os.makedirs(log_dir, exist_ok=True)
         self.writer = tf.contrib.summary.create_file_writer(log_dir)
         self.training_loss = tfe.metrics.Mean("Training Loss")
@@ -61,11 +62,24 @@ class Trainer():
     def train(self):
         with self.writer.as_default(), tf.contrib.summary.always_record_summaries(), tf.device('gpu:{}'.format(self.args.gpu_idx)):
             count = 0
-            #for idx, input_images, target_images in enumerate(self.train_dataset):
+            #Iterate until num_batch_per_epoch
+            start_time = time.time()
             for idx, batch in enumerate(self.train_dataset):
-                #Iterate until num_batch_per_epoch
-                if idx == self.args.num_batch_per_epoch:
+                #validate & visualize
+                if idx != 0 and idx % self.args.num_batch_per_epoch == 0:
+                    print('[Train-{}epoch] End (take {} seconds)'.format(idx//self.args.num_batch_per_epoch, time.time()-start_time))
+                    start_time = time.time()
+                    self.validate()
+                    self.visualize(self.args.num_sample)
+                    self.save_model()
+                    print('[Validation-{}epoch] End (take {} seconds)'.format(idx//self.args.num_batch_per_epoch, time.time()-start_time))
+                    start_time = time.time()
+
+                #finish training
+                if idx == self.args.num_batch_per_epoch * self.args.num_epoch:
                     break
+
+                #train
                 input_images = batch[0]
                 target_images = batch[1]
                 with tf.GradientTape() as tape:
@@ -76,6 +90,8 @@ class Trainer():
                 self.optimizer.apply_gradients(zip(grads, self.model.variables),
                                         global_step=tf.train.get_or_create_global_step())
                 self.training_loss(loss_value)
+
+                util.print_progress((idx % self.args.num_batch_per_epoch + 1), self.args.num_batch_per_epoch, 'Train Progress:', 'Complete', 1, 50)
 
             tf.contrib.summary.scalar('Average Traning Loss', self.training_loss.result())
             tf.contrib.summary.scalar('Learning rate', self.learning_rate)
