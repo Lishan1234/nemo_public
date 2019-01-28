@@ -80,14 +80,17 @@ class TFRecordDataset():
 
 def _parse_function(lr_filename, hr_filename, lr_bicubic_filename):
     lr_image_string = tf.read_file(lr_filename)
-    lr_image_decoded = tf.image.decode_png(lr_image_string)
+    lr_image_decoded = tf.image.decode_png(lr_image_string, channels=3)
     lr_image_decoded = tf.cast(lr_image_decoded, tf.float32)
+    lr_image_decoded = tf.divide(lr_image_decoded, 255.0)
     hr_image_string = tf.read_file(hr_filename)
-    hr_image_decoded = tf.image.decode_png(hr_image_string)
+    hr_image_decoded = tf.image.decode_png(hr_image_string, channels=3)
     hr_image_decoded = tf.cast(hr_image_decoded, tf.float32)
+    hr_image_decoded = tf.divide(hr_image_decoded, 255.0)
     lr_bicubic_image_string = tf.read_file(lr_bicubic_filename)
-    lr_bicubic_image_decoded = tf.image.decode_png(lr_bicubic_image_string)
+    lr_bicubic_image_decoded = tf.image.decode_png(lr_bicubic_image_string, channels=3)
     lr_bicubic_image_decoded = tf.cast(lr_bicubic_image_decoded, tf.float32)
+    lr_bicubic_image_decoded = tf.divide(lr_bicubic_image_decoded, 255.0)
 
     return lr_image_decoded, hr_image_decoded, lr_bicubic_image_decoded
 
@@ -106,7 +109,7 @@ class ImageDataset():
         assert len(self.lr_image_filenames) != 0
         assert len(self.lr_bicubic_image_filenames) != 0
 
-        """
+        """ @deprecated: memory explosion problem occured
         self.hr_images = []
         self.lr_images = []
         self.lr_bicubic_images = []
