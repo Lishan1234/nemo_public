@@ -84,7 +84,6 @@ class ImageDataset():
         hr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/original'.format(args.hr))
         lr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/original'.format(args.lr))
         lr_bicubic_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/bicubic_{}p'.format(args.lr, args.hr))
-        print(hr_image_path)
 
         hr_image_filenames = glob.glob('{}/*.png'.format(hr_image_path))
         lr_image_filenames = glob.glob('{}/*.png'.format(lr_image_path))

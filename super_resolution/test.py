@@ -6,6 +6,8 @@ from tester import Tester
 from option import args
 from dataset import ImageDataset
 
+#gpu_option = tf.GPUOptions(allow_growth=True)
+#config = tf.ConfigProto(gpu_options=gpu_option)
 tf.enable_eager_execution()
 
 #redefine scale
