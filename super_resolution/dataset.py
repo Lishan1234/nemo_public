@@ -78,18 +78,38 @@ class TFRecordDataset():
 
         return dataset
 
+def _parse_function(lr_filename, hr_filename, lr_bicubic_filename):
+    lr_image_string = tf.read_file(lr_filename)
+    lr_image_decoded = tf.image.decode_png(lr_image_string, channels=3)
+    lr_image_decoded = tf.cast(lr_image_decoded, tf.float32)
+    lr_image_decoded = tf.divide(lr_image_decoded, 255.0)
+    hr_image_string = tf.read_file(hr_filename)
+    hr_image_decoded = tf.image.decode_png(hr_image_string, channels=3)
+    hr_image_decoded = tf.cast(hr_image_decoded, tf.float32)
+    hr_image_decoded = tf.divide(hr_image_decoded, 255.0)
+    lr_bicubic_image_string = tf.read_file(lr_bicubic_filename)
+    lr_bicubic_image_decoded = tf.image.decode_png(lr_bicubic_image_string, channels=3)
+    lr_bicubic_image_decoded = tf.cast(lr_bicubic_image_decoded, tf.float32)
+    lr_bicubic_image_decoded = tf.divide(lr_bicubic_image_decoded, 255.0)
+
+    return lr_image_decoded, hr_image_decoded, lr_bicubic_image_decoded
+
 class ImageDataset():
     def __init__(self, args):
         #TODO: option for lazy loading approach
         hr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/original'.format(args.hr))
         lr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/original'.format(args.lr))
         lr_bicubic_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/bicubic_{}p'.format(args.lr, args.hr))
-        print(hr_image_path)
 
-        hr_image_filenames = glob.glob('{}/*.png'.format(hr_image_path))
-        lr_image_filenames = glob.glob('{}/*.png'.format(lr_image_path))
-        lr_bicubic_image_filenames = glob.glob('{}/*.png'.format(lr_bicubic_image_path))
+        self.hr_image_filenames = sorted(glob.glob('{}/*.png'.format(hr_image_path)))
+        self.lr_image_filenames = sorted(glob.glob('{}/*.png'.format(lr_image_path)))
+        self.lr_bicubic_image_filenames = sorted(glob.glob('{}/*.png'.format(lr_bicubic_image_path)))
 
+        assert len(self.hr_image_filenames) != 0
+        assert len(self.lr_image_filenames) != 0
+        assert len(self.lr_bicubic_image_filenames) != 0
+
+        """ @deprecated: memory explosion problem occured
         self.hr_images = []
         self.lr_images = []
         self.lr_bicubic_images = []
@@ -99,17 +119,17 @@ class ImageDataset():
                 self.hr_images.append(load_image(hr_filename))
                 self.lr_images.append(load_image(lr_filename))
                 self.lr_bicubic_images.append(load_image(lr_bicubic_filename))
-
-        assert len(self.hr_images) != 0
-        assert len(self.lr_images) != 0
-        assert len(self.lr_bicubic_images) != 0
+        """
 
     def get_length(self):
-        return len(self.hr_images)
+        #return len(hr_images)
+        return len(self.hr_image_filenames)
 
     def create_dataset(self, num_sample=None):
-        dataset = tf.data.Dataset.from_tensor_slices((self.lr_images, self.hr_images, self.lr_bicubic_images))
+        #dataset = tf.data.Dataset.from_tensor_slices((self.lr_images, self.hr_images, self.lr_bicubic_images))
+        dataset = tf.data.Dataset.from_tensor_slices((self.lr_image_filenames, self.hr_image_filenames, self.lr_bicubic_image_filenames))
         dataset = dataset.repeat(1)
+        dataset = dataset.map(_parse_function, num_parallel_calls=2)
         dataset = dataset.batch(1)
 
         return dataset
