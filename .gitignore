@@ -1,1 +1,4 @@
+*.exe
+*.bmp
+*.yuv
 __pycache__
