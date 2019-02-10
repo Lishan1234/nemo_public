@@ -1,4 +1,4 @@
-function [img_h_transfer, other_info, time_info] = hevc_transfer_sr(...
+function [img_h_transfer, other_info, time_info, percent_transfer] = hevc_transfer_sr(...
     sr_result, N_frames, hevc_info, params)
 
 if ~exist('params', 'var')
@@ -37,6 +37,10 @@ img_h_transfer = cell(1, N_frames);
 other_info = [];
 time_info = [];
 
+num_transfer = 0;
+num_bicubic = 0; 
+percent_transfer = zeros(1, N_frames);
+
 % I-frame
 img_h_transfer{1} = sr_result;
 other_info.block_number = zeros(1, N_frames);
@@ -73,7 +77,7 @@ for f_idx = 2:N_frames
         switch PU_now(pu_idx).intra
             case 0
                 % Inter prediction!
-                
+                num_transfer = num_transfer + 1;
                 % Decide whether to transfer or not by residue!
                 res_l_patch = hevc_info.res_all{f_idx}...
                     ((y_l + 1):(y_l + h), (x_l + 1):(x_l + w));
@@ -120,6 +124,7 @@ for f_idx = 2:N_frames
             case 1
                 % Intra prediction: Copy the intra prediction results, and
                 % SR!!
+                num_bicubic = num_bicubic + 1;
                 intra_patch = recon_together{f_idx}((y_l + 1):(y_l + h), ...
                     (x_l + 1):(x_l + w));
                 if any(isnan(intra_patch(:)))
@@ -132,7 +137,7 @@ for f_idx = 2:N_frames
         end
     end
     time_info.runtime_transfer(f_idx) = toc;
-    
+    percent_transfer(f_idx) = (num_transfer / (num_transfer + num_bicubic)) * 100;
     % --------------------------------------------------------------------
     % Perform deblock if needed
     % --------------------------------------------------------------------

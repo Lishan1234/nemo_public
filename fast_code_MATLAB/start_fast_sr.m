@@ -27,7 +27,7 @@ end
 % Configurations
 % ------------------------------------------------------------------------
 seq_name = 'soccer';
-num_frames = 8; % Number of frames to play with
+num_frames = 4; % Number of frames to play with
 clip_dim = 16;
 QP = 27; % Quantization level!
 
@@ -102,14 +102,21 @@ sr_image = double(sr_image);
 % ------------------------------------------------------------------------
 % FAST algorithms
 % ------------------------------------------------------------------------
-[imgs_h_transfer, other_info, time_info] = hevc_transfer_sr(...
+[imgs_h_transfer, other_info, time_info, percent_transfer] = hevc_transfer_sr(...
     sr_image, num_frames, hevc_info);
 
 
 % ------------------------------------------------------------------------
 % Save as log file
 % ------------------------------------------------------------------------
-%fileID = fopen('log.txt','w');
-%fprintf(fileID, time_info.runtime_transfer);
-%fclose(fileID);
-%type('log.txt')
+fileID = fopen(string(seq_name)+ "_" +int2str(num_frames) +"_log.txt",'w');
+
+fprintf(fileID, '%s %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f\r\n',...
+    "transfer runtime", time_info.runtime_transfer);
+fprintf(fileID, '%s %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f\r\n',...
+    "deblock runtime", time_info.runtime_deblock);
+fprintf(fileID, '%s %6d %6d %6d %6d %6d %6d %6d %6d\r\n',...
+    "PU block number", other_info.block_number);
+fprintf(fileID, '%s %6d %6d %6d %6d %6d %6d %6d %6d\r\n',...
+    "percent transfer", percent_transfer);
+fclose(fileID);
