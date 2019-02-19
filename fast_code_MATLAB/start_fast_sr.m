@@ -26,8 +26,9 @@ end
 % ------------------------------------------------------------------------
 % Configurations
 % ------------------------------------------------------------------------
-seq_name = 'soccer';
-num_frames = 4; % Number of frames to play with
+seq_name = 'starcraft';
+num_frames = 48; % Number of frames to play with
+group_of_pictures = 8;
 clip_dim = 16;
 QP = 27; % Quantization level!
 
@@ -48,6 +49,7 @@ save_file = fullfile(cd, '..', 'temp_data', ...
     sprintf('%s_info.mat', seq_name)); % 
 
 if b_encode == 1 || ~exist(save_file, 'file')
+    
     % This function specifies where the HEVC dataset folder is
     enc_params = make_encoding_param('num_frames', num_frames, 'QP', QP);
     folder_path = fullfile(enc_params.test_yuv_dir, seq_name);
@@ -90,20 +92,107 @@ else
         'dec_info', 'hevc_info');
 end
 
-% ------------------------------------------------------------------------
-% Get Super Resolution Image
-% ------------------------------------------------------------------------
-image_path = fullfile(folder_path,'sr','0001.png');
-sr_image = imread(image_path);
-sr_image = double(sr_image);
 
+% ------------------------------------------------------------------------
+% Bicubic PSNR
+% ------------------------------------------------------------------------
+imgs_h_bicubic = cell(1, num_frames);
+PSNR_bicubic = zeros(1, num_frames);
+for i = 1:num_frames
+    imgs_h_bicubic{i} = imresize(Y_low_res{i}, [1080, 1920], 'bicubic');
+    PSNR_bicubic(i) = computePSNR(Y_high_res_gt{i}, imgs_h_bicubic{i});
+end
+
+% ------------------------------------------------------------------------
+% Super Resolution PSNR
+% ------------------------------------------------------------------------
+PSNR_SR = zeros(1, num_frames);
+for i = 1:num_frames
+    PSNR_SR(i) = computePSNR(Y_high_res_gt{i}, Y_high_res_gt{i});
+end
 
 
 % ------------------------------------------------------------------------
 % FAST algorithms
 % ------------------------------------------------------------------------
-[imgs_h_transfer, other_info, time_info, percent_transfer] = hevc_transfer_sr(...
-    sr_image, num_frames, hevc_info);
+number_of_cycles = num_frames / group_of_pictures;
+fileID = fopen(string(seq_name)+ "_" +int2str(num_frames) +"_log.txt",'w');
+PSNR_transfer = zeros(1, num_frames);
+runtime_transfer = zeros(1, num_frames);
+runtime_deblock = zeros(1, num_frames);
+PU_block_number = zeros(1, num_frames);
+percent = zeros(1, num_frames);
+
+for i= 1:number_of_cycles
+    sr_index = (i-1) * group_of_pictures + 1;
+    if sr_index < 10
+        sr_file_name = strcat('000', int2str(sr_index), '.png');
+    elseif sr_index < 100
+        sr_file_name = strcat('00', int2str(sr_index), '.png');
+    else
+        sr_file_name = strcat('0', int2str(sr_index), '.png');
+    end
+    image_path = fullfile(folder_path,'sr', sr_file_name);
+    disp(image_path);
+    
+    sr_image = imread(image_path);
+    rgb_vec = reshape(sr_image, img_height * img_width, 3);
+    yuv_vec = convertRgbToYuv(rgb_vec);
+    sr_image = reshape(yuv_vec(:, 1), img_height, img_width);
+    
+    PU_cycle = cell(1, group_of_pictures);
+    TU_cycle = cell(1, group_of_pictures);
+    mv_x_cycle = cell(1, group_of_pictures);
+    mv_y_cycle = cell(1, group_of_pictures);
+    
+    intra_recon_cycle = cell(1, group_of_pictures);
+    inter_mc_cycle = cell(1, group_of_pictures);
+    res_all_cycle = cell(1, group_of_pictures);
+    inter_mask_cycle = cell(1, group_of_pictures);
+    
+    for j=1:group_of_pictures
+        PU_cycle{j} = other_info.PU{sr_index + j-1};
+        TU_cycle{j} = other_info.TU{sr_index + j-1};
+        mv_x_cycle{j} = other_info.mv_x{sr_index + j-1};
+        mv_y_cycle{j} = other_info.mv_y{sr_index + j-1};
+        
+        intra_recon_cycle{j} = intra_recon{sr_index + j-1};
+        inter_mc_cycle{j} = inter_mc{sr_index + j-1};
+        res_all_cycle{j} = res_all{sr_index + j-1};
+        inter_mask_cycle{j} = inter_mask{sr_index + j-1};
+    end
+    
+    other_info_cycle = struct('PU', {PU_cycle}, ...
+        'TU', {TU_cycle}, ...
+        'mv_x', {mv_x_cycle}, ...
+        'mv_y', {mv_x_cycle});
+    
+    hevc_info_cycle = struct('intra_recon', {intra_recon_cycle}, ...
+        'inter_mc', {inter_mc_cycle}, ...
+        'res_all', {res_all_cycle}, ...
+        'inter_mask', {inter_mask_cycle}, ...
+        'other_info', {other_info_cycle});
+    
+    [imgs_h_transfer, anyting_else, time_info, percent_transfer] = hevc_transfer_sr(...
+    sr_image, group_of_pictures, hevc_info_cycle);
+    
+    for j = 1:group_of_pictures
+        PSNR_transfer((i-1)*group_of_pictures+j) = ...
+            computePSNR(Y_high_res_gt{(i-1)*group_of_pictures+j}, imgs_h_transfer{j});
+        runtime_transfer((i-1)*group_of_pictures+j) = time_info.runtime_transfer(j);
+        runtime_deblock((i-1)*group_of_pictures+j) = time_info.runtime_deblock(j);
+        PU_block_number((i-1)*group_of_pictures+j) = anyting_else.block_number(j);
+        percent((i-1)*group_of_pictures+j) = percent_transfer(j);
+    end
+end
+
+figure
+axis([0 120 18 30])
+plot(PSNR_bicubic);
+hold on
+plot(PSNR_transfer);
+hold on
+plot(PSNR_SR);
 
 
 % ------------------------------------------------------------------------
@@ -111,12 +200,17 @@ sr_image = double(sr_image);
 % ------------------------------------------------------------------------
 fileID = fopen(string(seq_name)+ "_" +int2str(num_frames) +"_log.txt",'w');
 
-fprintf(fileID, '%s %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f\r\n',...
-    "transfer runtime", time_info.runtime_transfer);
-fprintf(fileID, '%s %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f\r\n',...
-    "deblock runtime", time_info.runtime_deblock);
-fprintf(fileID, '%s %6d %6d %6d %6d %6d %6d %6d %6d\r\n',...
-    "PU block number", other_info.block_number);
-fprintf(fileID, '%s %6d %6d %6d %6d %6d %6d %6d %6d\r\n',...
-    "percent transfer", percent_transfer);
+fprintf(fileID, '%s %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f\r\n',...
+    "transfer runtime", runtime_transfer);
+fprintf(fileID, '%s %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f\r\n',...
+    "deblock runtime", runtime_deblock);
+fprintf(fileID, '%s %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f\r\n',...
+    "PSNR_transfer", PSNR_transfer);
+fprintf(fileID, '%s %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f\r\n',...
+    "PSNR_bicubic", PSNR_bicubic);
+fprintf(fileID, '%s %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f\r\n',...
+    "percent transfer", percent);
+fprintf(fileID, '%s %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d %6d\r\n',...
+    "PU block number", PU_block_number);
+
 fclose(fileID);
