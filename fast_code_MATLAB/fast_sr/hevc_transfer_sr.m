@@ -53,6 +53,7 @@ time_info.runtime_deblock = zeros(1, N_frames);
 
 
 % P-frames
+
 for f_idx = 2:N_frames
     tic;
     img_h_transfer{f_idx} = zeros(img_height, img_width);
@@ -91,8 +92,13 @@ for f_idx = 2:N_frames
                     % Perform transfer
                     mv_x_h = 2 * PU_now(pu_idx).mv_x / 4;
                     mv_y_h = 2 * PU_now(pu_idx).mv_y / 4;
-                    f_ref = PU_now(pu_idx).t_r + 1;
+                    %temp = PU_now(pu_idx).t_r + 1;
+                    %while temp > N_frames
+                    %    temp = temp - N_frames;
+                    %end
+                    %f_ref 가져오는 알고리즘 다시 짜야함
                     
+                    f_ref = f_idx-1;
                     ref_h_patch = sr_interpolate(img_h_transfer{f_ref}, ...
                         x_h, y_h, 2 * w, 2 * h, mv_x_h, mv_y_h);
                     %                     ref_h_patch = subpix_interp(img_h_transfer{f_ref}, ...

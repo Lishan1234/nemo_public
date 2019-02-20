@@ -1,4 +1,4 @@
-function [img_h_transfer, other_info, time_info] = hevc_transfer_sr(...
+function [img_h_transfer, other_info, time_info, percent_transfer] = hevc_transfer_sr(...
     sr_result, N_frames, hevc_info, params)
 
 if ~exist('params', 'var')
@@ -37,21 +37,23 @@ img_h_transfer = cell(1, N_frames);
 other_info = [];
 time_info = [];
 
+num_transfer = 0;
+num_bicubic = 0; 
+percent_transfer = zeros(1, N_frames);
+
 % I-frame
 img_h_transfer{1} = sr_result;
-other_info.runtime = zeros(1, N_frames);
+other_info.block_number = zeros(1, N_frames);
 
 % ------------------------------------------------------------------------
 % measure running time
 % ------------------------------------------------------------------------
-time_info = [];
-time_info.runtime_transfer = zeros(1, num_frames);
-time_info.runtime_deblock = zeros(1, num_frames);
-%time_info.runtime_sr = zeros(1, num_frames);
-%time_info.runtime_bicubic = zeros(1, num_frames);
-% Perform a single threshold on the residue!
+time_info.runtime_transfer = zeros(1, N_frames);
+time_info.runtime_deblock = zeros(1, N_frames);
+
 
 % P-frames
+
 for f_idx = 2:N_frames
     tic;
     img_h_transfer{f_idx} = zeros(img_height, img_width);
@@ -62,20 +64,21 @@ for f_idx = 2:N_frames
     res_h = Blockwise_upsample_with_TU(hevc_info.res_all{f_idx}, TU_now);
     
     for pu_idx = 1:length(hevc_info.other_info.PU{f_idx})
+        other_info.block_number(f_idx) = other_info.block_number(f_idx) + 1;
         if isempty(PU_now(pu_idx).x) || isempty(PU_now(pu_idx).w)
             continue;
         end
         x_l = PU_now(pu_idx).x;
         y_l = PU_now(pu_idx).y;
-        x_h = 2 * x_l;
-        y_h = 2 * y_l;
+        x_h = 4 * x_l;
+        y_h = 4 * y_l;
         w = PU_now(pu_idx).w;
         h = PU_now(pu_idx).h;
         
         switch PU_now(pu_idx).intra
             case 0
                 % Inter prediction!
-                
+                num_transfer = num_transfer + 1;
                 % Decide whether to transfer or not by residue!
                 res_l_patch = hevc_info.res_all{f_idx}...
                     ((y_l + 1):(y_l + h), (x_l + 1):(x_l + w));
@@ -87,10 +90,17 @@ for f_idx = 2:N_frames
                 if mean_ssd < params.transfer_thresh
                     %                 if mean_diff < params.transfer_thresh
                     % Perform transfer
+                    %mv_x_h = 2 * PU_now(pu_idx).mv_x / 4;
+                    %mv_y_h = 2 * PU_now(pu_idx).mv_y / 4;
                     mv_x_h = 2 * PU_now(pu_idx).mv_x / 4;
                     mv_y_h = 2 * PU_now(pu_idx).mv_y / 4;
-                    f_ref = PU_now(pu_idx).t_r + 1;
+                    %temp = PU_now(pu_idx).t_r + 1;
+                    %while temp > N_frames
+                    %    temp = temp - N_frames;
+                    %end
+                    %f_ref 가져오는 알고리즘 다시 짜야할듯
                     
+                    f_ref = f_idx-1;
                     ref_h_patch = sr_interpolate(img_h_transfer{f_ref}, ...
                         x_h, y_h, 2 * w, 2 * h, mv_x_h, mv_y_h);
                     %                     ref_h_patch = subpix_interp(img_h_transfer{f_ref}, ...
@@ -122,6 +132,7 @@ for f_idx = 2:N_frames
             case 1
                 % Intra prediction: Copy the intra prediction results, and
                 % SR!!
+                num_bicubic = num_bicubic + 1;
                 intra_patch = recon_together{f_idx}((y_l + 1):(y_l + h), ...
                     (x_l + 1):(x_l + w));
                 if any(isnan(intra_patch(:)))
@@ -133,10 +144,12 @@ for f_idx = 2:N_frames
                 error('Intra indicator can only be 0 or 1 in PU!');
         end
     end
-    
+    time_info.runtime_transfer(f_idx) = toc;
+    percent_transfer(f_idx) = (num_transfer / (num_transfer + num_bicubic)) * 100;
     % --------------------------------------------------------------------
     % Perform deblock if needed
     % --------------------------------------------------------------------
+    tic;
     if params.deblock == 1
         % Perform deblocking on img_h_transfer{f_idx} according to PU and
         % TU structure.
@@ -153,7 +166,7 @@ for f_idx = 2:N_frames
         
     end
     
-    other_info.runtime(f_idx) = toc;
+    other_info.runtime_deblock(f_idx) = toc;
 end
 
 end
