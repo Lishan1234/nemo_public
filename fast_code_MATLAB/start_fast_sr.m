@@ -27,9 +27,9 @@ end
 % Configurations
 % ------------------------------------------------------------------------
 seq_name = 'starcraft';
-num_frames = 48; % Number of frames to play with
-group_of_pictures = 8;
-clip_dim = 16;
+num_frames = 4; % Number of frames to play with
+group_of_pictures = 4;
+clip_dim = 8;
 QP = 27; % Quantization level!
 
 % Although this is left as a parameter, there are few components where only
@@ -62,7 +62,7 @@ if b_encode == 1 || ~exist(save_file, 'file')
     Y_high_res_gt = rgb2y_cell(rgb_cell);
     
     % Downsample the video sequence by 2
-    rgb_half_cell = imdownsample_cell(rgb_cell, 2, clip_dim);
+    rgb_half_cell = imdownsample_cell(rgb_cell, sr_ratio, clip_dim);
     
     % Call the encoding function
     enc_info = encode_sequence_from_cell(rgb_half_cell, seq_name, enc_params);
@@ -94,23 +94,32 @@ end
 
 
 % ------------------------------------------------------------------------
-% Bicubic PSNR
+% Load images from folder
 % ------------------------------------------------------------------------
-imgs_h_bicubic = cell(1, num_frames);
-PSNR_bicubic = zeros(1, num_frames);
-for i = 1:num_frames
-    imgs_h_bicubic{i} = imresize(Y_low_res{i}, [1080, 1920], 'bicubic');
-    PSNR_bicubic(i) = computePSNR(Y_high_res_gt{i}, imgs_h_bicubic{i});
-end
+sr_1080p_rgb = cell(1, num_frames);
+bicubic_1080p_rgb = cell(1, num_frames);
+original_1080p_rgb = cell(1, num_frames);
+original_540p_rgb = cell(1, num_frames);
 
-% ------------------------------------------------------------------------
-% Super Resolution PSNR
-% ------------------------------------------------------------------------
-PSNR_SR = zeros(1, num_frames);
-for i = 1:num_frames
-    PSNR_SR(i) = computePSNR(Y_high_res_gt{i}, Y_high_res_gt{i});
-end
+ for i=1:num_frames
+    if i < 10
+       file_name = strcat('000', int2str(i), '.png');
+    elseif i < 100
+       file_name = strcat('00', int2str(i), '.png');
+    else
+       file_name = strcat('0', int2str(i), '.png');
+    end
+    disp(file_name);
+    sr_1080p_rgb{i} = imread(fullfile(folder_path,'sr_1080p', file_name));
+    bicubic_1080p_rgb{i} = imread(fullfile(folder_path,'bicubic_1080p', file_name));
+    original_1080p_rgb{i} = imread(fullfile(folder_path,'original_1080p', file_name));
+    original_540p_rgb{i} = imread(fullfile(folder_path,'original_540p', file_name));
+ end
 
+sr_1080p_y = rgb2y_cell(sr_1080p_rgb);
+bicubic_1080p_y = rgb2y_cell(bicubic_1080p_rgb);
+original_1080p_y = rgb2y_cell(original_1080p_rgb);
+original_540p_y = rgb2y_cell(original_540p_rgb);
 
 % ------------------------------------------------------------------------
 % FAST algorithms
@@ -118,6 +127,9 @@ end
 number_of_cycles = num_frames / group_of_pictures;
 fileID = fopen(string(seq_name)+ "_" +int2str(num_frames) +"_log.txt",'w');
 PSNR_transfer = zeros(1, num_frames);
+PSNR_bicubic = zeros(1, num_frames);
+PSNR_SR = zeros(1, num_frames);
+
 runtime_transfer = zeros(1, num_frames);
 runtime_deblock = zeros(1, num_frames);
 PU_block_number = zeros(1, num_frames);
@@ -125,20 +137,7 @@ percent = zeros(1, num_frames);
 
 for i= 1:number_of_cycles
     sr_index = (i-1) * group_of_pictures + 1;
-    if sr_index < 10
-        sr_file_name = strcat('000', int2str(sr_index), '.png');
-    elseif sr_index < 100
-        sr_file_name = strcat('00', int2str(sr_index), '.png');
-    else
-        sr_file_name = strcat('0', int2str(sr_index), '.png');
-    end
-    image_path = fullfile(folder_path,'sr', sr_file_name);
-    disp(image_path);
-    
-    sr_image = imread(image_path);
-    rgb_vec = reshape(sr_image, img_height * img_width, 3);
-    yuv_vec = convertRgbToYuv(rgb_vec);
-    sr_image = reshape(yuv_vec(:, 1), img_height, img_width);
+    sr_image = sr_1080p_y{sr_index};
     
     PU_cycle = cell(1, group_of_pictures);
     TU_cycle = cell(1, group_of_pictures);
@@ -173,12 +172,15 @@ for i= 1:number_of_cycles
         'inter_mask', {inter_mask_cycle}, ...
         'other_info', {other_info_cycle});
     
+    %sr_image  = imresize(sr_image, [1072, 1920]);
+    
     [imgs_h_transfer, anyting_else, time_info, percent_transfer] = hevc_transfer_sr(...
-    sr_image, group_of_pictures, hevc_info_cycle);
+    sr_image, group_of_pictures, hevc_info_cycle, sr_ratio);
     
     for j = 1:group_of_pictures
+        %imgs_h_transfer{j} = imresize(imgs_h_transfer{j}, [1080, 1920]);
         PSNR_transfer((i-1)*group_of_pictures+j) = ...
-            computePSNR(Y_high_res_gt{(i-1)*group_of_pictures+j}, imgs_h_transfer{j});
+            computePSNR(original_1080p_y{(i-1)*group_of_pictures+j}, imgs_h_transfer{j});
         runtime_transfer((i-1)*group_of_pictures+j) = time_info.runtime_transfer(j);
         runtime_deblock((i-1)*group_of_pictures+j) = time_info.runtime_deblock(j);
         PU_block_number((i-1)*group_of_pictures+j) = anyting_else.block_number(j);
@@ -186,19 +188,28 @@ for i= 1:number_of_cycles
     end
 end
 
+% ------------------------------------------------------------------------
+% Compute PSNR
+% ------------------------------------------------------------------------
+
+for i=1:num_frames
+    PSNR_bicubic(i) = computePSNR(original_1080p_y{i}, bicubic_1080p_y{i});
+    PSNR_SR(i) = computePSNR(original_1080p_y{i}, sr_1080p_y{i});
+end
+
 figure
 axis([0 120 18 30])
-plot(PSNR_bicubic);
+plot(PSNR_bicubic, 'g');
 hold on
-plot(PSNR_transfer);
+plot(PSNR_transfer, 'b--o');
 hold on
-plot(PSNR_SR);
+plot(PSNR_SR, 'r');
 
 
 % ------------------------------------------------------------------------
 % Save as log file
 % ------------------------------------------------------------------------
-fileID = fopen(string(seq_name)+ "_" +int2str(num_frames) +"_log.txt",'w');
+fileID = fopen(string(seq_name)+ "_" +int2str(group_of_pictures) +"_log.txt",'w');
 
 fprintf(fileID, '%s %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f\r\n',...
     "transfer runtime", runtime_transfer);
@@ -206,6 +217,8 @@ fprintf(fileID, '%s %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f 
     "deblock runtime", runtime_deblock);
 fprintf(fileID, '%s %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f\r\n',...
     "PSNR_transfer", PSNR_transfer);
+fprintf(fileID, '%s %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f\r\n',...
+    "PSNR_SR", PSNR_SR);
 fprintf(fileID, '%s %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f\r\n',...
     "PSNR_bicubic", PSNR_bicubic);
 fprintf(fileID, '%s %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f\r\n',...

@@ -1,5 +1,5 @@
 function [img_h_transfer, other_info, time_info, percent_transfer] = hevc_transfer_sr(...
-    sr_result, N_frames, hevc_info, params)
+    sr_result, N_frames, hevc_info, sr_ratio, params)
 
 if ~exist('params', 'var')
     params = [];
@@ -61,7 +61,7 @@ for f_idx = 2:N_frames
     TU_now = hevc_info.other_info.TU{f_idx};
     
     % Upsample the residue blockwise with TU block structure!
-    res_h = Blockwise_upsample_with_TU(hevc_info.res_all{f_idx}, TU_now);
+    res_h = Blockwise_upsample_with_TU(hevc_info.res_all{f_idx}, TU_now, sr_ratio);
     
     for pu_idx = 1:length(hevc_info.other_info.PU{f_idx})
         other_info.block_number(f_idx) = other_info.block_number(f_idx) + 1;
@@ -70,8 +70,8 @@ for f_idx = 2:N_frames
         end
         x_l = PU_now(pu_idx).x;
         y_l = PU_now(pu_idx).y;
-        x_h = 2 * x_l;
-        y_h = 2 * y_l;
+        x_h = sr_ratio * x_l;
+        y_h = sr_ratio * y_l;
         w = PU_now(pu_idx).w;
         h = PU_now(pu_idx).h;
         
@@ -90,27 +90,27 @@ for f_idx = 2:N_frames
                 if mean_ssd < params.transfer_thresh
                     %                 if mean_diff < params.transfer_thresh
                     % Perform transfer
-                    mv_x_h = 2 * PU_now(pu_idx).mv_x / 4;
-                    mv_y_h = 2 * PU_now(pu_idx).mv_y / 4;
-                    %temp = PU_now(pu_idx).t_r + 1;
+                    mv_x_h = sr_ratio * PU_now(pu_idx).mv_x / 4;
+                    mv_y_h = sr_ratio * PU_now(pu_idx).mv_y / 4;
+                    f_ref = PU_now(pu_idx).t_r + 1;
                     %while temp > N_frames
                     %    temp = temp - N_frames;
                     %end
                     %f_ref 가져오는 알고리즘 다시 짜야함
                     
-                    f_ref = f_idx-1;
+                    %f_ref = f_idx-1;
                     ref_h_patch = sr_interpolate(img_h_transfer{f_ref}, ...
-                        x_h, y_h, 2 * w, 2 * h, mv_x_h, mv_y_h);
+                        x_h, y_h, sr_ratio * w, sr_ratio * h, mv_x_h, mv_y_h);
                     %                     ref_h_patch = subpix_interp(img_h_transfer{f_ref}, ...
                     %                         (x_h + 1 + mv_x_h):(x_h + mv_x_h + 2 * w), ...
                     %                         (y_h + 1 + mv_y_h):(y_h + mv_y_h + 2 * h));
                     
-                    res_h_patch = res_h((y_h + 1):(y_h + 2 * h), ...
-                        (x_h + 1):(x_h + 2 * w));
+                    res_h_patch = res_h((y_h + 1):(y_h + sr_ratio * h), ...
+                        (x_h + 1):(x_h + sr_ratio * w));
                     
                     
-                    img_h_transfer{f_idx}((y_h + 1):(y_h + 2 * h), ...
-                        (x_h + 1):(x_h + 2 * w)) = ...
+                    img_h_transfer{f_idx}((y_h + 1):(y_h + sr_ratio * h), ...
+                        (x_h + 1):(x_h + sr_ratio * w)) = ...
                         ref_h_patch + res_h_patch;
                     if any(isnan(ref_h_patch(:))) || any(isnan(res_h_patch(:)))
                         db_var = 1;
@@ -120,8 +120,8 @@ for f_idx = 2:N_frames
                     % bicubic interpolation on the low-res reconstruction
                     inter_patch = recon_together{f_idx}...
                         ((y_l + 1):(y_l + h), (x_l + 1):(x_l + w));
-                    img_h_transfer{f_idx}((y_h + 1):(y_h + 2 * h), ...
-                        (x_h + 1):(x_h + 2 * w)) = imresize(inter_patch, 2, 'bicubic');
+                    img_h_transfer{f_idx}((y_h + 1):(y_h + sr_ratio * h), ...
+                        (x_h + 1):(x_h + sr_ratio * w)) = imresize(inter_patch, sr_ratio, 'bicubic');
                     
                     if any(isnan(inter_patch(:)))
                         db_var = 1;
@@ -136,8 +136,8 @@ for f_idx = 2:N_frames
                 if any(isnan(intra_patch(:)))
                     db_var = 1;
                 end
-                img_h_transfer{f_idx}((y_h + 1):(y_h + 2 * h), ...
-                    (x_h + 1):(x_h + 2 * w)) = imresize(intra_patch, 2, 'bicubic');
+                img_h_transfer{f_idx}((y_h + 1):(y_h + sr_ratio * h), ...
+                    (x_h + 1):(x_h + sr_ratio * w)) = imresize(intra_patch, sr_ratio, 'bicubic');
             otherwise
                 error('Intra indicator can only be 0 or 1 in PU!');
         end
