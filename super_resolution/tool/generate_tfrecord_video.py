@@ -6,15 +6,16 @@ import common
 
 parser = argparse.ArgumentParser(description='MnasNet')
 
-parser.add_argument('--train_data', type=str, default='soccer')
-parser.add_argument('--valid_data', type=str, default='soccer')
+parser.add_argument('--train_data', type=str, default='starcraft1_new')
+parser.add_argument('--valid_data', type=str, default='starcraft1_new')
 parser.add_argument('--data_root', type=str, default='../data')
-parser.add_argument('--data_name', type=str, default='keyframe')
+parser.add_argument('--data_name', type=str, default='keyframe_20sec')
 parser.add_argument('--patch_size', type=int, default=48)
-parser.add_argument('--num_patch', type=int, default=50000)
+parser.add_argument('--num_patch', type=int, default=10000)
 parser.add_argument('--enable_debug', action='store_true')
 parser.add_argument('--scale', type=int, default=4) #for image based dataset
 parser.add_argument('--hr', type=int, default=1080) #for video based dataset
+parser.add_argument('--bitrate', type=int, default=None) #for video based dataset
 
 args = parser.parse_args()
 
@@ -23,13 +24,18 @@ tf.enable_eager_execution()
 """dataset for single HR-LR video pair"""
 
 #Training dataset
-train_tf_records_filename = os.path.join(args.data_root, args.train_data, args.data_name, '{}_{}_{}_{}_train.tfrecords'.format(args.train_data, args.patch_size, args.num_patch, args.scale))
-train_writer = tf.io.TFRecordWriter(train_tf_records_filename)
 
-train_hr_image_path = os.path.join(args.data_root, args.train_data, args.data_name, '{}p/original'.format(args.hr))
-train_lr_image_path = os.path.join(args.data_root, args.train_data, args.data_name, '{}p/original'.format(args.hr//args.scale))
-train_lr_bicubic_image_path = os.path.join(args.data_root, args.train_data, args.data_name, '{}p/bicubic_{}p'.format(args.hr//args.scale, args.hr))
-print(train_hr_image_path)
+if args.bitrate is None:
+    train_tf_records_filename = os.path.join(args.data_root, args.train_data, args.data_name, '{}_{}_{}_{}_train.tfrecords'.format(args.train_data, args.patch_size, args.num_patch, args.scale))
+    train_hr_image_path = os.path.join(args.data_root, args.train_data, args.data_name, '{}p/original'.format(args.hr))
+    train_lr_image_path = os.path.join(args.data_root, args.train_data, args.data_name, '{}p/original'.format(args.hr//args.scale))
+    train_lr_bicubic_image_path = os.path.join(args.data_root, args.train_data, args.data_name, '{}p/bicubic_{}p'.format(args.hr//args.scale, args.hr))
+else:
+    train_tf_records_filename = os.path.join(args.data_root, args.train_data, args.data_name, '{}_{}_{}_{}_{}_train.tfrecords'.format(args.train_data, args.patch_size, args.num_patch, args.scale, args.bitrate))
+    train_hr_image_path = os.path.join(args.data_root, args.train_data, args.data_name, '{}p/original'.format(args.hr))
+    train_lr_image_path = os.path.join(args.data_root, args.train_data, args.data_name, '{}p-{}k/original'.format(args.hr//args.scale, args.bitrate))
+    train_lr_bicubic_image_path = os.path.join(args.data_root, args.train_data, args.data_name, '{}p-{}k/bicubic_{}p'.format(args.hr//args.scale, args.bitrate, args.hr))
+train_writer = tf.io.TFRecordWriter(train_tf_records_filename)
 
 train_hr_image_filenames = glob.glob('{}/*.png'.format(train_hr_image_path))
 train_lr_image_filenames = glob.glob('{}/*.png'.format(train_lr_image_path))
@@ -96,7 +102,10 @@ while count < args.num_patch:
 train_writer.close()
 
 #Validation dataset
-valid_tf_records_filename = os.path.join(args.data_root, args.valid_data, args.data_name, '{}_{}_valid.tfrecords'.format(args.valid_data, args.scale))
+if args.bitrate is None:
+    valid_tf_records_filename = os.path.join(args.data_root, args.valid_data, args.data_name, '{}_{}_valid.tfrecords'.format(args.valid_data, args.scale))
+else:
+    valid_tf_records_filename = os.path.join(args.data_root, args.valid_data, args.data_name, '{}_{}_{}_valid.tfrecords'.format(args.valid_data, args.scale, args.bitrate))
 valid_writer = tf.io.TFRecordWriter(valid_tf_records_filename)
 
 for i in range(len(train_hr_images)):

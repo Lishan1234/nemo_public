@@ -16,8 +16,15 @@ class TFRecordDataset():
     def __init__(self, args):
         self.num_batch = args.num_batch
         self.num_batch_per_epoch = args.num_batch_per_epoch
-        self.train_tfrecord_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}_{}_{}_{}_train.tfrecords'.format(args.train_data, args.patch_size, args.num_patch, args.scale))
-        self.valid_tfrecord_path = os.path.join(args.data_dir, args.valid_data, args.data_type, '{}_{}_valid.tfrecords'.format(args.valid_data, args.scale))
+
+        if args.bitrate is None:
+            self.train_tfrecord_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}_{}_{}_{}_train.tfrecords'.format(args.train_data, args.patch_size, args.num_patch, args.scale))
+            self.valid_tfrecord_path = os.path.join(args.data_dir, args.valid_data, args.data_type, '{}_{}_valid.tfrecords'.format(args.valid_data, args.scale))
+        else:
+            self.train_tfrecord_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}_{}_{}_{}_{}_train.tfrecords'.format(args.train_data, args.patch_size, args.num_patch, args.scale, args.bitrate))
+            self.valid_tfrecord_path = os.path.join(args.data_dir, args.valid_data, args.data_type, '{}_{}_{}_valid.tfrecords'.format(args.valid_data, args.scale, args.bitrate))
+        #print(self.train_tfrecord_path)
+        #print(self.valid_tfrecord_path)
         assert os.path.isfile(self.train_tfrecord_path)
         assert os.path.isfile(self.valid_tfrecord_path)
 
@@ -98,13 +105,21 @@ class ImageDataset():
     def __init__(self, args):
         #TODO: option for lazy loading approach
         hr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/original'.format(args.hr))
-        lr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/original'.format(args.lr))
-        lr_bicubic_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/bicubic_{}p'.format(args.lr, args.hr))
+        if args.bitrate is None:
+            lr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/original'.format(args.hr//args.scale))
+            lr_bicubic_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/bicubic_{}p'.format(args.hr//args.scale, args.hr))
+        else:
+            lr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p-{}k/original'.format(args.hr//args.scale, args.bitrate))
+            lr_bicubic_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p-{}k/bicubic_{}p'.format(args.hr//args.scale, args.bitrate, args.hr))
 
         self.hr_image_filenames = sorted(glob.glob('{}/*.png'.format(hr_image_path)))
         self.lr_image_filenames = sorted(glob.glob('{}/*.png'.format(lr_image_path)))
         self.lr_bicubic_image_filenames = sorted(glob.glob('{}/*.png'.format(lr_bicubic_image_path)))
 
+        print(args.scale)
+        print(args.hr//args.scale)
+        print(hr_image_path)
+        print(lr_image_path)
         assert len(self.hr_image_filenames) != 0
         assert len(self.lr_image_filenames) != 0
         assert len(self.lr_bicubic_image_filenames) != 0

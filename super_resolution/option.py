@@ -33,7 +33,7 @@ parser.add_argument('--expand_factor', type=int, default=6)
 #Train
 parser.add_argument('--lr_init', type=float, default=1e-04)
 parser.add_argument('--num_batch', type=int, default=64)
-parser.add_argument('--num_epoch', type=int, default=100)
+parser.add_argument('--num_epoch', type=int, default=30)
 parser.add_argument('--num_batch_per_epoch', type=int, default=1000)
 parser.add_argument('--loss_type', type=str, default='l1',
                     choices=('l1', 'l2'))
@@ -41,7 +41,7 @@ parser.add_argument('--lr_decay_rate', type=float, default=0.5)
 parser.add_argument('--lr_decay_epoch', type=int, default=100)
 
 #Test
-parser.add_argument('--lr', type=int, default=270)
+parser.add_argument('--lr', type=int, default=270) #deprecated
 parser.add_argument('--hr', type=int, default=1080)
 
 #Directory
@@ -56,6 +56,7 @@ parser.add_argument('--patch_size', type=int, default=48)
 parser.add_argument('--train_data', type=str, default='starcraft1')
 parser.add_argument('--valid_data', type=str, default='starcraft1')
 parser.add_argument('--data_type', type=str, default='keyframe')
+parser.add_argument('--bitrate', type=str, default=None, help='Used for I-frame compression exp.')
 
 #Hardware
 parser.add_argument('--gpu_idx', type=int, default=0)

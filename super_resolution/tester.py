@@ -21,7 +21,12 @@ class Tester():
         self.args = args
         self.model = model_builder.build()
         self.loss = loss_func(args.loss_type)
-        self.image_dir = os.path.join(args.data_dir, args.valid_data, args.data_type, '{}p'.format(args.lr), 'sr_{}p'.format(args.hr))
+
+        if args.bitrate is None:
+            self.image_dir = os.path.join(args.data_dir, args.valid_data, args.data_type, '{}p'.format(args.hr//args.scale), 'sr_{}p'.format(args.hr))
+        else:
+            self.image_dir = os.path.join(args.data_dir, args.valid_data, args.data_type, '{}p-{}k'.format(args.hr//args.scale, args.bitrate), 'sr_{}p'.format(args.hr))
+        os.makedirs(self.image_dir, exist_ok=True)
 
         #Checkpoint
         self.root = tf.train.Checkpoint(model=self.model)
@@ -53,6 +58,7 @@ class Tester():
                 #save image
                 output_image = tf.squeeze(output_image).numpy()
                 scipy.misc.imsave("{}/{:04d}.png".format(self.image_dir, idx+1), output_image)
+                #scipy.misc.imsave("{}/{}".format(self.image_dir, name), output_image)
                 util.print_progress(idx+1, self.len_dataset, 'Test Progress:', 'Complete', 1, 50)
 
             #print result

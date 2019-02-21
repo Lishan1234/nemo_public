@@ -18,6 +18,7 @@ class EDSR:
         self.upsample_type = args.upsample_type
         self.custom_name = args.custom_name
         self.channel_in = args.channel_in
+        self.bitrate = args.bitrate
 
     def get_name(self):
         name = ''
@@ -31,6 +32,10 @@ class EDSR:
         name += 'F{}'.format(self.num_filters)
         name += '_'
         name += 'S{}'.format(self.scale)
+
+        if self.bitrate is not None:
+            name += '_'
+            name += 'BR{}'.format(self.bitrate)
 
         if self.custom_name is not None:
             name += '_'
