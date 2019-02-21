@@ -41,7 +41,7 @@ parser.add_argument('--lr_decay_rate', type=float, default=0.5)
 parser.add_argument('--lr_decay_epoch', type=int, default=100)
 
 #Test
-parser.add_argument('--lr', type=int, default=270)
+parser.add_argument('--lr', type=int, default=270) #deprecated
 parser.add_argument('--hr', type=int, default=1080)
 
 #Directory

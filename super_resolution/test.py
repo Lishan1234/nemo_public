@@ -11,7 +11,7 @@ from dataset import ImageDataset
 tf.enable_eager_execution()
 
 #redefine scale
-args.scale = args.hr // args.lr
+#args.scale = args.hr // args.lr
 
 model_module = import_module('model.' + args.model_type.lower())
 model_builder = model_module.make_model(args)

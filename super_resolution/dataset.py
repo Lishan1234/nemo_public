@@ -105,13 +105,21 @@ class ImageDataset():
     def __init__(self, args):
         #TODO: option for lazy loading approach
         hr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/original'.format(args.hr))
-        lr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/original'.format(args.lr))
-        lr_bicubic_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/bicubic_{}p'.format(args.lr, args.hr))
+        if args.bitrate is None:
+            lr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/original'.format(args.hr//args.scale))
+            lr_bicubic_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/bicubic_{}p'.format(args.hr//args.scale, args.hr))
+        else:
+            lr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p-{}k/original'.format(args.hr//args.scale, args.bitrate))
+            lr_bicubic_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p-{}k/bicubic_{}p'.format(args.hr//args.scale, args.bitrate, args.hr))
 
         self.hr_image_filenames = sorted(glob.glob('{}/*.png'.format(hr_image_path)))
         self.lr_image_filenames = sorted(glob.glob('{}/*.png'.format(lr_image_path)))
         self.lr_bicubic_image_filenames = sorted(glob.glob('{}/*.png'.format(lr_bicubic_image_path)))
 
+        print(args.scale)
+        print(args.hr//args.scale)
+        print(hr_image_path)
+        print(lr_image_path)
         assert len(self.hr_image_filenames) != 0
         assert len(self.lr_image_filenames) != 0
         assert len(self.lr_bicubic_image_filenames) != 0
