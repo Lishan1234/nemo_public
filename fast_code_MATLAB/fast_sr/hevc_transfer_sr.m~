@@ -53,8 +53,7 @@ time_info.runtime_1 = zeros(1, N_frames);
 time_info.runtime_2 = zeros(1, N_frames);
 time_info.runtime_3 = zeros(1, N_frames);
 time_info.runtime_4 = zeros(1, N_frames);
-time_info.runtime_5 = zeros(1, N_frames);
-time_info.runtime_6 = zeros(1, N_frames);
+
 
 
 % P-frames
@@ -67,7 +66,7 @@ for f_idx = 2:N_frames
     % Upsample the residue blockwise with TU block structure!
     tic;
     res_h = Blockwise_upsample_with_TU(hevc_info.res_all{f_idx}, TU_now, sr_ratio);
-    time_info.runtime_1(f_idx) = time_info.runtime_1(f_idx) + toc;
+    time_info.runtime_1 = toc;
     transfer_area = 0;
     for pu_idx = 1:length(hevc_info.other_info.PU{f_idx})
         other_info.block_number(f_idx) = other_info.block_number(f_idx) + 1;
@@ -85,7 +84,6 @@ for f_idx = 2:N_frames
             case 0
                 % Inter prediction!
                 % Decide whether to transfer or not by residue!
-                tic;
                 res_l_patch = hevc_info.res_all{f_idx}...
                     ((y_l + 1):(y_l + h), (x_l + 1):(x_l + w));
                 %                 dx_patch = conv2(res_l_patch, [-1, 1], 'valid');
@@ -93,9 +91,7 @@ for f_idx = 2:N_frames
                 %                 mean_diff = (sum(abs(dx_patch(:))) + ...
                 %                     sum(abs(dy_patch(:)))) / numel(res_l_patch);
                 mean_ssd = sum(abs(res_l_patch(:))) / numel(res_l_patch);
-                time_info.runtime_2(f_idx) = time_info.runtime_2(f_idx) + toc;
                 if mean_ssd < params.transfer_thresh
-                    tic;
                     transfer_area = transfer_area + w * h;
                     %if mean_ssd ~= 0
                     %    disp(mean_ssd);
@@ -124,19 +120,17 @@ for f_idx = 2:N_frames
                     img_h_transfer{f_idx}((y_h + 1):(y_h + sr_ratio * h), ...
                         (x_h + 1):(x_h + sr_ratio * w)) = ...
                         ref_h_patch + res_h_patch;
-                    time_info.runtime_3(f_idx) = time_info.runtime_3(f_idx) + toc;
                     if any(isnan(ref_h_patch(:))) || any(isnan(res_h_patch(:)))
                         db_var = 1;
                     end
                 else
                     % Otherwise: Prediction error is too large, perform
                     % bicubic interpolation on the low-res reconstruction
-                    tic;
                     inter_patch = recon_together{f_idx}...
                         ((y_l + 1):(y_l + h), (x_l + 1):(x_l + w));
                     img_h_transfer{f_idx}((y_h + 1):(y_h + sr_ratio * h), ...
                         (x_h + 1):(x_h + sr_ratio * w)) = imresize(inter_patch, sr_ratio, 'bicubic');
-                    time_info.runtime_4(f_idx) = time_info.runtime_4(f_idx) + toc;
+                    
                     if any(isnan(inter_patch(:)))
                         db_var = 1;
                     end
@@ -144,7 +138,7 @@ for f_idx = 2:N_frames
             case 1
                 % Intra prediction: Copy the intra prediction results, and
                 % SR!!
-                tic;
+
                 intra_patch = recon_together{f_idx}((y_l + 1):(y_l + h), ...
                     (x_l + 1):(x_l + w));
                 if any(isnan(intra_patch(:)))
@@ -152,7 +146,6 @@ for f_idx = 2:N_frames
                 end
                 img_h_transfer{f_idx}((y_h + 1):(y_h + sr_ratio * h), ...
                     (x_h + 1):(x_h + sr_ratio * w)) = imresize(intra_patch, sr_ratio, 'bicubic');
-                time_info.runtime_5(f_idx) = time_info.runtime_5(f_idx) + toc;
             otherwise
                 error('Intra indicator can only be 0 or 1 in PU!');
         end
@@ -168,7 +161,6 @@ for f_idx = 2:N_frames
         % TU structure.
         
         % Deblock the image vertically
-        tic;
         deblock_v_all = deblock_mex(int32(img_h_transfer{f_idx}));
         
         % Deblock the image horizontally
@@ -177,7 +169,7 @@ for f_idx = 2:N_frames
         
         % Update the results
         img_h_transfer{f_idx} = deblock_h;
-        time_info.runtime_6(f_idx) = time_info.runtime_6(f_idx) + toc;
+        
     end
     
     other_info.runtime_deblock(f_idx) = toc;
