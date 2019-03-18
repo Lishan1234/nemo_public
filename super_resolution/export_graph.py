@@ -62,22 +62,10 @@ converter = tf.contrib.lite.TFLiteConverter.from_keras_model_file(keras_file)
 tflite_model = converter.convert()
 open(lite_model, "wb").write(tflite_model)
 
-
-
-
 #Save fronzen graph (.pb) file
 init = tf.global_variables_initializer()
 with tf.Session() as sess:
     sess.run(init)
-
-
-
-
-
     my_graph=tf.get_default_graph()
     frozen_graph = freeze_session(sess, output_names=[out.name for out in my_graph.get_operations()])
     tf.train.write_graph(frozen_graph, checkpoint_dir, 'final_{}_{}_{}.pb'.format(args.hwc[0], args.hwc[1], args.hwc[2]), as_text=False)
-
-        
-
-    

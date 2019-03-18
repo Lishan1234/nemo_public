@@ -23,9 +23,9 @@ class Tester():
         self.loss = loss_func(args.loss_type)
 
         if args.bitrate is None:
-            self.image_dir = os.path.join(args.data_dir, args.valid_data, args.data_type, '{}p'.format(args.hr//args.scale), 'sr_{}p'.format(args.hr))
+            self.image_dir = os.path.join(args.data_dir, args.valid_data, args.data_type, '{}p'.format(args.hr//args.scale), 'sr_{}p'.format(args.hr), model_builder.get_name())
         else:
-            self.image_dir = os.path.join(args.data_dir, args.valid_data, args.data_type, '{}p-{}k'.format(args.hr//args.scale, args.bitrate), 'sr_{}p'.format(args.hr))
+            self.image_dir = os.path.join(args.data_dir, args.valid_data, args.data_type, '{}p-{}k'.format(args.hr//args.scale, args.bitrate), 'sr_{}p'.format(args.hr), model_builder.get_name())
         os.makedirs(self.image_dir, exist_ok=True)
 
         #Checkpoint
