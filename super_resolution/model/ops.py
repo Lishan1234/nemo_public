@@ -92,7 +92,7 @@ def bilinear_upsample(x, scale, data_format='channel_last'):
 
 def transpose_upsample(x, scale, num_filters, data_format='channel_last'):
     x = layers.Conv2DTranspose(num_filters,
-                            (3,3),
+                            (5,5), #should be bigger than (stride) in Qualcomm SNPE
                             (scale,scale),
                             padding='same',
                             data_format=data_format)(x)

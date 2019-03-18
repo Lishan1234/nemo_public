@@ -12,13 +12,13 @@ parser.add_argument('--load_on_memory', action='store_true')
 
 #Network architecture
 parser.add_argument('--model_type', type=str, default='edsr',
-                    choices=('edsr, mobilenetv1, mobilenetv2, shufflenetv2'),
+                    #choices=('edsr, mobilenetv1, mobilenetv2, shufflenetv2'),
                     help='type of model')
 parser.add_argument('--upsample_type', type=str, default='subpixel',
-                    choices=('transpose', 'subpixel', 'resize_bilinear', 'resize_nearest'),
+                    #choices=('transpose', 'subpixel', 'resize_bilinear', 'resize_nearest'),
                     help='type of upsample block')
-parser.add_argument('--num_blocks', type=int, default=16, help='number of convolution blocks')
-parser.add_argument('--num_filters', type=int, default=64, help='number of convolution filters')
+parser.add_argument('--num_blocks', type=int, default=4, help='number of convolution blocks')
+parser.add_argument('--num_filters', type=int, default=32, help='number of convolution filters')
 parser.add_argument('--scale', type=int, default=4, help='super-resolution scale') #TODO: extend to multi-scale
 parser.add_argument('--max_relu', type=float, default=None)
 parser.add_argument('--data_format', type=str, default='channels_last', choices=('channels_first', 'channels_last', None))
@@ -29,6 +29,11 @@ parser.add_argument('--hwc', type=str, default=None)
 
 #Network architecture (MobileNet v2)
 parser.add_argument('--expand_factor', type=int, default=6)
+
+#Network architecture (EDSR v2)
+parser.add_argument('--reduced_num_filters', type=int, default=32)
+parser.add_argument('--reduced_num_kernels', type=int, default=3)
+
 
 #Train
 parser.add_argument('--lr_init', type=float, default=1e-04)

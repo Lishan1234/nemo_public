@@ -6,15 +6,15 @@ import common
 
 parser = argparse.ArgumentParser(description='MnasNet')
 
-parser.add_argument('--train_data', type=str, default='starcraft1_new')
-parser.add_argument('--valid_data', type=str, default='starcraft1_new')
+parser.add_argument('--train_data', type=str, default='news')
+parser.add_argument('--valid_data', type=str, default='news')
 parser.add_argument('--data_root', type=str, default='../data')
-parser.add_argument('--data_name', type=str, default='keyframe_20sec')
+parser.add_argument('--data_name', type=str, default='60_0.5')
 parser.add_argument('--patch_size', type=int, default=48)
 parser.add_argument('--num_patch', type=int, default=10000)
 parser.add_argument('--enable_debug', action='store_true')
 parser.add_argument('--scale', type=int, default=4) #for image based dataset
-parser.add_argument('--hr', type=int, default=1080) #for video based dataset
+parser.add_argument('--hr', type=int, default=960) #for video based dataset
 parser.add_argument('--bitrate', type=int, default=None) #for video based dataset
 
 args = parser.parse_args()
@@ -24,7 +24,6 @@ tf.enable_eager_execution()
 """dataset for single HR-LR video pair"""
 
 #Training dataset
-
 if args.bitrate is None:
     train_tf_records_filename = os.path.join(args.data_root, args.train_data, args.data_name, '{}_{}_{}_{}_train.tfrecords'.format(args.train_data, args.patch_size, args.num_patch, args.scale))
     train_hr_image_path = os.path.join(args.data_root, args.train_data, args.data_name, '{}p/original'.format(args.hr))
