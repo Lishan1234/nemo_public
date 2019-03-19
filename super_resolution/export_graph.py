@@ -67,5 +67,5 @@ init = tf.global_variables_initializer()
 with tf.Session() as sess:
     sess.run(init)
     my_graph=tf.get_default_graph()
-    frozen_graph = freeze_session(sess, output_names=[out.name for out in my_graph.get_operations()])
+    frozen_graph = freeze_session(sess, output_names=[out.name for out in model.outputs])
     tf.train.write_graph(frozen_graph, checkpoint_dir, 'final_{}_{}_{}.pb'.format(args.hwc[0], args.hwc[1], args.hwc[2]), as_text=False)

@@ -32,6 +32,8 @@ class EDSR_v2:
         name += '_'
         name += 'F{}'.format(self.num_filters)
         name += '_'
+        name += 'RF{}'.format(self.num_reduced_filters)
+        name += '_'
         name += 'S{}'.format(self.scale)
 
         if self.bitrate is not None:
