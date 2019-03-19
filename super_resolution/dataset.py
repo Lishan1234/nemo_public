@@ -69,6 +69,7 @@ class TFRecordDataset():
 
     def create_train_dataset(self):
         dataset = tf.data.TFRecordDataset(self.train_tfrecord_path, num_parallel_reads=1)
+        dataset = dataset.cache() #temporally used for small tfrecord file
         dataset = dataset.shuffle(10000)
         dataset = dataset.repeat()
         dataset = dataset.map(self._train_parse_function, num_parallel_calls=2)

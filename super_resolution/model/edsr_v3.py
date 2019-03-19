@@ -5,13 +5,12 @@ from tensorflow.keras import Model
 from model import ops
 
 def make_model(args):
-    return EDSR_v2(args)
+    return EDSR_v3(args)
 
-class EDSR_v2:
+class EDSR_v3:
     def __init__(self, args):
         self.num_blocks = args.num_blocks
         self.num_filters = args.num_filters
-        self.num_reduced_filters = args.num_reduced_filters
         self.data_format = args.data_format
         self.max_relu = args.max_relu
         self.scale = args.scale
@@ -50,16 +49,16 @@ class EDSR_v2:
         elif self.upsample_type == 'subpixel':
             return ops.subpixel_upsample(x, self.scale, self.channel_in, self.data_format) #compact version
         elif self.upsample_type == 'resize_bilinear':
-            x = ops.bilinear_upsample(x, self.scale, self.data_format, self.num_reduced_filters)
+            x = ops.bilinear_upsample(x, self.scale, self.data_format)
             x = layers.Conv2D(self.channel_in,
-                                        (3,3),
+                                        (1,1),
                                         padding='same',
                                         data_format=self.data_format)(x)
             return x
         elif self.upsample_type == 'resize_nearest':
-            x = ops.nearest_upsample(x, self.scale, self.data_format, self.num_reduced_filters)
+            x = ops.nearest_upsample(x, self.scale, self.data_format)
             x = layers.Conv2D(self.channel_in,
-                                        (3,3),
+                                        (1,1),
                                         padding='same',
                                         data_format=self.data_format)(x)
             return x

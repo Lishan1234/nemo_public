@@ -5,9 +5,9 @@ from tensorflow.keras import Model
 from model import ops
 
 def make_model(args):
-    return EDSR(args)
+    return EDSR_v1(args)
 
-class EDSR:
+class EDSR_v1:
     def __init__(self, args):
         self.num_blocks = args.num_blocks
         self.num_filters = args.num_filters
@@ -45,12 +45,23 @@ class EDSR:
 
     def _build_upsample(self, x):
         if self.upsample_type == 'transpose':
-            return ops.transpose_upsample(x, self.scale, self.num_filters, self.data_format)
+            return ops.transpose_upsample(x, self.scale, self.channel_in, self.data_format) #compact version
         elif self.upsample_type == 'subpixel':
-            return ops.subpixel_upsample(x, self.scale, self.num_filters, self.data_format)
+            return ops.subpixel_upsample(x, self.scale, self.channel_in, self.data_format) #compact version
         elif self.upsample_type == 'resize_bilinear':
-            return ops.bilinear_upsample(x, self.scale, self.data_format)
-
+            x = ops.bilinear_upsample(x, self.scale, self.data_format)
+            x = layers.SeparableConv2D(self.channel_in,
+                                        (3,3),
+                                        padding='same',
+                                        data_format=self.data_format)(x)
+            return x
+        elif self.upsample_type == 'resize_nearest':
+            x = ops.nearest_upsample(x, self.scale, self.data_format)
+            x = layers.SeparableConv2D(self.channel_in,
+                                        (3,3),
+                                        padding='same',
+                                        data_format=self.data_format)(x)
+            return x
         raise NotImplementedError
 
     def build(self):
@@ -73,18 +84,21 @@ class EDSR:
                                         num_filters=self.num_filters,
                                         kernel_size=3,
                                         max_relu=self.max_relu,
-                                        data_format=self.data_format)
+                                        data_format=self.data_format,
+                                        use_dws_conv=True)
 
         outputs = layers.SeparableConv2D(self.num_filters,
                                         (3,3),
                                         padding='same',
                                         data_format=self.data_format)(outputs)
         outputs = layers.Add()([outputs, res])
-        outputs = self._build_upsample(outputs)
+        predictions = self._build_upsample(outputs)
+        """
         predictions = layers.SeparableConv2D(self.channel_in,
                                         (3,3),
                                         padding='same',
                                         data_format=self.data_format)(outputs)
+        """
 
         model = Model(inputs=inputs, outputs=predictions)
         #model.summary()

@@ -16,20 +16,32 @@ class ReLU(tf.keras.layers.Layer):
     def compute_output_shape(self, input_shape):
         return tf.TensorShape(input_shape)
 
-def residual_block(x, num_filters, kernel_size, max_relu, data_format='channel_last'):
+def residual_block(x, num_filters, kernel_size, max_relu, data_format='channel_last', use_dws_conv=False):
     with tf.variable_scope('residual_block'):
         res = x
-        x = layers.Conv2D(num_filters,
-                            (kernel_size,kernel_size),
-                            padding='same',
-                            data_format=data_format)(x)
+        if use_dws_conv is True:
+            x = layers.SeparableConv2D(num_filters,
+                                (kernel_size,kernel_size),
+                                padding='same',
+                                data_format=data_format)(x)
+        else:
+            x = layers.Conv2D(num_filters,
+                                (kernel_size,kernel_size),
+                                padding='same',
+                                data_format=data_format)(x)
 
         #x = tf.keras.layers.ReLU(max_value=max_relu)(x)
         x = ReLU()(x)
-        x = layers.Conv2D(num_filters,
-                            (kernel_size,kernel_size),
-                            padding='same',
-                            data_format=data_format)(x)
+        if use_dws_conv is True:
+            x = layers.SeparableConv2D(num_filters,
+                                (kernel_size,kernel_size),
+                                padding='same',
+                                data_format=data_format)(x)
+        else:
+            x = layers.Conv2D(num_filters,
+                                (kernel_size,kernel_size),
+                                padding='same',
+                                data_format=data_format)(x)
         x = layers.Add()([x, res])
 
     return x
@@ -83,17 +95,28 @@ def mobilenetv2_block(x, num_filters, kernel_size, expand_factor, max_relu, data
 
     return x
 
-"""
-def shufflev2_block():
-"""
-
-def bilinear_upsample(x, scale, data_format='channel_last'):
+def bilinear_upsample(x, scale, data_format='channel_last', num_reduced_filters=None):
+    if num_reduced_filters is not None:
+        assert isinstance(num_reduced_filters, int)
+        x = layers.Conv2D(num_reduced_filters,
+                            (1,1),
+                            padding='same',
+                            data_format=data_format)(x)
     return layers.UpSampling2D(size=(scale, scale), data_format=data_format, interpolation='bilinear')(x)
 
-def transpose_upsample(x, scale, num_filters, data_format='channel_last'):
-    x = layers.Conv2DTranspose(num_filters,
-                            (5,5), #should be bigger than (stride) in Qualcomm SNPE
-                            (scale,scale),
+def nearest_upsample(x, scale, data_format='channel_last', num_reduced_filters=None):
+    if num_reduced_filters is not None:
+        assert isinstance(num_reduced_filters, int)
+        x = layers.Conv2D(num_reduced_filters,
+                            (1,1),
+                            padding='same',
+                            data_format=data_format)(x)
+    return layers.UpSampling2D(size=(scale, scale), data_format=data_format, interpolation='nearest')(x)
+
+def transpose_upsample(x, scale, num_filters, data_format='channel_last', num_kernels=5):
+    x = layers.Conv2DTranspose(filters=num_filters,
+                            kernel_size=(num_kernels,num_kernels), #should be bigger than (stride) in Qualcomm SNPE
+                            strides=(scale,scale),
                             padding='same',
                             data_format=data_format)(x)
     return x
