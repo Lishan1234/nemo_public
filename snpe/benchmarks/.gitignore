@@ -1,0 +1,4 @@
+*.json
+inception_v3/
+snpebm/
+utils/

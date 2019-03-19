@@ -1,0 +1,9 @@
+android/
+doc/
+lib/
+share/
+examples/
+*.txt
+bin/
+include/
+models/
