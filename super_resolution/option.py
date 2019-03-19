@@ -31,14 +31,14 @@ parser.add_argument('--hwc', type=str, default=None)
 parser.add_argument('--expand_factor', type=int, default=6)
 
 #Network architecture (EDSR v2)
-parser.add_argument('--reduced_num_filters', type=int, default=32)
-parser.add_argument('--reduced_num_kernels', type=int, default=3)
+parser.add_argument('--num_reduced_filters', type=int, default=32)
+parser.add_argument('--num_reduced_kernels', type=int, default=3)
 
 
 #Train
 parser.add_argument('--lr_init', type=float, default=1e-04)
 parser.add_argument('--num_batch', type=int, default=64)
-parser.add_argument('--num_epoch', type=int, default=30)
+parser.add_argument('--num_epoch', type=int, default=50)
 parser.add_argument('--num_batch_per_epoch', type=int, default=1000)
 parser.add_argument('--loss_type', type=str, default='l1',
                     choices=('l1', 'l2'))

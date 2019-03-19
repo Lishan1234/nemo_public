@@ -50,15 +50,15 @@ class EDSR:
             return ops.subpixel_upsample(x, self.scale, self.channel_in, self.data_format) #compact version
         elif self.upsample_type == 'resize_bilinear':
             x = ops.bilinear_upsample(x, self.scale, self.data_format)
-            x = layers.SeparableConv2D(self.channel_in,
-                                        (3,3),
+            x = layers.Conv2D(self.channel_in,
+                                        (1,1),
                                         padding='same',
                                         data_format=self.data_format)(x)
             return x
         elif self.upsample_type == 'resize_nearest':
             x = ops.nearest_upsample(x, self.scale, self.data_format)
-            x = layers.SeparableConv2D(self.channel_in,
-                                        (3,3),
+            x = layers.Conv2D(self.channel_in,
+                                        (1,1),
                                         padding='same',
                                         data_format=self.data_format)(x)
             return x
@@ -73,7 +73,7 @@ class EDSR:
         else:
             inputs = layers.Input(shape=(None, None, self.channel_in))
 
-        outputs = layers.SeparableConv2D(self.num_filters,
+        outputs = layers.Conv2D(self.num_filters,
                                         (3,3),
                                         padding='same',
                                         data_format=self.data_format)(inputs)
@@ -84,17 +84,16 @@ class EDSR:
                                         num_filters=self.num_filters,
                                         kernel_size=3,
                                         max_relu=self.max_relu,
-                                        data_format=self.data_format,
-                                        use_dws_conv=True)
+                                        data_format=self.data_format)
 
-        outputs = layers.SeparableConv2D(self.num_filters,
+        outputs = layers.Conv2D(self.num_filters,
                                         (3,3),
                                         padding='same',
                                         data_format=self.data_format)(outputs)
         outputs = layers.Add()([outputs, res])
         predictions = self._build_upsample(outputs)
         """
-        predictions = layers.SeparableConv2D(self.channel_in,
+        predictions = layers.Conv2D(self.channel_in,
                                         (3,3),
                                         padding='same',
                                         data_format=self.data_format)(outputs)
