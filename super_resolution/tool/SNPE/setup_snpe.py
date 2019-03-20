@@ -258,17 +258,16 @@ def setup_assets():
 
 
     #Prepare dataset (rawfile, png)
-    #prepare_data_images(os.path.join(args.data_dir, args.train_data, args.data_type), data_dir)
+    prepare_data_images(os.path.join(args.data_dir, args.train_data, args.data_type), data_dir)
 
     #Convert to frozen graph (.pb) file
-    #pb_filename, input_name, output_name = convert_to_pb(model, model_name, tensorflow_dir)
-    #pb_filename = optimize_for_inference(pb_filename, input_name, output_name, model_dir, tensorflow_dir)
+    pb_filename, input_name, output_name = convert_to_pb(model, model_name, tensorflow_dir)
+    pb_filename = optimize_for_inference(pb_filename, input_name, output_name, model_dir, tensorflow_dir)
 
     #Convert to dlc file
-    #convert_to_dlc(pb_filename, input_name, output_name, model_name, model_dir, tensorflow_dir, dlc_dir, data_dir)
+    convert_to_dlc(pb_filename, input_name, output_name, model_name, model_dir, tensorflow_dir, dlc_dir, data_dir)
 
     #Generate config.json for benchmark
-    #TODO
     print('INFO: Create a json configuration file for benchmark')
 
     name = '{}_{}'.format(args.train_data, model_name)
