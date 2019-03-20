@@ -71,6 +71,11 @@ parser.add_argument('--custom_name', type=str, default=None, help='additional mo
 parser.add_argument('--num_sample', type=int, default=5)
 parser.add_argument('--use_random_weights', action='store_true', default=5)
 
+#SDK - Qualcomm SNPE
+parser.add_argument('--snpe_project_root', type=str, default='../snpe')
+parser.add_argument('--snpe_tensorflow_root', type=str, default='../../tensorflow')
+
+
 args = parser.parse_args()
 if args.hwc is not None:
     args.hwc = list(map(lambda x: int(x), args.hwc.split(',')))

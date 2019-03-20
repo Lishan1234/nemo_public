@@ -41,7 +41,7 @@ model_builder = model_module.make_model(args)
 model = model_builder.build()
 
 #Restore parameters
-checkpoint_dir = os.path.join(args.checkpoint_dir, model_builder.get_name())
+checkpoint_dir = os.path.join(args.checkpoint_dir, args.train_data, model_builder.get_name())
 os.makedirs(checkpoint_dir, exist_ok=True)
 if args.use_random_weights is not True:
     root = tf.train.Checkpoint(model=model)
@@ -57,15 +57,26 @@ keras_file=os.path.join(checkpoint_dir, 'final_{}_{}_{}.h5').format(args.hwc[0],
 model.save(keras_file)
 
 #Save tflite model
+"""
 lite_model=os.path.join(checkpoint_dir, 'final_{}_{}_{}.tflite').format(args.hwc[0], args.hwc[1], args.hwc[2])
 converter = tf.contrib.lite.TFLiteConverter.from_keras_model_file(keras_file)
 tflite_model = converter.convert()
 open(lite_model, "wb").write(tflite_model)
+"""
 
 #Save fronzen graph (.pb) file
+"""
 init = tf.global_variables_initializer()
 with tf.Session() as sess:
     sess.run(init)
     my_graph=tf.get_default_graph()
     frozen_graph = freeze_session(sess, output_names=[out.name for out in model.outputs])
     tf.train.write_graph(frozen_graph, checkpoint_dir, 'final_{}_{}_{}.pb'.format(args.hwc[0], args.hwc[1], args.hwc[2]), as_text=False)
+"""
+
+sess = tf.keras.backend.get_session()
+init = tf.global_variables_initializer()
+sess.run(init)
+my_graph=tf.get_default_graph()
+frozen_graph = freeze_session(sess, output_names=[out.op.name for out in model.outputs])
+tf.train.write_graph(frozen_graph, checkpoint_dir, 'final_{}_{}_{}.pb'.format(args.hwc[0], args.hwc[1], args.hwc[2]), as_text=False)
