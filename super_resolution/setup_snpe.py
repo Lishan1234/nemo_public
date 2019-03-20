@@ -19,6 +19,8 @@ import glob
 import argparse
 from importlib import import_module
 from option import args
+import json
+import collections
 
 from PIL import Image
 
@@ -33,6 +35,7 @@ INCEPTION_V3_LBL_FILENAME           = 'imagenet_slim_labels.txt'
 OPT_4_INFERENCE_SCRIPT              = 'optimize_for_inference.py'
 RAW_LIST_FILE                       = 'raw_list.txt'
 TARGET_RAW_LIST_FILE                = 'target_raw_list.txt'
+TARGET_ABS_RAW_LIST_FILE            = 'target_abs_raw_list.txt'
 
 def wget(download_dir, file_url):
     cmd = ['wget', '-N', '--directory-prefix={}'.format(download_dir), file_url]
@@ -124,8 +127,7 @@ def create_file_list(input_dir, output_filename, ext_pattern, print_out=False, r
     file_list = glob.glob(glob_path)
 
     if rel_path:
-        #file_list = [os.path.relpath(file_path, output_dir) for file_path in file_list]
-        file_list = [os.path.abspath(file_path) for file_path in file_list]
+        file_list = [os.path.relpath(file_path, output_dir) for file_path in file_list]
 
     if len(file_list) <= 0:
         if print_out: print('No results with %s' % glob_path)
@@ -164,6 +166,7 @@ def prepare_data_images(src_data_dir, dst_data_dir):
 
     print('INFO: Creating image list data files')
     create_file_list(lr_dst_data_dir, os.path.join(dst_data_dir, TARGET_RAW_LIST_FILE), '*.raw', print_out=True, rel_path=True)
+    create_file_list(lr_dst_data_dir, os.path.join(dst_data_dir, TARGET_ABS_RAW_LIST_FILE), '*.raw', print_out=True, rel_path=False)
 
 def convert_to_dlc(pb_filename, input_name, output_name, model_name, model_dir, tensorflow_dir, dlc_dir, data_dir):
     dlc_filename = '{}.dlc'.format(model_name)
@@ -182,7 +185,7 @@ def convert_to_dlc(pb_filename, input_name, output_name, model_name, model_dir, 
     print('INFO: Creating ' + quantized_dlc_filename + ' quantized model')
     cmd = ['snpe-dlc-quantize',
            '--input_dlc', os.path.join(dlc_dir, dlc_filename),
-           '--input_list', os.path.join(data_dir, TARGET_RAW_LIST_FILE),
+           '--input_list', os.path.join(data_dir, TARGET_ABS_RAW_LIST_FILE),
            '--output_dlc', os.path.join(dlc_dir, quantized_dlc_filename)]
     subprocess.call(cmd)
 
@@ -255,17 +258,46 @@ def setup_assets():
 
 
     #Prepare dataset (rawfile, png)
-    prepare_data_images(os.path.join(args.data_dir, args.train_data, args.data_type), data_dir)
+    #prepare_data_images(os.path.join(args.data_dir, args.train_data, args.data_type), data_dir)
 
     #Convert to frozen graph (.pb) file
-    pb_filename, input_name, output_name = convert_to_pb(model, model_name, tensorflow_dir)
-    pb_filename = optimize_for_inference(pb_filename, input_name, output_name, model_dir, tensorflow_dir)
+    #pb_filename, input_name, output_name = convert_to_pb(model, model_name, tensorflow_dir)
+    #pb_filename = optimize_for_inference(pb_filename, input_name, output_name, model_dir, tensorflow_dir)
 
     #Convert to dlc file
-    convert_to_dlc(pb_filename, input_name, output_name, model_name, model_dir, tensorflow_dir, dlc_dir, data_dir)
+    #convert_to_dlc(pb_filename, input_name, output_name, model_name, model_dir, tensorflow_dir, dlc_dir, data_dir)
 
     #Generate config.json for benchmark
     #TODO
+    print('INFO: Create a json configuration file for benchmark')
+
+    name = '{}_{}'.format(args.train_data, model_name)
+    benchmark = collections.OrderedDict()
+    benchmark['Name'] = name
+    benchmark['HostRootPath'] = name
+    benchmark['HostResultsDir'] = '{}/results'.format(name)
+    benchmark['DevicePath'] = '/data/local/tmp/snpebm'
+    benchmark['Devices'] = []
+    benchmark['HostName'] = 'localhost'
+    benchmark['Runs'] = 1
+    benchmark['Model'] = collections.OrderedDict()
+    benchmark['Model']['Name'] = name
+    benchmark['Model']['Dlc'] = os.path.abspath(os.path.join(dlc_dir, '{}.dlc'.format(model_name)))
+    benchmark['Model']['InputList'] = os.path.abspath(os.path.join(data_dir, TARGET_RAW_LIST_FILE))
+    benchmark['Model']['Data'] = [os.path.abspath(os.path.join(data_dir, '{}p'.format(args.lr)))]
+
+    """
+            'Name': name,
+            'Dlc': os.path.abspath(os.path.join(dlc_dir, '{}.dlc'.format(model_name))),
+            'InputList': os.path.abspath(os.path.join(data_dir, TARGET_RAW_LIST_FILE)),
+            'Data': [os.path.abspath(os.path.join(data_dir, '{}p'.format(args.lr)))]
+            }
+    """
+    benchmark['Runtimes'] = ['GPU', 'GPU_FP16', 'CPU']
+    benchmark['Measurements'] = ['timing']
+
+    with open(os.path.join(args.snpe_project_root, 'benchmarks', '{}.json'.format(name)),'w') as outfile:
+            json.dump(benchmark, outfile, indent=4)
 
     print('INFO: Setup inception_v3 completed.')
 
