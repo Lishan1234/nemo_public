@@ -18,6 +18,7 @@ import sys
 import glob
 import argparse
 from importlib import import_module
+sys.path.append('../../')
 from option import args
 import json
 import collections
@@ -124,7 +125,7 @@ def create_file_list(input_dir, output_filename, ext_pattern, print_out=False, r
         raise RuntimeError('output_filename %s directory does not exist' % output_dir)
 
     glob_path = os.path.join(input_dir, ext_pattern)
-    file_list = glob.glob(glob_path)
+    file_list = sorted(glob.glob(glob_path))
 
     if rel_path:
         file_list = [os.path.relpath(file_path, output_dir) for file_path in file_list]

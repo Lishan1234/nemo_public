@@ -74,6 +74,9 @@ parser.add_argument('--use_random_weights', action='store_true', default=5)
 #SDK - Qualcomm SNPE
 parser.add_argument('--snpe_project_root', type=str, default='../snpe')
 parser.add_argument('--snpe_tensorflow_root', type=str, default='../../tensorflow')
+parser.add_argument('--snpe_device_serial', type=str, default=None, help='Used for adb commands')
+parser.add_argument('--snpe_copy_lib', action='store_true')
+parser.add_argument('--snpe_copy_data', action='store_true')
 
 
 args = parser.parse_args()
