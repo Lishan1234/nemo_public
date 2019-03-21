@@ -148,6 +148,9 @@ def prepare_data_images(src_data_dir, dst_data_dir):
     if not os.path.isdir(lr_dst_data_dir): os.makedirs(lr_dst_data_dir)
     if not os.path.isdir(hr_dst_data_dir): os.makedirs(hr_dst_data_dir)
 
+    assert len(glob.glob('{}/*.png'.format(lr_src_img_files))) != 0
+    assert len(glob.glob('{}/*.png'.format(hr_src_img_files))) != 0
+
     for file in glob.glob('{}/*.png'.format(lr_src_img_files)):
         shutil.copy(file, lr_dst_data_dir)
     for file in glob.glob('{}/*.png'.format(hr_src_img_files)):
@@ -220,10 +223,11 @@ def freeze_session(session, keep_var_names=None, output_names=None, clear_device
 
 def convert_to_pb(model, model_name, save_path):
     #Restore parameters
-    checkpoint_dir = os.path.join(args.checkpoint_dir, args.train_data, model_name)
-    if args.use_random_weights is not True:
-        root = tf.train.Checkpoint(model=model)
-        root.restore(tf.train.latest_checkpoint(checkpoint_dir))
+    checkpoint_dir = os.path.join('../../', args.checkpoint_dir, args.train_data, model_name)
+    root = tf.train.Checkpoint(model=model)
+    assert tf.train.latest_checkpoint(checkpoint_dir) is not None
+    status = root.restore(tf.train.latest_checkpoint(checkpoint_dir))
+    #status.assert_consumed()
 
     #Save input, output tensor names to a config file
     input_name = model.inputs[0].name.split(':')[0]
@@ -232,8 +236,7 @@ def convert_to_pb(model, model_name, save_path):
     #Save fronzen graph (.pb) file
     pb_filename = 'final_{}_{}_{}.pb'.format(args.hwc[0], args.hwc[1], args.hwc[2])
     sess = tf.keras.backend.get_session()
-    init = tf.global_variables_initializer()
-    sess.run(init)
+    status.initialize_or_restore(sess)
     my_graph=tf.get_default_graph()
     frozen_graph = freeze_session(sess, output_names=[out.op.name for out in model.outputs])
     tf.train.write_graph(frozen_graph, save_path, pb_filename, as_text=False)
@@ -257,9 +260,8 @@ def setup_assets():
     os.makedirs(dlc_dir, exist_ok=True)
     os.makedirs(data_dir, exist_ok=True)
 
-
     #Prepare dataset (rawfile, png)
-    prepare_data_images(os.path.join(args.data_dir, args.train_data, args.data_type), data_dir)
+    prepare_data_images(os.path.join('../../', args.data_dir, args.train_data, args.data_type), data_dir)
 
     #Convert to frozen graph (.pb) file
     pb_filename, input_name, output_name = convert_to_pb(model, model_name, tensorflow_dir)

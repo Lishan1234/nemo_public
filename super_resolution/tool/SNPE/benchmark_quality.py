@@ -4,6 +4,7 @@ sys.path.append('../../')
 from option import args
 from importlib import import_module
 import math
+import scipy.misc
 
 import numpy as np
 
@@ -84,7 +85,7 @@ def execute_network(runtime):
         output_dir = '{}p_16bit'.format(args.lr*args.scale)
     elif runtime == 'GPU':
         dlc_name = '{}.dlc'.format(model_name)
-        runtime_opt = '--use_gpu --gpu_mode float32'
+        runtime_opt = '--use_gpu --gpu_mode default'
         output_dir = '{}p_32bit'.format(args.lr*args.scale)
 
     cmds = ['export SNPE_TARGET_ARCH=aarch64-android-gcc4.9',
@@ -100,10 +101,10 @@ def execute_network(runtime):
         for ln in cmds:
             cmd_script.write(ln + '\n')
 
-    os.makedirs(os.path.join(args.snpe_project_root, 'custom', args.train_data, 'data', '{}p_8bit'.format(args.lr * args.scale)), exist_ok=True)
+    os.makedirs(os.path.join(args.snpe_project_root, 'custom', args.train_data, 'data', output_dir), exist_ok=True)
     os.system('adb push {} {}'.format(cmd_script_path, dst_root_dir))
     os.system('adb shell sh {}'.format(os.path.join(dst_root_dir, SNPE_BENCH_SCRIPT)))
-    os.system('adb pull {} {}'.format(os.path.join(dst_root_dir, args.train_data, 'data', '{}p_8bit'.format(args.lr * args.scale)), os.path.join(args.snpe_project_root, 'custom', args.train_data, 'data', output_dir)))
+    os.system('adb pull {} {}'.format(os.path.join(dst_root_dir, args.train_data, 'data', output_dir), os.path.join(args.snpe_project_root, 'custom', args.train_data, 'data', output_dir)))
 
 def psnr(img1, img2, max_value):
     mse = np.mean( (img1 - img2) ** 2 )
@@ -137,6 +138,15 @@ def calculate_psnr(runtime):
         h, w = RESOLUTION[args.lr]
         target_array = np.reshape(target_array, (h*args.scale, w*args.scale, 3))
 
+        #Test: raw input
+        """
+        test_lr_raw = os.path.join(args.snpe_project_root, 'custom', args.train_data, 'data', '{}p'.format(args.lr), '0001.raw')
+        target_array = np.fromfile(test_lr_raw, dtype=np.float32)
+        target_array = np.reshape(target_array, (h, w, 3))
+        scipy.misc.imsave(os.path.join(output_dir, 'lr_{:04d}.png'.format(idx+1)), target_array)
+        sys.exit()
+        """
+
         #Read a reference frame
         cur_reference_file = os.path.abspath(os.path.join(src_data_path, '{:04d}.raw'.format(idx+1)))
         reference_array = np.fromfile(cur_reference_file, dtype=np.float32)
@@ -146,11 +156,13 @@ def calculate_psnr(runtime):
         psnr_result = psnr(target_array, reference_array, 1.0)
         psnr_results.append(psnr_result)
 
+        print('[{}] ({}/{}): {}dB'.format(runtime, idx+1, len(input_files), round(psnr_result, 3)))
+
     log_path = os.path.join(output_dir, 'quality.log')
     with open(log_path, 'w') as log_script:
-        log_script.write(str(round(np.mean(psnr_results),3)+'\n')
+        log_script.write(str(round(np.mean(psnr_results),3))+'\n')
         for psnr_result in psnr_results:
-            log_script.write(str(round(psnr_result, 3)+'\n')
+            log_script.write(str(round(psnr_result, 3))+'\n')
 
 #TODO: Should we use userbuffer_tf8?
 
@@ -159,7 +171,8 @@ if __name__ == '__main__':
         setup_prerequisites()
     setup_dlc_data(args.snpe_copy_data)
 
-    runtimes = ['FIX_CPU', 'GPU_FP16', 'GPU']
+    #runtimes = ['FIX_CPU', 'GPU_FP16', 'GPU']
+    runtimes = ['GPU']
     for runtime in runtimes:
         execute_network(runtime)
         calculate_psnr(runtime)
