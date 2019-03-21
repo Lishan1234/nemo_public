@@ -1,2 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<merger version="3"><dataSet config="main"><source path="/home/hyunho/snpe-1.23.1.245/examples/android/image-classifiers/app/src/main/jniLibs"/></dataSet><dataSet config="debug"><source path="/home/hyunho/snpe-1.23.1.245/examples/android/image-classifiers/app/src/debug/jniLibs"/></dataSet></merger>
