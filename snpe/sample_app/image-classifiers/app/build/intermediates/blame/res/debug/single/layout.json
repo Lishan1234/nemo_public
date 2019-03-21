@@ -1,0 +1,22 @@
+[
+    {
+        "merged": "/home/hyunho/snpe-1.23.1.245/examples/android/image-classifiers/app/build/intermediates/res/merged/debug/layout/model_image_layout.xml",
+        "source": "/home/hyunho/snpe-1.23.1.245/examples/android/image-classifiers/app/src/main/res/layout/model_image_layout.xml"
+    },
+    {
+        "merged": "/home/hyunho/snpe-1.23.1.245/examples/android/image-classifiers/app/build/intermediates/res/merged/debug/layout/activity_main.xml",
+        "source": "/home/hyunho/snpe-1.23.1.245/examples/android/image-classifiers/app/src/main/res/layout/activity_main.xml"
+    },
+    {
+        "merged": "/home/hyunho/snpe-1.23.1.245/examples/android/image-classifiers/app/build/intermediates/res/merged/debug/layout/fragment_model.xml",
+        "source": "/home/hyunho/snpe-1.23.1.245/examples/android/image-classifiers/app/src/main/res/layout/fragment_model.xml"
+    },
+    {
+        "merged": "/home/hyunho/snpe-1.23.1.245/examples/android/image-classifiers/app/build/intermediates/res/merged/debug/layout/models_list.xml",
+        "source": "/home/hyunho/snpe-1.23.1.245/examples/android/image-classifiers/app/src/main/res/layout/models_list.xml"
+    },
+    {
+        "merged": "/home/hyunho/snpe-1.23.1.245/examples/android/image-classifiers/app/build/intermediates/res/merged/debug/layout/models_list_item.xml",
+        "source": "/home/hyunho/snpe-1.23.1.245/examples/android/image-classifiers/app/src/main/res/layout/models_list_item.xml"
+    }
+]

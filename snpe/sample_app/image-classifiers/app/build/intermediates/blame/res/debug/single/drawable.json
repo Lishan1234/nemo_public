@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "/home/hyunho/snpe-1.23.1.245/examples/android/image-classifiers/app/build/intermediates/res/merged/debug/drawable/classification_background.xml",
+        "source": "/home/hyunho/snpe-1.23.1.245/examples/android/image-classifiers/app/src/main/res/drawable/classification_background.xml"
+    },
+    {
+        "merged": "/home/hyunho/snpe-1.23.1.245/examples/android/image-classifiers/app/build/intermediates/res/merged/debug/drawable/button.xml",
+        "source": "/home/hyunho/snpe-1.23.1.245/examples/android/image-classifiers/app/src/main/res/drawable/button.xml"
+    }
+]
