@@ -26,11 +26,9 @@ import java.util.Set;
 public class LoadModelsTask extends AsyncTask<Void, Void, Set<Model>> {
 
     public static final String MODEL_DLC_FILE_NAME = "model.dlc";
-    public static final String MODEL_MEAN_IMAGE_FILE_NAME = "mean_image.bin";
-    public static final String LABELS_FILE_NAME = "labels.txt";
-    public static final String IMAGES_FOLDER_NAME = "images";
-    public static final String RAW_EXT = ".raw";
-    public static final String JPG_EXT = ".jpg";
+    public static final String LR_IMAGES_FOLDER_NAME = "lr_images";
+    public static final String HR_IMAGES_FOLDER_NAME = "hr_images";
+    public static final String PNG_EXT = ".png";
     private static final String LOG_TAG = LoadModelsTask.class.getSimpleName();
 
     private final ModelCatalogueFragmentController mController;
@@ -77,34 +75,24 @@ public class LoadModelsTask extends AsyncTask<Void, Void, Set<Model>> {
         final Model model = new Model();
         model.name = modelDir.getName();
         model.file = new File(modelDir, MODEL_DLC_FILE_NAME);
-        model.meanImage = new File(modelDir, MODEL_MEAN_IMAGE_FILE_NAME);
-        final File images = new File(modelDir, IMAGES_FOLDER_NAME);
-        if (images.isDirectory()) {
-            model.rawImages = images.listFiles(new FileFilter() {
+        final File Lrimages = new File(modelDir, LR_IMAGES_FOLDER_NAME);
+        if (Lrimages.isDirectory()) {
+            model.pngLrImages = Lrimages.listFiles(new FileFilter() {
                 @Override
                 public boolean accept(File file) {
-                    return file.getName().endsWith(RAW_EXT);
-                }
-            });
-            model.jpgImages = images.listFiles(new FileFilter() {
-                @Override
-                public boolean accept(File file) {
-                    return file.getName().endsWith(JPG_EXT);
+                    return file.getName().endsWith(PNG_EXT);
                 }
             });
         }
-        model.labels = loadLabels(new File(modelDir, LABELS_FILE_NAME));
+        final File Hrimages = new File(modelDir, HR_IMAGES_FOLDER_NAME);
+        if (Hrimages.isDirectory()) {
+            model.pngHrImages = Hrimages.listFiles(new FileFilter() {
+                @Override
+                public boolean accept(File file) {
+                    return file.getName().endsWith(PNG_EXT);
+                }
+            });
+        }
         return model;
-    }
-
-    private String[] loadLabels(File labelsFile) throws IOException {
-        final List<String> list = new LinkedList<>();
-        final BufferedReader inputStream = new BufferedReader(
-            new InputStreamReader(new FileInputStream(labelsFile)));
-        String line;
-        while ((line = inputStream.readLine()) != null) {
-            list.add(line);
-        }
-        return list.toArray(new String[list.size()]);
     }
 }

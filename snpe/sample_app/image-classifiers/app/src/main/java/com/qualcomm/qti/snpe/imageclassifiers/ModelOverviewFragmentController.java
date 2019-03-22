@@ -66,8 +66,8 @@ public class ModelOverviewFragmentController extends AbstractViewController<Mode
     }
 
     private void loadImageSamples(ModelOverviewFragment view) {
-        for (int i = 0; i < mModel.jpgImages.length; i++) {
-            final File jpeg = mModel.jpgImages[i];
+        for (int i = 0; i < mModel.pngLrImages.length; i++) {
+            final File jpeg = mModel.pngLrImages[i];
             final Bitmap cached = getCachedBitmap(jpeg);
             if (cached != null) {
                 view.addSampleBitmap(cached);
@@ -160,10 +160,18 @@ public class ModelOverviewFragmentController extends AbstractViewController<Mode
         }
     }
 
+    /*
     public void onClassificationResult(String[] labels, long javaExecuteTime) {
         if (isAttached()) {
             ModelOverviewFragment view = getView();
             view.setClassificationResult(labels);
+            view.setJavaExecuteStatistics(javaExecuteTime);
+        }
+    }
+    */
+    public void onClassificationResult(long javaExecuteTime) {
+        if (isAttached()) {
+            ModelOverviewFragment view = getView();
             view.setJavaExecuteStatistics(javaExecuteTime);
         }
     }

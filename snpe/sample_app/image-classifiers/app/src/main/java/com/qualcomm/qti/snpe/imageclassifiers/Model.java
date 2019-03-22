@@ -18,28 +18,21 @@ public class Model implements Parcelable {
     public static final String INVALID_ID = "null";
 
     public File file;
-    public String[] labels;
-    public File[] rawImages;
-    public File[] jpgImages;
+    public File[] pngLrImages;
+    public File[] pngHrImages;
     public String name;
-    public File meanImage;
 
     protected Model(Parcel in) {
         name = in.readString();
         file = new File(in.readString());
 
-        final String[] rawPaths = new String[in.readInt()];
-        in.readStringArray(rawPaths);
-        rawImages = fromPaths(rawPaths);
+        final String[] pngLrPaths = new String[in.readInt()];
+        in.readStringArray(pngLrPaths);
+        pngLrImages = fromPaths(pngLrPaths);
 
-        final String[] jpgPaths = new String[in.readInt()];
-        in.readStringArray(jpgPaths);
-        jpgImages = fromPaths(jpgPaths);
-
-        meanImage = new File(in.readString());
-
-        labels = new String[in.readInt()];
-        in.readStringArray(labels);
+        final String[] pngHrPaths = new String[in.readInt()];
+        in.readStringArray(pngHrPaths);
+        pngHrImages = fromPaths(pngHrPaths);
     }
 
     public Model() {}
@@ -48,13 +41,10 @@ public class Model implements Parcelable {
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeString(name);
         dest.writeString(file.getAbsolutePath());
-        dest.writeInt(rawImages.length);
-        dest.writeStringArray(toPaths(rawImages));
-        dest.writeInt(jpgImages.length);
-        dest.writeStringArray(toPaths(jpgImages));
-        dest.writeString(meanImage.getAbsolutePath());
-        dest.writeInt(labels.length);
-        dest.writeStringArray(labels);
+        dest.writeInt(pngLrImages.length);
+        dest.writeStringArray(toPaths(pngLrImages));
+        dest.writeInt(pngHrImages.length);
+        dest.writeStringArray(toPaths(pngHrImages));
     }
 
     private File[] fromPaths(String[] paths) {

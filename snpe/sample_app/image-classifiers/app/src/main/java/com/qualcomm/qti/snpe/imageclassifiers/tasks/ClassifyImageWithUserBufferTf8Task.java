@@ -64,11 +64,14 @@ public class ClassifyImageWithUserBufferTf8Task extends AbstractClassifyImageTas
         }
         mJavaExecuteTime = javaExecuteEnd - javaExecuteStart;
 
+
         float[] outputValues = dequantize(outputTensors.get(mOutputLayer), outputBuffers.get(mOutputLayer));
+        /*
         for (Pair<Integer, Float> pair : topK(1, outputValues)) {
             result.add(mModel.labels[pair.first]);
             result.add(String.valueOf(pair.second));
         }
+        */
 
         String[] resultString = result.toArray(new String[result.size()]);
 
@@ -83,8 +86,6 @@ public class ClassifyImageWithUserBufferTf8Task extends AbstractClassifyImageTas
         Tf8Params inputParams = resolveTf8Params(inputAttributes);
 
         inputBuffers.put(mInputLayer, ByteBuffer.allocateDirect(inputParams.size).order(ByteOrder.nativeOrder()));
-
-        loadMeanImageIfAvailable(mModel.meanImage, inputParams.size);
 
         final int[] dimensions = inputAttributes.getDims();
         final boolean isGrayScale = (dimensions[dimensions.length -1] == 1);

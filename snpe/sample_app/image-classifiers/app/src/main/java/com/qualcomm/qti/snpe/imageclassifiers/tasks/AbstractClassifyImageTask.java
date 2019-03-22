@@ -58,46 +58,13 @@ public abstract class AbstractClassifyImageTask extends AsyncTask<Bitmap, Void, 
             mInputLayer = inputNames.iterator().next();
             mOutputLayer = outputNames.iterator().next();
         }
-
     }
+
 
     @Override
     protected void onPostExecute(String[] labels) {
         super.onPostExecute(labels);
-        if (labels.length > 0) {
-            mController.onClassificationResult(labels, mJavaExecuteTime);
-        } else {
-            mController.onClassificationFailed();
-        }
-    }
-
-    void loadMeanImageIfAvailable(File meanImage, final int imageSize) {
-        ByteBuffer buffer = ByteBuffer.allocate(imageSize * FLOAT_SIZE)
-                .order(ByteOrder.nativeOrder());
-        if (!meanImage.exists()) {
-            return;
-        }
-        FileInputStream fileInputStream = null;
-        try {
-            fileInputStream = new FileInputStream(meanImage);
-            final byte[] chunk = new byte[1024];
-            int read;
-            while ((read = fileInputStream.read(chunk)) != -1) {
-                buffer.put(chunk, 0, read);
-            }
-            buffer.flip();
-        } catch (IOException e) {
-            buffer = ByteBuffer.allocate(imageSize * FLOAT_SIZE);
-        } finally {
-            if (fileInputStream != null) {
-                try {
-                    fileInputStream.close();
-                } catch (IOException e) {
-                    // Do thing
-                }
-            }
-        }
-        mMeanImage = buffer.asFloatBuffer();
+        mController.onClassificationResult(mJavaExecuteTime);
     }
 
     float[] loadRgbBitmapAsFloat(Bitmap image) {
@@ -142,64 +109,17 @@ public abstract class AbstractClassifyImageTask extends AsyncTask<Bitmap, Void, 
         return pixelsBatched;
     }
 
-    Pair<Integer, Float>[] topK(int k, final float[] tensor) {
-        final boolean[] selected = new boolean[tensor.length];
-        final Pair<Integer, Float> topK[] = new Pair[k];
-        int count = 0;
-        while (count < k) {
-            final int index = top(tensor, selected);
-            selected[index] = true;
-            topK[count] = new Pair<>(index, tensor[index]);
-            count++;
-        }
-        return topK;
-    }
-
-    private int top(final float[] array, boolean[] selected) {
-        int index = 0;
-        float max = -1.f;
-        for (int i = 0; i < array.length; i++) {
-            if (selected[i]) {
-                continue;
-            }
-            if (array[i] > max) {
-                max = array[i];
-                index = i;
-            }
-        }
-        return index;
-    }
 
     private float[] extractColorChannels(int pixel) {
-        String modelName = mModel.name;
-
         float b = ((pixel)       & 0xFF);
         float g = ((pixel >>  8) & 0xFF);
         float r = ((pixel >> 16) & 0xFF);
 
-        if (modelName.equals("inception_v3")) {
-            return new float[] {preProcess(r), preProcess(g), preProcess(b)};
-        } else if (modelName.equals("alexnet") && mMeanImage != null) {
-            return new float[] {preProcess(b), preProcess(g), preProcess(r)};
-        } else if (modelName.equals("googlenet") && mMeanImage != null) {
-            return new float[] {preProcess(b), preProcess(g), preProcess(r)};
-        } else {
-            return new float[] {preProcess(r), preProcess(g), preProcess(b)};
-        }
+        return new float[] {preProcess(r), preProcess(g), preProcess(b)};
     }
 
     private float preProcess(float original) {
-        String modelName = mModel.name;
-
-        if (modelName.equals("inception_v3")) {
-            return (original - 128) / 128;
-        } else if (modelName.equals("alexnet") && mMeanImage != null) {
-            return original - mMeanImage.get();
-        } else if (modelName.equals("googlenet") && mMeanImage != null) {
-            return original - mMeanImage.get();
-        } else {
-            return original;
-        }
+        return original / 255;
     }
 
     float getMin(float[] array) {

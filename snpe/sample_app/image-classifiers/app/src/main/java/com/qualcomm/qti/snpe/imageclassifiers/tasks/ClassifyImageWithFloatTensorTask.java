@@ -36,8 +36,6 @@ public class ClassifyImageWithFloatTensorTask extends AbstractClassifyImageTask 
         final FloatTensor tensor = mNeuralNetwork.createFloatTensor(
                 mNeuralNetwork.getInputTensorsShapes().get(mInputLayer));
 
-        loadMeanImageIfAvailable(mModel.meanImage, tensor.getSize());
-
         final int[] dimensions = tensor.getShape();
         final boolean isGrayScale = (dimensions[dimensions.length -1] == 1);
         float[] rgbBitmapAsFloat;
@@ -63,10 +61,12 @@ public class ClassifyImageWithFloatTensorTask extends AbstractClassifyImageTask 
                 final float[] array = new float[outputTensor.getSize()];
                 outputTensor.read(array, 0, array.length);
 
+                /*
                 for (Pair<Integer, Float> pair : topK(1, array)) {
                     result.add(mModel.labels[pair.first]);
                     result.add(String.valueOf(pair.second));
                 }
+                */
             }
         }
 
