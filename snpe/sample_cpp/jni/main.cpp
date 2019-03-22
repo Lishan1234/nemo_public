@@ -20,6 +20,8 @@
 #include <string>
 #include <iterator>
 #include <unordered_map>
+//#include <ctime>
+#include <chrono>
 
 #include "CheckRuntime.hpp"
 #include "LoadContainer.hpp"
@@ -123,6 +125,10 @@ int main(int argc, char** argv)
                 else if (strcmp(optarg, "cpu") == 0)
                 {
                    runtime = zdl::DlSystem::Runtime_t::CPU;
+                }
+                else if (strcmp(optarg, "gpu_fp16") == 0)
+                {
+                    runtime = zdl::DlSystem::Runtime_t::GPU_FLOAT16;
                 }
                 else
                 {
@@ -228,7 +234,9 @@ int main(int argc, char** argv)
     }
 #endif
 
-    snpe = setBuilderOptions(container, runtime, udlBundle, useUserSuppliedBuffers, platformConfig, usingInitCaching);
+    zdl::DlSystem::PerformanceProfile_t performanceProfile = zdl::DlSystem::PerformanceProfile_t::HIGH_PERFORMANCE;
+
+    snpe = setBuilderOptions(container, runtime, udlBundle, useUserSuppliedBuffers, platformConfig, usingInitCaching, performanceProfile);
     if (snpe == nullptr)
     {
        std::cerr << "Error while building SNPE object." << std::endl;
@@ -385,11 +393,16 @@ int main(int argc, char** argv)
 
         for (size_t i = 0; i < inputs.size(); i++) {
             // Load input/output buffers with ITensor
+            std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+
             if(batchSize > 1)
                 std::cout << "Batch " << i << ":" << std::endl;
             std::unique_ptr<zdl::DlSystem::ITensor> inputTensor = loadInputTensor(snpe, inputs[i]);
             // Execute the input tensor on the model with SNPE
+            std::chrono::steady_clock::time_point begin_ = std::chrono::steady_clock::now();
             execStatus = snpe->execute(inputTensor.get(), outputTensorMap);
+            std::chrono::steady_clock::time_point end_= std::chrono::steady_clock::now();
+
             // Save the execution results if execution successful
             if (execStatus == true)
             {
@@ -399,6 +412,10 @@ int main(int argc, char** argv)
             {
                std::cerr << "Error while executing the network." << std::endl;
             }
+            std::chrono::steady_clock::time_point end= std::chrono::steady_clock::now();
+
+            std::cout << "Process elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin).count() << std::endl;
+            std::cout << "Inference elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin_).count() << std::endl;
         }
     }
     return SUCCESS;
