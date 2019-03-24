@@ -1,3 +1,4 @@
 data/
 temp_data/
 *.txt
+*tar.gz

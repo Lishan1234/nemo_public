@@ -124,7 +124,11 @@ int main(int argc, char** argv)
                 }
                 else if (strcmp(optarg, "cpu") == 0)
                 {
-                   runtime = zdl::DlSystem::Runtime_t::CPU;
+                   runtime = zdl::DlSystem::Runtime_t::CPU_FLOAT32;
+                }
+                else if (strcmp(optarg, "cpu_ip8") == 0)
+                {
+                   runtime = zdl::DlSystem::Runtime_t::CPU_FIXED8_TF;
                 }
                 else if (strcmp(optarg, "gpu_fp16") == 0)
                 {
@@ -316,11 +320,14 @@ int main(int argc, char** argv)
           for( size_t i = 0; i < inputs.size(); i++ )
           {
              // Load input user buffer(s) with values from file(s)
+             std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
              if( batchSize > 1 )
                 std::cout << "Batch " << i << ":" << std::endl;
              loadInputUserBufferTf8(applicationInputBuffers, snpe, inputs[i], inputMap);
              // Execute the input buffer map on the model with SNPE
+             std::chrono::steady_clock::time_point begin_ = std::chrono::steady_clock::now();
              execStatus = snpe->execute(inputMap, outputMap);
+             std::chrono::steady_clock::time_point end_ = std::chrono::steady_clock::now();
              // Save the execution results only if successful
              if (execStatus == true)
              {
@@ -330,6 +337,9 @@ int main(int argc, char** argv)
              {
                 std::cerr << "Error while executing the network." << std::endl;
              }
+
+            std::cout << "Process elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin).count() << std::endl;
+            std::cout << "Inference elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin_).count() << std::endl;
           }
        }
        else if( bufferType == USERBUFFER_FLOAT )
@@ -343,12 +353,16 @@ int main(int argc, char** argv)
 
              for( size_t i = 0; i < inputs.size(); i++ )
              {
+
+                std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
                 // Load input user buffer(s) with values from file(s)
                 if( batchSize > 1 )
                    std::cout << "Batch " << i << ":" << std::endl;
                 loadInputUserBufferFloat(applicationInputBuffers, snpe, inputs[i]);
                 // Execute the input buffer map on the model with SNPE
+                std::chrono::steady_clock::time_point begin_ = std::chrono::steady_clock::now();
                 execStatus = snpe->execute(inputMap, outputMap);
+                std::chrono::steady_clock::time_point end_ = std::chrono::steady_clock::now();
                 // Save the execution results only if successful
                 if (execStatus == true)
                 {
@@ -358,6 +372,9 @@ int main(int argc, char** argv)
                 {
                    std::cerr << "Error while executing the network." << std::endl;
                 }
+
+                std::cout << "Process elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin).count() << std::endl;
+                std::cout << "Inference elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin_).count() << std::endl;
              }
           }
 #ifdef ANDROID
@@ -367,10 +384,13 @@ int main(int argc, char** argv)
                 GLuint glBuffers = 0;
                 for(size_t i = 0; i < inputs.size(); i++) {
                     // Load input GL buffer(s) with values from file(s)
+                    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
                     glBuffers = glBuffer->convertImage2GLBuffer(inputs[i], bufSize);
                     loadInputUserBuffer(applicationInputBuffers, snpe, glBuffers);
                     // Execute the input buffer map on the model with SNPE
+                    std::chrono::steady_clock::time_point begin_ = std::chrono::steady_clock::now();
                     execStatus =  snpe->execute(inputMap, outputMap);
+                    std::chrono::steady_clock::time_point end_ = std::chrono::steady_clock::now();
                     // Save the execution results only if successful
                     if (execStatus == true) {
                         saveOutput(outputMap, applicationOutputBuffers, OutputDir, i*batchSize, batchSize, false);
@@ -381,6 +401,9 @@ int main(int argc, char** argv)
                     }
                     // Release the GL buffer(s)
                     glDeleteBuffers(1, &glBuffers);
+
+                    std::cout << "Process elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin).count() << std::endl;
+                    std::cout << "Inference elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin_).count() << std::endl;
                 }
             }
 #endif

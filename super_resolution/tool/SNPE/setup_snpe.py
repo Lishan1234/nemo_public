@@ -162,6 +162,7 @@ def prepare_data_images(src_data_dir, dst_data_dir):
             src_image=os.path.join(root, pngs)
             if('.png' in src_image):
                 __create_raw_img(src_image,255,False,False)
+
     for root,dirs,files in os.walk(hr_dst_data_dir):
         for pngs in files:
             src_image=os.path.join(root, pngs)
@@ -184,9 +185,8 @@ def convert_to_dlc(pb_filename, input_name, output_name, model_name, model_dir, 
            '--allow_unconsumed_nodes']
     subprocess.call(cmd)
 
-    print(input_name, output_name)
-
     print('INFO: Creating ' + quantized_dlc_filename + ' quantized model')
+    print(os.path.join(data_dir, TARGET_ABS_RAW_LIST_FILE))
     cmd = ['snpe-dlc-quantize',
            '--input_dlc', os.path.join(dlc_dir, dlc_filename),
            '--input_list', os.path.join(data_dir, TARGET_ABS_RAW_LIST_FILE),

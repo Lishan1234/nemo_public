@@ -33,18 +33,23 @@ public class LoadNetworkTask extends AsyncTask<File, Void, NeuralNetwork> {
 
     private final SupportedTensorFormat mTensorFormat;
 
+    private final NeuralNetwork.PerformanceProfile mTargetPerformance;
+
     private long mLoadTime = -1;
 
     public LoadNetworkTask(final Application application,
                            final ModelOverviewFragmentController controller,
                            final Model model,
                            final NeuralNetwork.Runtime targetRuntime,
-                           final SupportedTensorFormat tensorFormat) {
+                           final SupportedTensorFormat tensorFormat,
+                           final NeuralNetwork.PerformanceProfile targetPerformance
+    ) {
         mApplication = application;
         mController = controller;
         mModel = model;
         mTargetRuntime = targetRuntime;
         mTensorFormat = tensorFormat;
+        mTargetPerformance = targetPerformance;
     }
 
     @Override
@@ -56,7 +61,8 @@ public class LoadNetworkTask extends AsyncTask<File, Void, NeuralNetwork> {
                     .setRuntimeOrder(mTargetRuntime)
                     .setModel(mModel.file)
                     .setCpuFallbackEnabled(true)
-                    .setUseUserSuppliedBuffers(mTensorFormat != SupportedTensorFormat.FLOAT);
+                    .setUseUserSuppliedBuffers(mTensorFormat != SupportedTensorFormat.FLOAT)
+                    .setPerformanceProfile(mTargetPerformance);
 
             final long start = SystemClock.elapsedRealtime();
             network = builder.build();

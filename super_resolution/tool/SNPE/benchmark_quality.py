@@ -137,15 +137,7 @@ def calculate_psnr(runtime):
         target_array = np.fromfile(cur_results_file, dtype=np.float32)
         h, w = RESOLUTION[args.lr]
         target_array = np.reshape(target_array, (h*args.scale, w*args.scale, 3))
-
-        #Test: raw input
-        """
-        test_lr_raw = os.path.join(args.snpe_project_root, 'custom', args.train_data, 'data', '{}p'.format(args.lr), '0001.raw')
-        target_array = np.fromfile(test_lr_raw, dtype=np.float32)
-        target_array = np.reshape(target_array, (h, w, 3))
-        scipy.misc.imsave(os.path.join(output_dir, 'lr_{:04d}.png'.format(idx+1)), target_array)
-        sys.exit()
-        """
+        #scipy.misc.imsave(os.path.join(output_dir, '{:04d}.png'.format(idx+1)), target_array)
 
         #Read a reference frame
         cur_reference_file = os.path.abspath(os.path.join(src_data_path, '{:04d}.raw'.format(idx+1)))
@@ -171,8 +163,8 @@ if __name__ == '__main__':
         setup_prerequisites()
     setup_dlc_data(args.snpe_copy_data)
 
-    #runtimes = ['FIX_CPU', 'GPU_FP16', 'GPU']
-    runtimes = ['GPU']
+    runtimes = ['FIX_CPU', 'GPU_FP16', 'GPU']
+    #runtimes = ['FIX_CPU']
     for runtime in runtimes:
         execute_network(runtime)
         calculate_psnr(runtime)

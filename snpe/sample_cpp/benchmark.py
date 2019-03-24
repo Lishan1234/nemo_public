@@ -57,13 +57,17 @@ def setup_dlc_data(copy_data=False):
         os.system('adb push {} {}'.format(src_data_list_path, dst_data_list_path))
 
 def execute_network(runtime):
-    assert runtime in ['CPU', 'GPU', 'GPU_FP16']
+    assert runtime in ['CPU', 'CPU_IP8', 'GPU', 'GPU_FP16']
 
     dst_root_dir = '/data/local/tmp/snpebm'
     if runtime == 'CPU':
-        dlc_name = 'quantized_{}.dlc'.format(model_name)
+        dlc_name = '{}.dlc'.format(model_name)
         runtime_opt = '-r cpu'
         output_dir = '{}p_cpu'.format(args.lr*args.scale)
+    elif runtime == 'CPU_IP8':
+        dlc_name = 'quantized_{}.dlc'.format(model_name)
+        runtime_opt = '-r cpu_ip8'
+        output_dir = '{}p_cpu_ip8'.format(args.lr*args.scale)
     elif runtime == 'GPU':
         dlc_name = '{}.dlc'.format(model_name)
         runtime_opt = '-r gpu'
@@ -104,6 +108,8 @@ def calculate_psnr(runtime):
 
     if runtime == 'CPU':
         output_dir = os.path.abspath(os.path.join(args.snpe_project_root, 'custom', args.train_data, 'data', '{}p_cpu'.format(args.lr*args.scale)))
+    elif runtime == 'CPU_IP8':
+        output_dir = os.path.abspath(os.path.join(args.snpe_project_root, 'custom', args.train_data, 'data', '{}p_cpu_ip8'.format(args.lr*args.scale)))
     elif runtime == 'GPU':
         output_dir = os.path.abspath(os.path.join(args.snpe_project_root, 'custom', args.train_data, 'data', '{}p_gpu'.format(args.lr*args.scale)))
     elif runtime == 'GPU_FP16':
@@ -147,10 +153,10 @@ def calculate_psnr(runtime):
 #TODO: Should we use userbuffer_tf8?
 
 if __name__ == '__main__':
-    #setup_prerequisites()
-    #setup_dlc_data(args.snpe_copy_data)
-    runtimes = ['GPU_FP16']
-    #runtimes = ['CPU']
+    setup_prerequisites()
+    setup_dlc_data(args.snpe_copy_data)
+    #runtimes = ['GPU_FP16']
+    runtimes = ['CPU_IP8']
     for runtime in runtimes:
-        #execute_network(runtime)
+        execute_network(runtime)
         calculate_psnr(runtime)

@@ -213,7 +213,7 @@ public class ModelOverviewFragmentController extends AbstractViewController<Mode
             }
 
             mNetworkTensorFormat = mCurrentSelectedTensorFormat;
-            mLoadTask = new LoadNetworkTask(mApplication, this, mModel, mRuntime, mCurrentSelectedTensorFormat);
+            mLoadTask = new LoadNetworkTask(mApplication, this, mModel, mRuntime, mCurrentSelectedTensorFormat, NeuralNetwork.PerformanceProfile.HIGH_PERFORMANCE);
             mLoadTask.executeOnExecutor(AsyncTask.SERIAL_EXECUTOR);
         }
     }
