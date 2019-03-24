@@ -5,9 +5,9 @@ from tensorflow.keras import Model
 from model import ops
 
 def make_model(args):
-    return EDSR_v1(args)
+    return EDSR_v4(args)
 
-class EDSR_v1:
+class EDSR_v4:
     def __init__(self, args):
         self.num_blocks = args.num_blocks
         self.num_filters = args.num_filters
@@ -44,19 +44,29 @@ class EDSR_v1:
 
     def _build_upsample(self, x):
         if self.upsample_type == 'transpose':
-            return ops.transpose_upsample(x, self.scale, self.channel_in, self.data_format) #compact version
+            x = ops.transpose_upsample(x, self.scale, self.num_filters, self.data_format) #compact version
+            x = layers.Conv2D(self.channel_in,
+                                        (3,3),
+                                        padding='same',
+                                        data_format=self.data_format)(x)
+            return x
         elif self.upsample_type == 'subpixel':
-            return ops.subpixel_upsample(x, self.scale, self.channel_in, self.data_format) #compact version
+            x = ops.subpixel_upsample(x, self.scale, self.num_filters, self.data_format) #compact version
+            x = layers.Conv2D(self.channel_in,
+                                        (3,3),
+                                        padding='same',
+                                        data_format=self.data_format)(x)
+            return x
         elif self.upsample_type == 'resize_bilinear':
             x = ops.bilinear_upsample(x, self.scale, self.data_format)
-            x = layers.SeparableConv2D(self.channel_in,
+            x = layers.Conv2D(self.channel_in,
                                         (3,3),
                                         padding='same',
                                         data_format=self.data_format)(x)
             return x
         elif self.upsample_type == 'resize_nearest':
             x = ops.nearest_upsample(x, self.scale, self.data_format)
-            x = layers.SeparableConv2D(self.channel_in,
+            x = layers.Conv2D(self.channel_in,
                                         (3,3),
                                         padding='same',
                                         data_format=self.data_format)(x)
@@ -79,20 +89,19 @@ class EDSR_v1:
         res = outputs
 
         for _ in range(self.num_blocks):
-            outputs = ops.mobilenetv1_block(x=outputs,
+            outputs = ops.residual_block(x=outputs,
                                         num_filters=self.num_filters,
                                         kernel_size=3,
-                                        data_format=self.data_format,
-                                        )
+                                        data_format=self.data_format)
 
-        outputs = layers.SeparableConv2D(self.num_filters,
+        outputs = layers.Conv2D(self.num_filters,
                                         (3,3),
                                         padding='same',
                                         data_format=self.data_format)(outputs)
         outputs = layers.Add()([outputs, res])
         predictions = self._build_upsample(outputs)
         """
-        predictions = layers.SeparableConv2D(self.channel_in,
+        predictions = layers.Conv2D(self.channel_in,
                                         (3,3),
                                         padding='same',
                                         data_format=self.data_format)(outputs)
