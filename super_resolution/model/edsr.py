@@ -67,9 +67,9 @@ class EDSR:
     def build(self):
         if self.hwc is not None:
             if self.data_format == 'channels_first':
-                inputs = layers.Input(shape=(self.hwc[2], self.hwc[0], self.hwc[1]))
+                inputs = layers.Input(shape=(self.hwc[2], self.hwc[0], self.hwc[1]), batch_size=1)
             else:
-                inputs = layers.Input(shape=(self.hwc[0], self.hwc[1], self.hwc[2]))
+                inputs = layers.Input(shape=(self.hwc[0], self.hwc[1], self.hwc[2]), batch_size=1)
         else:
             inputs = layers.Input(shape=(None, None, self.channel_in))
 

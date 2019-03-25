@@ -70,6 +70,9 @@ parser.add_argument('--gpu_idx', type=int, default=0)
 parser.add_argument('--custom_name', type=str, default=None, help='additional model name')
 parser.add_argument('--num_sample', type=int, default=5)
 
+#SDK - Huawei HiAI
+parser.add_argument('--hiai_project_root', type=str, default='../hiai')
+
 #SDK - Qualcomm SNPE
 parser.add_argument('--snpe_project_root', type=str, default='../snpe')
 parser.add_argument('--snpe_tensorflow_root', type=str, default='../../tensorflow')
