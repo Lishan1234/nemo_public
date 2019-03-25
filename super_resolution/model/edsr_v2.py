@@ -13,7 +13,6 @@ class EDSR_v2:
         self.num_filters = args.num_filters
         self.num_reduced_filters = args.num_reduced_filters
         self.data_format = args.data_format
-        self.max_relu = args.max_relu
         self.scale = args.scale
         self.hwc = args.hwc
         self.upsample_type = args.upsample_type
@@ -86,7 +85,6 @@ class EDSR_v2:
             outputs = ops.residual_block(x=outputs,
                                         num_filters=self.num_filters,
                                         kernel_size=3,
-                                        max_relu=self.max_relu,
                                         data_format=self.data_format)
 
         outputs = layers.Conv2D(self.num_filters,

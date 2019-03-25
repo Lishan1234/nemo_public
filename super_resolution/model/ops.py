@@ -16,76 +16,54 @@ class ReLU(tf.keras.layers.Layer):
     def compute_output_shape(self, input_shape):
         return tf.TensorShape(input_shape)
 
-def residual_block(x, num_filters, kernel_size, max_relu, data_format='channel_last', use_dws_conv=False):
+def residual_block(x, num_filters, kernel_size, data_format='channel_last'):
     with tf.variable_scope('residual_block'):
         res = x
-        if use_dws_conv is True:
-            x = layers.SeparableConv2D(num_filters,
-                                (kernel_size,kernel_size),
-                                padding='same',
-                                data_format=data_format)(x)
-        else:
-            x = layers.Conv2D(num_filters,
-                                (kernel_size,kernel_size),
-                                padding='same',
-                                data_format=data_format)(x)
 
-        #x = tf.keras.layers.ReLU(max_value=max_relu)(x)
+        x = layers.Conv2D(num_filters,
+                            (kernel_size,kernel_size),
+                            padding='same',
+                            data_format=data_format)(x)
         x = ReLU()(x)
-        if use_dws_conv is True:
-            x = layers.SeparableConv2D(num_filters,
-                                (kernel_size,kernel_size),
-                                padding='same',
-                                data_format=data_format)(x)
-        else:
-            x = layers.Conv2D(num_filters,
-                                (kernel_size,kernel_size),
-                                padding='same',
-                                data_format=data_format)(x)
+
+        x = layers.Conv2D(num_filters,
+                            (kernel_size,kernel_size),
+                            padding='same',
+                            data_format=data_format)(x)
+
         x = layers.Add()([x, res])
 
     return x
 
-def mobilenetv1_block(x, num_filters, kernel_size, max_relu, data_format='channel_last'):
+def mobilenetv1_block(x, num_filters, kernel_size, data_format='channel_last'):
     with tf.variable_scope('mobilenetv1_block'):
         res = x
-        x = layers.DepthwiseConv2D((kernel_size,kernel_size),
+        x = layers.SeparableConv2D(num_filters,
+                            (kernel_size,kernel_size),
                             padding='same',
-                            data_format=data_format)(x)
-        #x = tf.keras.layers.ReLU(max_value=max_relu)(x)
-        x = ReLU()(x)
-        x = layers.Conv2D(num_filters,
-                            (1,1),
+                            data_format=data_format,
+                            activation='relu'
+                            )(x)
+        x = layers.SeparableConv2D(num_filters,
+                            (kernel_size,kernel_size),
                             padding='same',
-                            data_format=data_format)(x)
-        #x = tf.keras.layers.ReLU(max_value=max_relu)(x)
-        x = ReLU()(x)
-        x = layers.DepthwiseConv2D((kernel_size,kernel_size),
-                            padding='same',
-                            data_format=data_format)(x)
-        #x = tf.keras.layers.ReLU(max_value=max_relu)(x)
-        x = ReLU()(x)
-        x = layers.Conv2D(num_filters,
-                            (1,1),
-                            padding='same',
-                            data_format=data_format)(x)
+                            data_format=data_format,
+                            )(x)
         x = layers.Add()([x, res])
 
     return x
 
-def mobilenetv2_block(x, num_filters, kernel_size, expand_factor, max_relu, data_format='channel_last'):
+def mobilenetv2_block(x, num_filters, kernel_size, expand_factor, data_format='channel_last'):
     with tf.variable_scope('mobilenetv2_block'):
         res = x
         x = layers.Conv2D(num_filters * expand_factor,
                             (1,1),
                             padding='same',
                             data_format=data_format)(x)
-        #x = tf.keras.layers.ReLU(max_value=max_relu)(x)
         x = ReLU()(x)
         x = layers.DepthwiseConv2D((kernel_size,kernel_size),
                             padding='same',
                             data_format=data_format)(x)
-        #x = tf.keras.layers.ReLU(max_value=max_relu)(x)
         x = ReLU()(x)
         x = layers.Conv2D(num_filters,
                             (1,1),
