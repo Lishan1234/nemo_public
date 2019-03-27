@@ -14,6 +14,9 @@ bin/
 gen/
 out/
 
+# Asserts
+assets/
+
 # Gradle files
 .gradle/
 build/

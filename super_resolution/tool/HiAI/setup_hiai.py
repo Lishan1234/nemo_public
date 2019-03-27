@@ -157,26 +157,6 @@ def prepare_data_images(src_data_dir, dst_data_dir):
     for file in glob.glob('{}/*.png'.format(hr_src_img_files)):
         shutil.copy(file, hr_dst_data_dir)
 
-def convert_to_dlc(pb_filename, input_name, output_name, model_name, model_dir, tensorflow_dir, dlc_dir, data_dir):
-    dlc_filename = '{}.dlc'.format(model_name)
-    quantized_dlc_filename = 'quantized_{}.dlc'.format(model_name)
-    print('INFO: Converting ' + pb_filename +' to SNPE DLC format')
-    cmd = ['snpe-tensorflow-to-dlc',
-           '--graph', os.path.join(tensorflow_dir, pb_filename),
-           '--input_dim', input_name, '1,{},{},{}'.format(args.hwc[0], args.hwc[1], args.hwc[2]),
-           '--out_node', output_name,
-           '--dlc', os.path.join(dlc_dir, dlc_filename),
-           '--allow_unconsumed_nodes']
-    subprocess.call(cmd)
-
-    print('INFO: Creating ' + quantized_dlc_filename + ' quantized model')
-    print(os.path.join(data_dir, TARGET_ABS_RAW_LIST_FILE))
-    cmd = ['snpe-dlc-quantize',
-           '--input_dlc', os.path.join(dlc_dir, dlc_filename),
-           '--input_list', os.path.join(data_dir, TARGET_ABS_RAW_LIST_FILE),
-           '--output_dlc', os.path.join(dlc_dir, quantized_dlc_filename)]
-    subprocess.call(cmd)
-
 def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
         """
     Freezes the state of a session into a pruned computation graph.
@@ -241,6 +221,43 @@ def convert_to_pb(model, model_name, save_path):
 
     return pb_filename, input_name, output_name
 
+def prepare_param_file(offline_dir, input_name, output_name):
+    offline_file_name = 'final_{}_{}_{}'.format(args.hwc[0], args.hwc[1], args.hwc[2])
+    param_file_name = 'final_{}_{}_{}.txt'.format(args.hwc[0], args.hwc[1], args.hwc[2])
+    param_file = os.path.join(offline_dir, param_file_name)
+
+    with open(param_file, 'w') as f:
+        f.write('model_name:{}.cambricon\n'.format(offline_file_name))
+        f.write('session_run{\n')
+        f.write('  input_nodes(1):\n')
+        f.write('  "{}",1,{},{},{}\n'.format(input_name, args.hwc[0], args.hwc[1], args.hwc[2]))
+        f.write('  output_nodes(1):\n')
+        f.write('  "{}"\n'.format(output_name))
+        f.write('}')
+
+def convert_to_offline(offline_dir, tensorflow_dir, is_quantized):
+    converter_path = os.path.abspath(os.path.join(args.hiai_project_root, 'tools', 'tools_tensorflow', 'tf_offline_tools'))
+    library_path = os.path.abspath(os.path.join(args.hiai_project_root, 'tools', 'tools_tensorflow', 'tf_offline_tools', 'so'))
+    tensorflow_dir = os.path.abspath(tensorflow_dir)
+    offline_dir = os.path.abspath(offline_dir)
+    os.environ['PATH'] += os.pathsep + converter_path
+    print(os.environ['PATH'])
+    os.environ['LD_LIBRARY_PATH'] += os.pathsep + library_path
+
+    if is_quantized:
+        arg_ver = '--mlu_core_version=1H8'
+    else:
+        arg_ver = '--mlu_core_version=1H16'
+
+    param_filename = 'final_{}_{}_{}.txt'.format(args.hwc[0], args.hwc[1], args.hwc[2])
+    pb_filename = 'final_{}_{}_{}.pb'.format(args.hwc[0], args.hwc[1], args.hwc[2])
+
+    #subprocess.call(['pb_to_offline', '--graph={}/'.format(tensorflow_dir, pb_filename), '--param_file={}/{}'.format(offline_dir, param_filename), arg_ver], cwd = offline_dir)
+    cmd = 'pb_to_offline --graph={}/{} --param_file={}/{} {}'.format(tensorflow_dir, pb_filename, offline_dir, param_filename, arg_ver)
+    p = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, cwd=offline_dir)
+    output = p.stdout.read()
+    print(output)
+
 def setup_assets():
     #Build model
     model_module = import_module('model.' + args.model_type.lower())
@@ -252,18 +269,22 @@ def setup_assets():
     model_dir = os.path.join(args.hiai_project_root, 'custom', args.train_data, 'models', model_name)
     data_dir = os.path.join(args.hiai_project_root, 'custom', args.train_data, 'data')
     tensorflow_dir = os.path.join(model_dir, 'tensorflow')
-    dlc_dir = os.path.join(model_dir, 'dlc')
+    offline_dir = os.path.join(model_dir, 'offline')
+
     os.makedirs(model_dir, exist_ok=True)
+    os.makedirs(offline_dir, exist_ok=True)
     os.makedirs(tensorflow_dir, exist_ok=True)
-    os.makedirs(dlc_dir, exist_ok=True)
     os.makedirs(data_dir, exist_ok=True)
 
-    #Prepare dataset (rawfile, png)
     prepare_data_images(os.path.join('../../', args.data_dir, args.train_data, args.data_type), data_dir)
 
     #Convert to frozen graph (.pb) file
     pb_filename, input_name, output_name = convert_to_pb(model, model_name, tensorflow_dir)
     pb_filename = optimize_for_inference(pb_filename, input_name, output_name, model_dir, tensorflow_dir)
+
+    #Convert to offline model
+    prepare_param_file(offline_dir, input_name, output_name)
+    convert_to_offline(offline_dir, tensorflow_dir, False)
 
 if __name__ == '__main__':
     assert args.hwc is not None
