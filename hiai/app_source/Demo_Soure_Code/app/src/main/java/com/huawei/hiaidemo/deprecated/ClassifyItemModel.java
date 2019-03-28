@@ -1,4 +1,4 @@
-package com.huawei.hiaidemo.bean;
+package com.huawei.hiaidemo.deprecated;
 
 import android.graphics.Bitmap;
 

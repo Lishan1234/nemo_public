@@ -1,15 +1,14 @@
-package com.huawei.hiaidemo.view;
+package com.huawei.hiaidemo.deprecated;
 
 
 import android.os.Bundle;
-import android.util.Log;
 import android.widget.Toast;
 
 import com.huawei.hiaidemo.bean.ModelInfo;
 import com.huawei.hiaidemo.utils.ModelManager;
 
 
-import static com.huawei.hiaidemo.utils.Constant.AI_OK;
+import static com.huawei.hiaidemo.deprecated.Constant.AI_OK;
 
 
 public class SyncClassifyActivity extends NpuClassifyActivity {
@@ -47,17 +46,17 @@ public class SyncClassifyActivity extends NpuClassifyActivity {
 
     @Override
     protected void runModel(ModelInfo modelInfo, float[][] inputData) {
-        long start = System.currentTimeMillis();
-        outputData = ModelManager.runModelSync(modelInfo, inputData);
-        long end = System.currentTimeMillis();
-        inferenceTime = end - start;
-        if(outputData == null){
-            Log.e(TAG,"runModelSync fail ,outputData is null");
-            return;
-        }
-        Log.i(TAG, "runModel outputdata length : " + outputData.length + "/inferenceTime = "+inferenceTime);
+        //long start = System.currentTimeMillis();
+        //outputData = ModelManager.runModelSync(modelInfo, inputData);
+        //long end = System.currentTimeMillis();
+        //inferenceTime = end - start;
+        //if(outputData == null){
+        //    Log.e(TAG,"runModelSync fail ,outputData is null");
+        //    return;
+        //}
+        //Log.i(TAG, "runModel outputdata length : " + outputData.length + "/inferenceTime = "+inferenceTime);
 
-        postProcess(outputData);
+        //postProcess(outputData);
     }
 
     @Override

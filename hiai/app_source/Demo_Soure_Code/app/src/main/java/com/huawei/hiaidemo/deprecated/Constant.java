@@ -1,4 +1,4 @@
-package com.huawei.hiaidemo.utils;
+package com.huawei.hiaidemo.deprecated;
 
 public class Constant {
     public static final Integer AI_OK = 0;

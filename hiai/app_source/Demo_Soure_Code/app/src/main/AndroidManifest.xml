@@ -24,8 +24,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".view.SyncClassifyActivity" />
-        <activity android:name=".view.AsyncClassifyActivity"/>
+        <activity android:name=".deprecated.SyncClassifyActivity" />
+        <activity android:name=".deprecated.AsyncClassifyActivity"/>
 
     </application>
 

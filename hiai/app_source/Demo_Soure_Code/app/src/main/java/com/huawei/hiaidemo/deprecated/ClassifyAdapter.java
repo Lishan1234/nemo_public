@@ -1,4 +1,4 @@
-package com.huawei.hiaidemo.adapter;
+package com.huawei.hiaidemo.deprecated;
 
 import android.support.v7.widget.CardView;
 import android.support.v7.widget.RecyclerView;
@@ -9,7 +9,6 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.huawei.hiaidemo.R;
-import com.huawei.hiaidemo.bean.ClassifyItemModel;
 
 import java.util.List;
 

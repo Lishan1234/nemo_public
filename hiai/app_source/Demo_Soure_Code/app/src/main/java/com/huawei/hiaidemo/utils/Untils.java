@@ -19,9 +19,9 @@ import java.io.InputStream;
 import static android.graphics.Color.blue;
 import static android.graphics.Color.green;
 import static android.graphics.Color.red;
-import static com.huawei.hiaidemo.utils.Constant.meanValueOfBlue;
-import static com.huawei.hiaidemo.utils.Constant.meanValueOfGreen;
-import static com.huawei.hiaidemo.utils.Constant.meanValueOfRed;
+import static com.huawei.hiaidemo.deprecated.Constant.meanValueOfBlue;
+import static com.huawei.hiaidemo.deprecated.Constant.meanValueOfGreen;
+import static com.huawei.hiaidemo.deprecated.Constant.meanValueOfRed;
 
 
 public class Untils {
@@ -83,6 +83,23 @@ public class Untils {
             return orinal;
         }
         float[] nhwc = new float[orinal.length];
+
+        for(int i = 0 ;i < N;i++){
+            for(int j = 0; j < C;j++){
+                for(int k = 0; k < H*W;k++){
+                    nhwc[i*C*H*W+ k*C + j] = orinal[i*C*H*W+j*H*W+k];
+                }
+            }
+        }
+        return nhwc;
+    }
+
+    public static int[] NCHWtoNHWC(int[] orinal,int N, int C,int H,int W){
+        if(orinal == null || orinal.length == 0 || N*H*W*C == 0 || N < 0 || C < 0 || H < 0 || W < 0){
+            return orinal;
+        }
+        int[] nhwc = new int[orinal.length];
+        Log.i(TAG, String.valueOf(orinal.length));
 
         for(int i = 0 ;i < N;i++){
             for(int j = 0; j < C;j++){

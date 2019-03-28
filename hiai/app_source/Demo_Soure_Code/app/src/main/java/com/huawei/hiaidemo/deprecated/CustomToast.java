@@ -1,4 +1,4 @@
-package com.huawei.hiaidemo.view;
+package com.huawei.hiaidemo.deprecated;
 
 import android.widget.Toast;
 

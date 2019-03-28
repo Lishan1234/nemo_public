@@ -1,4 +1,4 @@
-package com.huawei.hiaidemo.utils;
+package com.huawei.hiaidemo.deprecated;
 
 public interface ModelManagerListener {
 

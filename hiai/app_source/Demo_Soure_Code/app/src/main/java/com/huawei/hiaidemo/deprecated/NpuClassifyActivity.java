@@ -1,4 +1,4 @@
-package com.huawei.hiaidemo.view;
+package com.huawei.hiaidemo.deprecated;
 
 import android.Manifest;
 import android.content.ContentResolver;
@@ -23,8 +23,6 @@ import android.widget.Button;
 import android.widget.Toast;
 
 import com.huawei.hiaidemo.R;
-import com.huawei.hiaidemo.adapter.ClassifyAdapter;
-import com.huawei.hiaidemo.bean.ClassifyItemModel;
 import com.huawei.hiaidemo.bean.ModelInfo;
 import com.huawei.hiaidemo.utils.Untils;
 
@@ -34,8 +32,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 
-import static com.huawei.hiaidemo.utils.Constant.GALLERY_REQUEST_CODE;
-import static com.huawei.hiaidemo.utils.Constant.IMAGE_CAPTURE_REQUEST_CODE;
+import static com.huawei.hiaidemo.deprecated.Constant.GALLERY_REQUEST_CODE;
+import static com.huawei.hiaidemo.deprecated.Constant.IMAGE_CAPTURE_REQUEST_CODE;
 
 
 public abstract class NpuClassifyActivity extends AppCompatActivity{

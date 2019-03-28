@@ -4,8 +4,7 @@ import android.content.res.AssetManager;
 import android.util.Log;
 
 import com.huawei.hiaidemo.bean.ModelInfo;
-
-import java.util.Vector;
+import com.huawei.hiaidemo.deprecated.ModelManagerListener;
 
 
 public class ModelManager {
@@ -47,7 +46,7 @@ public class ModelManager {
 
     public static native int unloadModelSync();
 
-    public static native float[][] runModelSync(ModelInfo modelInfo, float[][] buf);
+    public static native Object[] runModelSync(ModelInfo modelInfo, float[][] buf);
 
     public static native void runModelAsync(ModelInfo modelInfo, float[][] buf);
 

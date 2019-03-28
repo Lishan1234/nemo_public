@@ -32,6 +32,12 @@ static HIAI_MixModelTensorInfo* modelTensorinfo = NULL;
 
 int output_size = 0;
 
+jobject NewInteger(JNIEnv* env, int value){
+    jclass integerClass = env->FindClass("java/lang/Integer");
+    jmethodID integerConstructor = env->GetMethodID(integerClass, "<init>", "(I)V");
+    return env->NewObject(integerClass, integerConstructor, static_cast<jint>(value));
+}
+
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_huawei_hiaidemo_utils_ModelManager_loadModelSync(JNIEnv *env, jclass instance,
@@ -320,7 +326,7 @@ Java_com_huawei_hiaidemo_utils_ModelManager_runModelSync(JNIEnv *env, jclass typ
 
     //LOGI("runtime: %d", (tpend.tv_usec - tpstart.tv_usec)/1000);
     LOGI("runtime: %d", std::chrono::duration_cast<std::chrono::milliseconds>(end-begin).count());
-    LOGE("run model ret: %d", ret);
+    //LOGE("run model ret: %d", ret);
 
     jfloatArray *result_ = new jfloatArray[modelTensorinfo->output_cnt];
     for(int o = 0;o < modelTensorinfo->output_cnt; o++){
@@ -350,11 +356,15 @@ Java_com_huawei_hiaidemo_utils_ModelManager_runModelSync(JNIEnv *env, jclass typ
         env->SetObjectArrayElement(jdata,i,result_[i]);
     }
 
-
     env->ReleaseStringUTFChars(modelname, modelName);
     env->DeleteLocalRef(buf_);
     delete [] result_;
     delete [] output_size;
 
-    return jdata;
+    jobjectArray retobjarr = (jobjectArray)env->NewObjectArray(2, env->FindClass("java/lang/Object"), NULL);
+    env->SetObjectArrayElement(retobjarr, 0,  jdata);
+    env->SetObjectArrayElement(retobjarr, 1, NewInteger(env, std::chrono::duration_cast<std::chrono::milliseconds>(end-begin).count()));
+
+
+    return retobjarr;
 }
