@@ -185,6 +185,7 @@ def convert_to_dlc(pb_filename, input_name, output_name, model_name, model_dir, 
            '--allow_unconsumed_nodes']
     subprocess.call(cmd)
 
+    '''
     print('INFO: Creating ' + quantized_dlc_filename + ' quantized model')
     print(os.path.join(data_dir, TARGET_ABS_RAW_LIST_FILE))
     cmd = ['snpe-dlc-quantize',
@@ -192,6 +193,7 @@ def convert_to_dlc(pb_filename, input_name, output_name, model_name, model_dir, 
            '--input_list', os.path.join(data_dir, TARGET_ABS_RAW_LIST_FILE),
            '--output_dlc', os.path.join(dlc_dir, quantized_dlc_filename)]
     subprocess.call(cmd)
+    '''
 
 def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
         """
@@ -279,7 +281,7 @@ def setup_assets():
     benchmark['HostRootPath'] = name
     benchmark['HostResultsDir'] = '{}/results'.format(name)
     benchmark['DevicePath'] = '/data/local/tmp/snpebm'
-    benchmark['Devices'] = []
+    benchmark['Devices'] = ['a152b92a']
     benchmark['HostName'] = 'localhost'
     benchmark['Runs'] = 1
     benchmark['Model'] = collections.OrderedDict()
@@ -295,7 +297,7 @@ def setup_assets():
             'Data': [os.path.abspath(os.path.join(data_dir, '{}p'.format(args.lr)))]
             }
     """
-    benchmark['Runtimes'] = ['GPU', 'GPU_FP16', 'CPU']
+    benchmark['Runtimes'] = ['GPU_FP16']
     benchmark['Measurements'] = ['timing']
 
     with open(os.path.join(args.snpe_project_root, 'benchmarks', '{}.json'.format(name)),'w') as outfile:

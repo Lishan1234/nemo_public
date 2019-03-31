@@ -20,19 +20,21 @@ model_name = model_builder.get_name()
 
 os.makedirs('tmp', exist_ok=True)
 
+adb_cmd = 'adb -s dc391aea '
+
 #Setup pre-requisites
 def setup_prerequisites():
     os.environ['SNPE_TARGET_ARCH']='aarch64-android-clang6.0'
     os.environ['SNPE_TARGET_ARCH_OBJ_DIR']='arm64-v8a'
     os.environ['SNPE_ROOT']= os.path.abspath('../')
 
-    os.system('adb shell "mkdir -p /data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/bin"')
-    os.system('adb shell "mkdir -p /data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/lib"')
-    os.system('adb shell "mkdir -p /data/local/tmp/snpeexample/dsp/lib"')
-    os.system('adb push $SNPE_ROOT/lib/$SNPE_TARGET_ARCH/ /data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/lib')
-    os.system('adb push $SNPE_ROOT/lib/dsp/ /data/local/tmp/snpeexample/dsp/lib')
+    os.system(adb_cmd + 'shell "mkdir -p /data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/bin"')
+    os.system(adb_cmd + 'shell "mkdir -p /data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/lib"')
+    os.system(adb_cmd + 'shell "mkdir -p /data/local/tmp/snpeexample/dsp/lib"')
+    os.system(adb_cmd + 'push $SNPE_ROOT/lib/$SNPE_TARGET_ARCH/ /data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/lib')
+    os.system(adb_cmd + 'push $SNPE_ROOT/lib/dsp/ /data/local/tmp/snpeexample/dsp/lib')
     os.system('echo $SNPE_TARGET_ARCH')
-    os.system('adb push obj/local/$SNPE_TARGET_ARCH_OBJ_DIR/snpe-sample /data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/bin')
+    os.system(adb_cmd + 'push obj/local/$SNPE_TARGET_ARCH_OBJ_DIR/snpe-sample /data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/bin')
 
 #Copy dlc and data
 def setup_dlc_data(copy_data=False):
@@ -47,14 +49,14 @@ def setup_dlc_data(copy_data=False):
     dst_data_path = os.path.join(dst_root_dir, args.train_data, 'data', '{}p'.format(args.lr))
     dst_data_list_path = os.path.join(dst_root_dir, args.train_data, 'data', TARGET_RAW_LIST_FILE)
 
-    os.system('adb shell "mkdir -p {}"'.format(os.path.join(dst_root_dir, args.train_data, 'data')))
-    os.system('adb shell "mkdir -p {}"'.format(os.path.join(dst_root_dir, args.train_data, 'models', model_name, 'dlc')))
-    os.system('adb push {} {}'.format(src_dlc_path, dst_dlc_path))
-    os.system('adb push {} {}'.format(src_quantized_dlc_path, dst_quantized_dlc_path))
+    os.system(adb_cmd + 'shell "mkdir -p {}"'.format(os.path.join(dst_root_dir, args.train_data, 'data')))
+    os.system(adb_cmd + 'shell "mkdir -p {}"'.format(os.path.join(dst_root_dir, args.train_data, 'models', model_name, 'dlc')))
+    os.system(adb_cmd + 'push {} {}'.format(src_dlc_path, dst_dlc_path))
+    os.system(adb_cmd + 'push {} {}'.format(src_quantized_dlc_path, dst_quantized_dlc_path))
 
     if copy_data:
-        os.system('adb push {} {}'.format(src_data_path, dst_data_path))
-        os.system('adb push {} {}'.format(src_data_list_path, dst_data_list_path))
+        os.system(adb_cmd + 'push {} {}'.format(src_data_path, dst_data_path))
+        os.system(adb_cmd + 'push {} {}'.format(src_data_list_path, dst_data_list_path))
 
 def execute_network(runtime):
     assert runtime in ['CPU', 'CPU_IP8', 'GPU', 'GPU_FP16']
@@ -91,9 +93,9 @@ def execute_network(runtime):
             cmd_script.write(ln + '\n')
 
     os.makedirs(os.path.join(args.snpe_project_root, 'custom', args.train_data, 'data', output_dir), exist_ok=True)
-    os.system('adb push {} {}'.format(cmd_script_path, dst_root_dir))
-    os.system('adb shell sh {}'.format(os.path.join(dst_root_dir, SNPE_BENCH_SCRIPT)))
-    os.system('adb pull {} {}'.format(os.path.join(dst_root_dir, args.train_data, 'data', output_dir), os.path.join(args.snpe_project_root, 'custom', args.train_data, 'data', output_dir)))
+    os.system(adb_cmd + 'push {} {}'.format(cmd_script_path, dst_root_dir))
+    os.system(adb_cmd + 'shell sh {}'.format(os.path.join(dst_root_dir, SNPE_BENCH_SCRIPT)))
+    os.system(adb_cmd + 'pull {} {}'.format(os.path.join(dst_root_dir, args.train_data, 'data', output_dir), os.path.join(args.snpe_project_root, 'custom', args.train_data, 'data', output_dir)))
 
 def psnr(img1, img2, max_value):
     mse = np.mean( (img1 - img2) ** 2 )
@@ -129,7 +131,8 @@ def calculate_psnr(runtime):
         h, w = RESOLUTION[args.lr]
         print(target_array.shape)
         target_array = np.reshape(target_array, (h*args.scale, w*args.scale, 3))
-        #scipy.misc.imsave(os.path.join(output_dir, '{:04d}.png'.format(idx+1)), target_array)
+        scipy.misc.imsave(os.path.join(output_dir, '{:04d}.png'.format(idx+1)), target_array)
+        sys.exit()
 
         #Read a reference frame
         cur_reference_file = os.path.abspath(os.path.join(src_data_path, '{:04d}.raw'.format(idx+1)))
@@ -144,19 +147,19 @@ def calculate_psnr(runtime):
 
         print('[{}] ({}/{}): {}dB'.format(runtime, idx+1, len(input_files), round(psnr_result, 3)))
 
-    log_path = os.path.join(output_dir, 'quality.log')
-    with open(log_path, 'w') as log_script:
-        log_script.write(str(round(np.mean(psnr_results),3))+'\n')
-        for psnr_result in psnr_results:
-            log_script.write(str(round(psnr_result, 3))+'\n')
+    #log_path = os.path.join(output_dir, 'quality.log')
+    log_path = os.path.join('quality.log')
+    with open(log_path, 'a') as log_script:
+        log_script.write(model_name + " " + str(round(np.mean(psnr_results),3))+'\n')
+        #for psnr_result in psnr_results:
+        #    log_script.write(str(round(psnr_result, 3))+'\n')
 
 #TODO: Should we use userbuffer_tf8?
 
 if __name__ == '__main__':
     setup_prerequisites()
     setup_dlc_data(args.snpe_copy_data)
-    #runtimes = ['GPU_FP16']
-    runtimes = ['CPU_IP8']
+    runtimes = ['GPU_FP16']
     for runtime in runtimes:
         execute_network(runtime)
         calculate_psnr(runtime)

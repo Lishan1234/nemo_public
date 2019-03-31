@@ -17,21 +17,28 @@ import com.huawei.hiaidemo.utils.ModelManager;
 import com.huawei.hiaidemo.utils.Untils;
 import com.huawei.hiaidemo.utils.RawExtracter;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.util.AbstractSequentialList;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static android.graphics.Color.blue;
 import static android.graphics.Color.green;
 import static android.graphics.Color.red;
 import static com.huawei.hiaidemo.deprecated.Constant.AI_OK;
 
-public class ClassifyActivity extends AppCompatActivity{
+public class ClassifyActivity extends AppCompatActivity {
 
     private static final String TAG = ClassifyActivity.class.getSimpleName();
 
@@ -43,8 +50,8 @@ public class ClassifyActivity extends AppCompatActivity{
         return this.getResources().getIdentifier(rawName, "raw", this.getPackageName());
     }
 
-    protected void loadModelFromFile(String offlineModelName, String offlineModelPath,boolean isMixModel) {
-        int ret = ModelManager.loadModelFromFileSync(offlineModelName,offlineModelPath,isMixModel);
+    protected void loadModelFromFile(String offlineModelName, String offlineModelPath, boolean isMixModel) {
+        int ret = ModelManager.loadModelFromFileSync(offlineModelName, offlineModelPath, isMixModel);
         if (AI_OK == ret) {
             Log.i(TAG, "Model load success");
         } else {
@@ -64,28 +71,27 @@ public class ClassifyActivity extends AppCompatActivity{
                 int color = bitmap.getPixel(j, i);
 
                 //NHWC
-                buff[k] = (float) (red(color))/255;
+                buff[k] = (float) (red(color)) / 255;
                 k++;
-                buff[k] = (float) (green(color))/255;
+                buff[k] = (float) (green(color)) / 255;
                 k++;
-                buff[k] = (float) (blue(color))/255;
+                buff[k] = (float) (blue(color)) / 255;
                 k++;
             }
         }
 
 
         float inputdatas[][] = new float[1][];
-        inputdatas[0] = Untils.NHWCtoNCHW(buff,batch,channel,Height,Width);
+        inputdatas[0] = Untils.NHWCtoNCHW(buff, batch, channel, Height, Width);
 
         return inputdatas;
     }
 
-    private Bitmap convertToBitmap(float[][] outputData, int n, int c , int h, int w)
-    {
+    private Bitmap convertToBitmap(float[][] outputData, int n, int c, int h, int w) {
         float[] outputdata_float = outputData[0];
-        int[] outputdata = new int [outputdata_float.length];
+        int[] outputdata = new int[outputdata_float.length];
 
-        for(int i = 0; i < outputdata_float.length; i++) {
+        for (int i = 0; i < outputdata_float.length; i++) {
             if (outputdata_float[i] > 1) {
                 outputdata_float[i] = 1;
             }
@@ -101,7 +107,7 @@ public class ClassifyActivity extends AppCompatActivity{
         //Bitmap bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
         //bitmap.setPixels(outputdata, 0, w, 0, 0, w, h);
 
-        try (FileOutputStream out = new FileOutputStream(demoModelInfo.getModelSaveDir()+"debug.png")) {
+        try (FileOutputStream out = new FileOutputStream(demoModelInfo.getModelSaveDir() + "debug.png")) {
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out); // bmp is your Bitmap instance
             // PNG is a lossless format, the compression factor (100) is ignored
         } catch (IOException e) {
@@ -111,13 +117,11 @@ public class ClassifyActivity extends AppCompatActivity{
         return bitmap;
     }
 
-    double calculatePSNR(float[][] arr1_, float[][] arr2_, int height, int width)
-    {
+    double calculatePSNR(float[][] arr1_, float[][] arr2_, int height, int width) {
         float[] arr1 = arr1_[0];
         float[] arr2 = arr2_[0];
 
-        if (arr1.length != arr2.length)
-        {
+        if (arr1.length != arr2.length) {
             throw new RuntimeException("arrays were of diffrent size");
         }
 
@@ -127,8 +131,8 @@ public class ClassifyActivity extends AppCompatActivity{
             for (int x = 0; x < width; x++) {
                 int idx = (y + x * height) * 3;
                 noise += (arr1[idx] - arr2[idx]) * (arr1[idx] - arr2[idx]);
-                noise += (arr1[idx+1] - arr2[idx+1]) * (arr1[idx+1] - arr2[idx+1]);
-                noise += (arr1[idx+2] - arr2[idx+2]) * (arr1[idx+2] - arr2[idx+2]);
+                noise += (arr1[idx + 1] - arr2[idx + 1]) * (arr1[idx + 1] - arr2[idx + 1]);
+                noise += (arr1[idx + 2] - arr2[idx + 2]) * (arr1[idx + 2] - arr2[idx + 2]);
             }
         }
 
@@ -140,9 +144,8 @@ public class ClassifyActivity extends AppCompatActivity{
         return psnr;
     }
 
-    protected void initModels(final String modelName){
-        File dir  = getExternalFilesDir("models/edsr");
-        String path = dir.getAbsolutePath() + File.separator;
+    protected void initModels(final File modelDir, final String modelName) {
+        String path = modelDir.getAbsolutePath() + File.separator;
 
         demoModelInfo.setModelSaveDir(path);
         demoModelInfo.setFramework("tensorflow");
@@ -162,8 +165,7 @@ public class ClassifyActivity extends AppCompatActivity{
     }
 
     @Deprecated
-    double calculatePSNR(Bitmap bitmap1, Bitmap bitmap2, int height, int width)
-    {
+    double calculatePSNR(Bitmap bitmap1, Bitmap bitmap2, int height, int width) {
         if (bitmap1.getWidth() != bitmap2.getWidth() ||
                 bitmap1.getHeight() != bitmap2.getHeight()) {
             Log.e(TAG, String.format("bitmap1 h: %d, w: %d", bitmap1.getHeight(), bitmap1.getWidth()));
@@ -196,9 +198,8 @@ public class ClassifyActivity extends AppCompatActivity{
         return psnr;
     }
 
-    private void saveBitmap(Bitmap bitmap, String name)
-    {
-        try (FileOutputStream out = new FileOutputStream(demoModelInfo.getModelSaveDir()+name)) {
+    private void saveBitmap(Bitmap bitmap, String name) {
+        try (FileOutputStream out = new FileOutputStream(demoModelInfo.getModelSaveDir() + name)) {
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out); // bmp is your Bitmap instance
             // PNG is a lossless format, the compression factor (100) is ignored
         } catch (IOException e) {
@@ -206,34 +207,45 @@ public class ClassifyActivity extends AppCompatActivity{
         }
     }
 
-    @Override
-    protected void onCreate(@Nullable Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_classify);
-
-        //Unzip and copy model and image files
-        RawExtracter.execute(this, "edsr", getRawResourceId("edsr"));
-
-        //Load a shared library
-        boolean isSoLoadSuccess = ModelManager.loadJNISo();
-        if (isSoLoadSuccess) {
-            Log.i(TAG, "loadJNISo success");
-        } else {
-            Log.e(TAG, "loadJNISo success");
-            this.finish();
-            System.exit(0);
+    private void appendLog(String text)
+    {
+        File logFile = new File(getExternalFilesDir("models" + File.separator + "edsr").getAbsoluteFile() + File.separator + "log.txt");
+        if (!logFile.exists())
+        {
+            try
+            {
+                logFile.createNewFile();
+            }
+            catch (IOException e)
+            {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
         }
+        try
+        {
+            //BufferedWriter for performance, true to set append to file flag
+            BufferedWriter buf = new BufferedWriter(new FileWriter(logFile, true));
+            buf.append(text);
+            buf.newLine();
+            buf.close();
+        }
+        catch (IOException e)
+        {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
 
-        //Iterate over models
-        final String modelName = "final_240_426_3";
-        final Model model = Loader.createModel(getExternalFilesDir("models/edsr"), modelName);
-        initModels(modelName);
+    private void execute(File modelDir, File dataDir, String modelType, String modelName)
+    {
+        //final String modelName = "final_240_426_3";
+        final Model model = Loader.createModel(modelDir, dataDir, modelName);
 
         //Load a model
         loadModelFromFile(model.modelName, model.offlineModel.getAbsolutePath(), false);
 
         //Run a model
-        ArrayList<Pair<Double, Float>> results = new ArrayList<>();
         ArrayList<Double> psnr_results = new ArrayList<>();
         ArrayList<Float> runtime_results = new ArrayList<>();
         for (int i = 0; i < model.pngHrImages.length; i++) {
@@ -242,8 +254,8 @@ public class ClassifyActivity extends AppCompatActivity{
 
             float[][] inputData = loadBitmap(lrBitmap, demoModelInfo.getInput_W(), demoModelInfo.getInput_H());
 
-            Bitmap lrBitmap_ = convertToBitmap(inputData, demoModelInfo.getInput_N(), demoModelInfo.getInput_C(), demoModelInfo.getInput_H(), demoModelInfo.getInput_W());
-            saveBitmap(lrBitmap_, "lr_debug_.png");
+            //Bitmap lrBitmap_ = convertToBitmap(inputData, demoModelInfo.getInput_N(), demoModelInfo.getInput_C(), demoModelInfo.getInput_H(), demoModelInfo.getInput_W());
+            //saveBitmap(lrBitmap_, "lr_debug_.png");
 
             Object[] resp = ModelManager.runModelSync(demoModelInfo, inputData);
             outputData = (float[][])resp[0];
@@ -279,11 +291,99 @@ public class ClassifyActivity extends AppCompatActivity{
         }
         float runtime_avg = runtime_sum / runtime_results.size();
 
+        Log.i(TAG, "model name = " + modelName);
         Log.i(TAG, "psnr_Avg = " + psnr_avg);
         Log.i(TAG, "inferenceTime_Avg = " + runtime_avg);
         Log.i(TAG, "inferenceTime_Min = " + runtime_min);
         Log.i(TAG, "inferenceTime_Max = " + runtime_max);
 
-        results.add(Pair.create(psnr_avg, runtime_avg));
+        appendLog(String.format("%s %.2f %.2f %.2f %.2f", modelType, psnr_avg, runtime_avg, runtime_min, runtime_max));
+    }
+
+    @Override
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_classify);
+
+        //Unzip and copy model and image files
+        RawExtracter.execute(this, "edsr", getRawResourceId("edsr"));
+
+        //Load a shared library
+        boolean isSoLoadSuccess = ModelManager.loadJNISo();
+        if (isSoLoadSuccess) {
+            Log.i(TAG, "loadJNISo success");
+        } else {
+            Log.e(TAG, "loadJNISo success");
+            this.finish();
+            System.exit(0);
+        }
+
+        //Conduct experiment 1
+        ArrayList<Integer> numBlocks = new ArrayList<Integer>(){
+            {
+                //add(2);
+                //add(4);
+                //add(6);
+                //add(8);
+            }
+        };
+        ArrayList<Integer> numFilters = new ArrayList<Integer>(){
+            {
+                //add(16);
+                //add(24);
+                //add(32);
+                //add(48);
+            }
+        };
+
+        //Conduct experiment 1
+        for (Integer numblocks : numBlocks)
+        {
+            for (Integer numfilters : numFilters)
+            {
+                String modelName = "final_240_426_3";
+                String modelType = String.format("EDSR_transpose_B%d_F%d_S4", numblocks, numfilters);
+                Log.i(TAG, "model type = " + modelType);
+                File modelDir = getExternalFilesDir("models" + File.separator + "edsr" + File.separator + "models" + File.separator + modelType + File.separator + "offline");
+                File dataDir = getExternalFilesDir("models" + File.separator + "edsr");
+
+                initModels(modelDir, modelName);
+                execute(modelDir, dataDir, modelType, modelName);
+            }
+        }
+
+        //Conduct experiment 2
+        ArrayList<Integer> numReducedFilters = new ArrayList<Integer>(){
+            {
+                add(4);
+                //add(8);
+                //add(16);
+                //add(24);
+                //add(32);
+            }
+        };
+
+        for (Integer numreducefilters : numReducedFilters) {
+            String modelName = "final_240_426_3";
+            String modelType = String.format("EDSR_v2_resize_bilinear_B4_F32_RF%d_S4", numreducefilters);
+            Log.i(TAG, "model type = " + modelType);
+            File modelDir = getExternalFilesDir("models" + File.separator + "edsr" + File.separator + "models" + File.separator + modelType + File.separator + "offline");
+            File dataDir = getExternalFilesDir("models" + File.separator + "edsr");
+
+            initModels(modelDir, modelName);
+            execute(modelDir, dataDir, modelType, modelName);
+        }
+
+        //Conduct experiment 3
+        for (Integer numfilters : numFilters) {
+            String modelName = "final_240_426_3";
+            String modelType = String.format("EDSR_v1_transpose_B4_F%d_S4", numfilters);
+            Log.i(TAG, "model type = " + modelType);
+            File modelDir = getExternalFilesDir("models" + File.separator + "edsr" + File.separator + "models" + File.separator + modelType + File.separator + "offline");
+            File dataDir = getExternalFilesDir("models" + File.separator + "edsr");
+
+            initModels(modelDir, modelName);
+            execute(modelDir, dataDir, modelType, modelName);
+        }
     }
 }
