@@ -9,9 +9,8 @@
  */
 #include <jni.h>
 #include <android/log.h>
-//#include <iostream>
-//using std::string;
 
+#include <linux/limits.h>
 #include <assert.h>
 #include <limits.h>
 #include <stdarg.h>
@@ -46,7 +45,7 @@
 #endif
 #include "./y4menc.h"
 
-#define TAG "vpx_text.c JNI"
+#define TAG "vpxdec.c JNI"
 #define _UNKNOWN   0
 #define _DEFAULT   1
 #define _VERBOSE   2
@@ -67,6 +66,7 @@
 #define LOGS(...) __android_log_print(_SILENT,TAG,__VA_ARGS__)
 
 static const char *exec_name;
+static const char *log_dir;
 
 struct VpxDecInputContext {
   struct VpxInputContext *vpx_input_ctx;
@@ -128,12 +128,12 @@ static int raw_read_frame(FILE *infile, uint8_t **buffer, size_t *bytes_read,
     frame_size = mem_get_le32(raw_hdr);
 
     if (frame_size > kCorruptFrameThreshold) {
-      warn("Read invalid frame size (%u)\n", (unsigned int)frame_size);
+      LOGW("Read invalid frame size (%u)\n", (unsigned int)frame_size);
       frame_size = 0;
     }
 
     if (frame_size < kFrameTooSmallThreshold) {
-      warn("Warning: Read invalid frame size (%u) - not a raw file?\n",
+      LOGW("Warning: Read invalid frame size (%u) - not a raw file?\n",
            (unsigned int)frame_size);
     }
 
@@ -143,7 +143,7 @@ static int raw_read_frame(FILE *infile, uint8_t **buffer, size_t *bytes_read,
         *buffer = new_buf;
         *buffer_size = 2 * frame_size;
       } else {
-        warn("Failed to allocate compressed data buffer\n");
+        LOGW("Failed to allocate compressed data buffer\n");
         frame_size = 0;
       }
     }
@@ -151,7 +151,7 @@ static int raw_read_frame(FILE *infile, uint8_t **buffer, size_t *bytes_read,
 
   if (!feof(infile)) {
     if (fread(*buffer, 1, frame_size, infile) != frame_size) {
-      warn("Failed to read full frame\n");
+      LOGW("Failed to read full frame\n");
       return 1;
     }
     *bytes_read = frame_size;
@@ -251,8 +251,7 @@ static int file_is_raw(struct VpxInputContext *input) {
 }
 
 static void show_progress(int frame_in, int frame_out, uint64_t dx_time) {
-  LOGI(TAG,
-          "%d decoded frames/%d showed frames in %" PRId64 " us (%.2f fps)\r",
+  LOGI("%d decoded frames/%d showed frames in %" PRId64 " us (%.2f fps)\r",
           frame_in, frame_out, dx_time,
           (double)frame_out * 1000000.0 / (double)dx_time);
 }
@@ -394,10 +393,27 @@ static FILE *open_outfile(const char *name) {
     set_binary_mode(stdout);
     return stdout;
   } else {
-    FILE *file = fopen(name, "wb");
-    if (!file) fatal("Failed to open output file '%s'", name);
+    char file_path[PATH_MAX];
+    sprintf(file_path, "%s/%s", log_dir, name);
+    FILE *file = fopen(file_path, "wb");
+    if (!file)
+    {
+        LOGE("Failed to open output file '%s'", name);
+        exit(EXIT_FAILURE);
+    }
     return file;
   }
+}
+
+static FILE *open_logfile(const char *name) {
+    char file_path[PATH_MAX];
+    sprintf(file_path, "%s/%s", log_dir, name);
+    FILE *file = fopen(file_path, "w");
+    if (!file) {
+        LOGE("Failed to open output file '%s' with errorno '%d'", name, errno);
+        exit(EXIT_FAILURE);
+    }
+    return file;
 }
 
 #if CONFIG_VP9_HIGHBITDEPTH
@@ -409,7 +425,7 @@ static int img_shifted_realloc_required(const vpx_image_t *img,
 }
 #endif
 
-static int main_loop(const char *fn, const char *log_dir) {
+static int main_loop(const char *fn) {
   vpx_codec_ctx_t decoder;
   int i;
   int ret = EXIT_FAILURE;
@@ -477,140 +493,27 @@ static int main_loop(const char *fn, const char *log_dir) {
   outfile_pattern = "test.yuv";
   cfg.threads = 1;
   num_external_frame_buffers = 10;
-
-
-  framestats_file = fopen("framestats", "w");
-  //framestats_file = fopen(sprintf("%s/framestats", log_dir), "w");
-  if (!framestats_file) {
-    die("Error: Could not open --framestats file (%s) for writing.\n",
-        "framestats");
-  }
+  framestats_file = open_logfile("framestats");
   progress = 1;
   summary = 1;
 
-#if 0
-  /* Parse command line */
-  exec_name = argv_[0];
-  argv = argv_dup(argc - 1, argv_ + 1);
-  for (argi = argj = argv; (*argj = *argi); argi += arg.argv_step) {
-    memset(&arg, 0, sizeof(arg));
-    arg.argv_step = 1;
-
-    if (arg_match(&arg, &help, argi)) {
-      show_help(stdout, 0);
-      exit(EXIT_SUCCESS);
-    } else if (arg_match(&arg, &codecarg, argi)) {
-      interface = get_vpx_decoder_by_name(arg.val);
-      if (!interface)
-        die("Error: Unrecognized argument (%s) to --codec\n", arg.val);
-    } else if (arg_match(&arg, &looparg, argi)) {
-      // no-op
-    } else if (arg_match(&arg, &outputfile, argi))
-      outfile_pattern = arg.val;
-    else if (arg_match(&arg, &use_yv12, argi)) {
-      use_y4m = 0;
-      flipuv = 1;
-      opt_yv12 = 1;
-    } else if (arg_match(&arg, &use_i420, argi)) {
-      use_y4m = 0;
-      flipuv = 0;
-      opt_i420 = 1;
-    } else if (arg_match(&arg, &rawvideo, argi)) {
-      use_y4m = 0;
-    } else if (arg_match(&arg, &flipuvarg, argi))
-      flipuv = 1;
-    else if (arg_match(&arg, &noblitarg, argi))
-      noblit = 1;
-    else if (arg_match(&arg, &progressarg, argi))
-      progress = 1;
-    else if (arg_match(&arg, &limitarg, argi))
-      stop_after = arg_parse_uint(&arg);
-    else if (arg_match(&arg, &skiparg, argi))
-      arg_skip = arg_parse_uint(&arg);
-    else if (arg_match(&arg, &postprocarg, argi))
-      postproc = 1;
-    else if (arg_match(&arg, &md5arg, argi))
-      do_md5 = 1;
-    else if (arg_match(&arg, &summaryarg, argi))
-      summary = 1;
-    else if (arg_match(&arg, &threadsarg, argi))
-      cfg.threads = arg_parse_uint(&arg);
-#if CONFIG_VP9_DECODER
-    else if (arg_match(&arg, &frameparallelarg, argi)) {
-      /* ignored for compatibility */
-    }
-#endif
-    else if (arg_match(&arg, &verbosearg, argi))
-      quiet = 0;
-    else if (arg_match(&arg, &scalearg, argi))
-      do_scale = 1;
-    else if (arg_match(&arg, &fb_arg, argi))
-      num_external_frame_buffers = arg_parse_uint(&arg);
-    else if (arg_match(&arg, &continuearg, argi))
-      keep_going = 1;
-#if CONFIG_VP9_HIGHBITDEPTH
-    else if (arg_match(&arg, &outbitdeptharg, argi)) {
-      output_bit_depth = arg_parse_uint(&arg);
-    }
-#endif
-    else if (arg_match(&arg, &svcdecodingarg, argi)) {
-      svc_decoding = 1;
-      svc_spatial_layer = arg_parse_uint(&arg);
-    } 
-    else if (arg_match(&arg, &framestatsarg, argi)) {
-      framestats_file = fopen(arg.val, "w");
-      if (!framestats_file) {
-        die("Error: Could not open --framestats file (%s) for writing.\n",
-            arg.val);
-      }
-    }
-#if CONFIG_VP8_DECODER
-    else if (arg_match(&arg, &addnoise_level, argi)) {
-      postproc = 1;
-      vp8_pp_cfg.post_proc_flag |= VP8_ADDNOISE;
-      vp8_pp_cfg.noise_level = arg_parse_uint(&arg);
-    } else if (arg_match(&arg, &demacroblock_level, argi)) {
-      postproc = 1;
-      vp8_pp_cfg.post_proc_flag |= VP8_DEMACROBLOCK;
-      vp8_pp_cfg.deblocking_level = arg_parse_uint(&arg);
-    } else if (arg_match(&arg, &deblock, argi)) {
-      postproc = 1;
-      vp8_pp_cfg.post_proc_flag |= VP8_DEBLOCK;
-    } else if (arg_match(&arg, &mfqe, argi)) {
-      postproc = 1;
-      vp8_pp_cfg.post_proc_flag |= VP8_MFQE;
-    } else if (arg_match(&arg, &error_concealment, argi)) {
-      ec_enabled = 1;
-    }
-#endif  // CONFIG_VP8_DECODER
-    else
-      argj++;
-  }
-
-  /* Check for unrecognized options */
-  for (argi = argv; *argi; argi++)
-    if (argi[0][0] == '-' && strlen(argi[0]) > 1)
-      die("Error: Unrecognized option %s\n", *argi);
-
-  /* Handle non-option arguments */
-  fn = argv[0];
-#endif
-
   if (!fn) {
-    free(argv);
-    fprintf(stderr, "No input file specified!\n");
+    LOGE("No input file specified!\n");
+    exit(EXIT_FAILURE);
   }
+
   /* Open file */
   infile = strcmp(fn, "-") ? fopen(fn, "rb") : set_binary_mode(stdin);
 
   if (!infile) {
-    fatal("Failed to open input file '%s'", strcmp(fn, "-") ? fn : "stdin");
+    LOGE("Failed to open input file '%s'", strcmp(fn, "-") ? fn : "stdin");
+    exit(EXIT_FAILURE);
   }
+
 #if CONFIG_OS_SUPPORT
   /* Make sure we don't dump to the terminal, unless forced to with -o - */
   if (!outfile_pattern && isatty(fileno(stdout)) && !do_md5 && !noblit) {
-    fprintf(stderr,
-            "Not dumping raw video to your terminal. Use '-o -' to "
+    LOGE("Not dumping raw video to your terminal. Use '-o -' to "
             "override.\n");
     return EXIT_FAILURE;
   }
@@ -625,7 +528,7 @@ static int main_loop(const char *fn, const char *log_dir) {
   else if (file_is_raw(input.vpx_input_ctx))
     input.vpx_input_ctx->file_type = FILE_TYPE_RAW;
   else {
-    fprintf(stderr, "Unrecognized input file type.\n");
+    LOGE( "Unrecognized input file type.\n");
 #if !CONFIG_WEBM_IO
     fprintf(stderr, "vpxdec was built without WebM container support.\n");
 #endif
@@ -646,7 +549,7 @@ static int main_loop(const char *fn, const char *log_dir) {
 
   if (use_y4m && !noblit) {
     if (!single_file) {
-      fprintf(stderr,
+      LOGE(
               "YUV4MPEG2 not supported with output patterns,"
               " try --i420 or --yv12 or --rawvideo.\n");
       return EXIT_FAILURE;
@@ -655,7 +558,7 @@ static int main_loop(const char *fn, const char *log_dir) {
 #if CONFIG_WEBM_IO
     if (vpx_input_ctx.file_type == FILE_TYPE_WEBM) {
       if (webm_guess_framerate(input.webm_ctx, input.vpx_input_ctx)) {
-        fprintf(stderr,
+        LOGE(
                 "Failed to guess framerate -- error parsing "
                 "webm file?\n");
         return EXIT_FAILURE;
@@ -666,7 +569,7 @@ static int main_loop(const char *fn, const char *log_dir) {
 
   fourcc_interface = get_vpx_decoder_by_fourcc(vpx_input_ctx.fourcc);
   if (interface && fourcc_interface && interface != fourcc_interface)
-    warn("Header indicates codec: %s\n", fourcc_interface->name);
+    LOGW("Header indicates codec: %s\n", fourcc_interface->name);
   else
     interface = fourcc_interface;
 
@@ -676,19 +579,19 @@ static int main_loop(const char *fn, const char *log_dir) {
               (ec_enabled ? VPX_CODEC_USE_ERROR_CONCEALMENT : 0);
   if (vpx_codec_dec_init(&decoder, interface->codec_interface(), &cfg,
                          dec_flags)) {
-    fprintf(stderr, "Failed to initialize decoder: %s\n",
+    LOGE( "Failed to initialize decoder: %s\n",
             vpx_codec_error(&decoder));
     goto fail2;
   }
   if (svc_decoding) {
     if (vpx_codec_control(&decoder, VP9_DECODE_SVC_SPATIAL_LAYER,
                           svc_spatial_layer)) {
-      fprintf(stderr, "Failed to set spatial layer for svc decode: %s\n",
+      LOGE( "Failed to set spatial layer for svc decode: %s\n",
               vpx_codec_error(&decoder));
       goto fail;
     }
   }
-  if (!quiet) fprintf(stderr, "%s\n", decoder.name);
+  if (!quiet) LOGE( "%s\n", decoder.name);
 
 #if CONFIG_VP8_DECODER
   if (vp8_pp_cfg.post_proc_flag &&
@@ -699,7 +602,7 @@ static int main_loop(const char *fn, const char *log_dir) {
   }
 #endif
 
-  if (arg_skip) fprintf(stderr, "Skipping first %d frames.\n", arg_skip);
+  if (arg_skip) LOGE( "Skipping first %d frames.\n", arg_skip);
   while (arg_skip) {
     if (read_frame(&input, &buf, &bytes_in_buffer, &buffer_size)) break;
     arg_skip--;
@@ -712,7 +615,7 @@ static int main_loop(const char *fn, const char *log_dir) {
     if (vpx_codec_set_frame_buffer_functions(&decoder, get_vp9_frame_buffer,
                                              release_vp9_frame_buffer,
                                              &ext_fb_list)) {
-      fprintf(stderr, "Failed to configure external frame buffers: %s\n",
+      LOGE( "Failed to configure external frame buffers: %s\n",
               vpx_codec_error(&decoder));
       goto fail;
     }
@@ -741,9 +644,9 @@ static int main_loop(const char *fn, const char *log_dir) {
         if (vpx_codec_decode(&decoder, buf, (unsigned int)bytes_in_buffer, NULL,
                              0)) {
           const char *detail = vpx_codec_error_detail(&decoder);
-          warn("Failed to decode frame %d: %s", frame_in,
+          LOGW("Failed to decode frame %d: %s", frame_in,
                vpx_codec_error(&decoder));
-          if (detail) warn("Additional information: %s", detail);
+          if (detail) LOGW("Additional information: %s", detail);
           corrupted = 1;
           if (!keep_going) goto fail;
         }
@@ -751,7 +654,7 @@ static int main_loop(const char *fn, const char *log_dir) {
         if (framestats_file) {
           int qp;
           if (vpx_codec_control(&decoder, VPXD_GET_LAST_QUANTIZER, &qp)) {
-            warn("Failed VPXD_GET_LAST_QUANTIZER: %s",
+            LOGW("Failed VPXD_GET_LAST_QUANTIZER: %s",
                  vpx_codec_error(&decoder));
             if (!keep_going) goto fail;
           }
@@ -772,7 +675,7 @@ static int main_loop(const char *fn, const char *log_dir) {
     if (flush_decoder) {
       // Flush the decoder in frame parallel decode.
       if (vpx_codec_decode(&decoder, NULL, 0, NULL, 0)) {
-        warn("Failed to flush decoder: %s", vpx_codec_error(&decoder));
+        LOGW("Failed to flush decoder: %s", vpx_codec_error(&decoder));
         corrupted = 1;
         if (!keep_going) goto fail;
       }
@@ -789,7 +692,7 @@ static int main_loop(const char *fn, const char *log_dir) {
 
     if (!corrupted &&
         vpx_codec_control(&decoder, VP8D_GET_FRAME_CORRUPTED, &corrupted)) {
-      warn("Failed VP8_GET_FRAME_CORRUPTED: %s", vpx_codec_error(&decoder));
+      LOGW("Failed VP8_GET_FRAME_CORRUPTED: %s", vpx_codec_error(&decoder));
       if (!keep_going) goto fail;
     }
     frames_corrupted += corrupted;
@@ -832,7 +735,7 @@ static int main_loop(const char *fn, const char *log_dir) {
           libyuv_scale(img, scaled_img, kFilterBox);
           img = scaled_img;
 #else
-          fprintf(stderr,
+          LOGE(
                   "Failed  to scale output frame: %s.\n"
                   "Scaling is disabled in this configuration. "
                   "To enable scaling, configure with --enable-libyuv\n",
@@ -877,7 +780,7 @@ static int main_loop(const char *fn, const char *log_dir) {
           char buf[Y4M_BUFFER_SIZE] = { 0 };
           size_t len = 0;
           if (img->fmt == VPX_IMG_FMT_I440 || img->fmt == VPX_IMG_FMT_I44016) {
-            fprintf(stderr, "Cannot produce y4m output for 440 sampling.\n");
+            LOGE( "Cannot produce y4m output for 440 sampling.\n");
             goto fail;
           }
           if (frame_out == 1) {
@@ -906,7 +809,7 @@ static int main_loop(const char *fn, const char *log_dir) {
             if (opt_i420) {
               if (img->fmt != VPX_IMG_FMT_I420 &&
                   img->fmt != VPX_IMG_FMT_I42016) {
-                fprintf(stderr, "Cannot produce i420 output for bit-stream.\n");
+                LOGE( "Cannot produce i420 output for bit-stream.\n");
                 goto fail;
               }
             }
@@ -914,7 +817,7 @@ static int main_loop(const char *fn, const char *log_dir) {
               if ((img->fmt != VPX_IMG_FMT_I420 &&
                    img->fmt != VPX_IMG_FMT_YV12) ||
                   img->bit_depth != 8) {
-                fprintf(stderr, "Cannot produce yv12 output for bit-stream.\n");
+                LOGE( "Cannot produce yv12 output for bit-stream.\n");
                 goto fail;
               }
             }
@@ -945,11 +848,10 @@ static int main_loop(const char *fn, const char *log_dir) {
 
   if (summary || progress) {
     show_progress(frame_in, frame_out, dx_time);
-    fprintf(stderr, "\n");
   }
 
   if (frames_corrupted) {
-    fprintf(stderr, "WARNING: %d frames corrupted.\n", frames_corrupted);
+    LOGE( "WARNING: %d frames corrupted.\n", frames_corrupted);
   } else {
     ret = EXIT_SUCCESS;
   }
@@ -957,7 +859,7 @@ static int main_loop(const char *fn, const char *log_dir) {
 fail:
 
   if (vpx_codec_destroy(&decoder)) {
-    fprintf(stderr, "Failed to destroy decoder: %s\n",
+    LOGE( "Failed to destroy decoder: %s\n",
             vpx_codec_error(&decoder));
   }
 
@@ -994,6 +896,8 @@ fail2:
 
   free(argv);
 
+  LOGI("main_loop success");
+
   return ret;
 }
 
@@ -1001,10 +905,12 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
         (JNIEnv *env, jobject jobj, jstring jstr1, jstring jstr2)
 {
     const char *name = (*env)->GetStringUTFChars(env, jstr1, NULL);
-    const char *log_dir = (*env)->GetStringUTFChars(env, jstr2, NULL);
+    log_dir = (*env)->GetStringUTFChars(env, jstr2, NULL);
 
-    main_loop(name, log_dir);
+    main_loop(name);
 
-    (*env)->ReleaseStringUTFChars(env, jstr1, NULL);
-    (*env)->ReleaseStringUTFChars(env, jstr2, NULL);
+    (*env)->ReleaseStringUTFChars(env, jstr1, name);
+    (*env)->ReleaseStringUTFChars(env, jstr2, log_dir);
+
+    LOGI("vpxDecodeVideo ends");
 }

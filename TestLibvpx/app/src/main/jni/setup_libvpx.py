@@ -21,7 +21,6 @@ if os.path.isfile('vpx_config.h'):
 else:
     os.symlink(config_file, 'vpx_config.h')
 
-
 """
 SOURCE = os.path.abspath('../../../../../libvpx')
 TARGET = os.path.abspath('libvpx')
@@ -63,4 +62,3 @@ with open(srcs_file_) as config:
         os.symlink(src,dest)
         #copyfile(src, dest) - replace by symbolic links
 """
-
