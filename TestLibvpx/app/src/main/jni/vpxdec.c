@@ -9,6 +9,8 @@
  */
 #include <jni.h>
 #include <android/log.h>
+//#include <iostream>
+//using std::string;
 
 #include <assert.h>
 #include <limits.h>
@@ -44,7 +46,7 @@
 #endif
 #include "./y4menc.h"
 
-#define LOG_TAG "vpx_text.c JNI"
+#define TAG "vpx_text.c JNI"
 #define _UNKNOWN   0
 #define _DEFAULT   1
 #define _VERBOSE   2
@@ -54,87 +56,21 @@
 #define _ERROR    6
 #define _FATAL    7
 #define _SILENT       8
-#define LOGUNK(...) __android_log_print(_UNKNOWN,LOG_TAG,__VA_ARGS__)
-#define LOGDEF(...) __android_log_print(_DEFAULT,LOG_TAG,__VA_ARGS__)
-#define LOGV(...) __android_log_print(_VERBOSE,LOG_TAG,__VA_ARGS__)
-#define LOGD(...) __android_log_print(_DEBUG,LOG_TAG,__VA_ARGS__)
-#define LOGI(...) __android_log_print(_INFO,LOG_TAG,__VA_ARGS__)
-#define LOGW(...) __android_log_print(_WARN,LOG_TAG,__VA_ARGS__)
-#define LOGE(...) __android_log_print(_ERROR,LOG_TAG,__VA_ARGS__)
-#define LOGF(...) __android_log_print(_FATAL,LOG_TAG,__VA_ARGS__)
-#define LOGS(...) __android_log_print(_SILENT,LOG_TAG,__VA_ARGS__)
+#define LOGUNK(...) __android_log_print(_UNKNOWN,TAG,__VA_ARGS__)
+#define LOGDEF(...) __android_log_print(_DEFAULT,TAG,__VA_ARGS__)
+#define LOGV(...) __android_log_print(_VERBOSE,TAG,__VA_ARGS__)
+#define LOGD(...) __android_log_print(_DEBUG,TAG,__VA_ARGS__)
+#define LOGI(...) __android_log_print(_INFO,TAG,__VA_ARGS__)
+#define LOGW(...) __android_log_print(_WARN,TAG,__VA_ARGS__)
+#define LOGE(...) __android_log_print(_ERROR,TAG,__VA_ARGS__)
+#define LOGF(...) __android_log_print(_FATAL,TAG,__VA_ARGS__)
+#define LOGS(...) __android_log_print(_SILENT,TAG,__VA_ARGS__)
 
 static const char *exec_name;
 
 struct VpxDecInputContext {
   struct VpxInputContext *vpx_input_ctx;
   struct WebmInputContext *webm_ctx;
-};
-
-static const arg_def_t help =
-    ARG_DEF(NULL, "help", 0, "Show usage options and exit");
-static const arg_def_t looparg =
-    ARG_DEF(NULL, "loops", 1, "Number of times to decode the file");
-static const arg_def_t codecarg = ARG_DEF(NULL, "codec", 1, "Codec to use");
-static const arg_def_t use_yv12 =
-    ARG_DEF(NULL, "yv12", 0, "Output raw YV12 frames");
-static const arg_def_t use_i420 =
-    ARG_DEF(NULL, "i420", 0, "Output raw I420 frames");
-static const arg_def_t flipuvarg =
-    ARG_DEF(NULL, "flipuv", 0, "Flip the chroma planes in the output");
-static const arg_def_t rawvideo =
-    ARG_DEF(NULL, "rawvideo", 0, "Output raw YUV frames");
-static const arg_def_t noblitarg =
-    ARG_DEF(NULL, "noblit", 0, "Don't process the decoded frames");
-static const arg_def_t progressarg =
-    ARG_DEF(NULL, "progress", 0, "Show progress after each frame decodes");
-static const arg_def_t limitarg =
-    ARG_DEF(NULL, "limit", 1, "Stop decoding after n frames");
-static const arg_def_t skiparg =
-    ARG_DEF(NULL, "skip", 1, "Skip the first n input frames");
-static const arg_def_t postprocarg =
-    ARG_DEF(NULL, "postproc", 0, "Postprocess decoded frames");
-static const arg_def_t summaryarg =
-    ARG_DEF(NULL, "summary", 0, "Show timing summary");
-static const arg_def_t outputfile =
-    ARG_DEF("o", "output", 1, "Output file name pattern (see below)");
-static const arg_def_t threadsarg =
-    ARG_DEF("t", "threads", 1, "Max threads to use");
-static const arg_def_t frameparallelarg =
-    ARG_DEF(NULL, "frame-parallel", 0, "Frame parallel decode (ignored)");
-static const arg_def_t verbosearg =
-    ARG_DEF("v", "verbose", 0, "Show version string");
-static const arg_def_t error_concealment =
-    ARG_DEF(NULL, "error-concealment", 0, "Enable decoder error-concealment");
-static const arg_def_t scalearg =
-    ARG_DEF("S", "scale", 0, "Scale output frames uniformly");
-static const arg_def_t continuearg =
-    ARG_DEF("k", "keep-going", 0, "(debug) Continue decoding after error");
-static const arg_def_t fb_arg =
-    ARG_DEF(NULL, "frame-buffers", 1, "Number of frame buffers to use");
-static const arg_def_t md5arg =
-    ARG_DEF(NULL, "md5", 0, "Compute the MD5 sum of the decoded frame");
-#if CONFIG_VP9_HIGHBITDEPTH
-static const arg_def_t outbitdeptharg =
-    ARG_DEF(NULL, "output-bit-depth", 1, "Output bit-depth for decoded frames");
-#endif
-static const arg_def_t svcdecodingarg = ARG_DEF(
-    NULL, "svc-decode-layer", 1, "Decode SVC stream up to given spatial layer");
-static const arg_def_t framestatsarg =
-    ARG_DEF(NULL, "framestats", 1, "Output per-frame stats (.csv format)");
-
-static const arg_def_t *all_args[] = {
-  &help,           &codecarg,          &use_yv12,
-  &use_i420,       &flipuvarg,         &rawvideo,
-  &noblitarg,      &progressarg,       &limitarg,
-  &skiparg,        &postprocarg,       &summaryarg,
-  &outputfile,     &threadsarg,        &frameparallelarg,
-  &verbosearg,     &scalearg,          &fb_arg,
-  &md5arg,         &error_concealment, &continuearg,
-#if CONFIG_VP9_HIGHBITDEPTH
-  &outbitdeptharg,
-#endif
-  &svcdecodingarg, &framestatsarg,     NULL
 };
 
 #if CONFIG_VP8_DECODER
@@ -178,49 +114,6 @@ static INLINE int libyuv_scale(vpx_image_t *src, vpx_image_t *dst,
                    dst->d_h, mode);
 }
 #endif
-void show_help(FILE *fout, int shorthelp) {
-  int i;
-
-  fprintf(fout, "Usage: %s <options> filename\n\n", exec_name);
-
-  if (shorthelp) {
-    fprintf(fout, "Use --help to see the full list of options.\n");
-    return;
-  }
-
-  fprintf(fout, "Options:\n");
-  arg_show_usage(fout, all_args);
-#if CONFIG_VP8_DECODER
-  fprintf(fout, "\nVP8 Postprocessing Options:\n");
-  arg_show_usage(fout, vp8_pp_args);
-#endif
-  fprintf(fout,
-          "\nOutput File Patterns:\n\n"
-          "  The -o argument specifies the name of the file(s) to "
-          "write to. If the\n  argument does not include any escape "
-          "characters, the output will be\n  written to a single file. "
-          "Otherwise, the filename will be calculated by\n  expanding "
-          "the following escape characters:\n");
-  fprintf(fout,
-          "\n\t%%w   - Frame width"
-          "\n\t%%h   - Frame height"
-          "\n\t%%<n> - Frame number, zero padded to <n> places (1..9)"
-          "\n\n  Pattern arguments are only supported in conjunction "
-          "with the --yv12 and\n  --i420 options. If the -o option is "
-          "not specified, the output will be\n  directed to stdout.\n");
-  fprintf(fout, "\nIncluded decoders:\n\n");
-
-  for (i = 0; i < get_vpx_decoder_count(); ++i) {
-    const VpxInterface *const decoder = get_vpx_decoder_by_index(i);
-    fprintf(fout, "    %-6s - %s\n", decoder->name,
-            vpx_codec_iface_name(decoder->codec_interface()));
-  }
-}
-
-void usage_exit(void) {
-  show_help(stderr, 1);
-  exit(EXIT_FAILURE);
-}
 
 static int raw_read_frame(FILE *infile, uint8_t **buffer, size_t *bytes_read,
                           size_t *buffer_size) {
@@ -358,7 +251,7 @@ static int file_is_raw(struct VpxInputContext *input) {
 }
 
 static void show_progress(int frame_in, int frame_out, uint64_t dx_time) {
-  fprintf(stderr,
+  LOGI(TAG,
           "%d decoded frames/%d showed frames in %" PRId64 " us (%.2f fps)\r",
           frame_in, frame_out, dx_time,
           (double)frame_out * 1000000.0 / (double)dx_time);
@@ -516,7 +409,7 @@ static int img_shifted_realloc_required(const vpx_image_t *img,
 }
 #endif
 
-static int main_loop(const char *fn) {
+static int main_loop(const char *fn, const char *log_dir) {
   vpx_codec_ctx_t decoder;
   int i;
   int ret = EXIT_FAILURE;
@@ -584,7 +477,10 @@ static int main_loop(const char *fn) {
   outfile_pattern = "test.yuv";
   cfg.threads = 1;
   num_external_frame_buffers = 10;
+
+
   framestats_file = fopen("framestats", "w");
+  //framestats_file = fopen(sprintf("%s/framestats", log_dir), "w");
   if (!framestats_file) {
     die("Error: Could not open --framestats file (%s) for writing.\n",
         "framestats");
@@ -703,7 +599,6 @@ static int main_loop(const char *fn) {
   if (!fn) {
     free(argv);
     fprintf(stderr, "No input file specified!\n");
-    usage_exit();
   }
   /* Open file */
   infile = strcmp(fn, "-") ? fopen(fn, "rb") : set_binary_mode(stdin);
@@ -1103,19 +998,13 @@ fail2:
 }
 
 JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVideo
-        (JNIEnv *env, jobject jobj, jstring jstr)
+        (JNIEnv *env, jobject jobj, jstring jstr1, jstring jstr2)
 {
-    const char *name = (*env)->GetStringUTFChars(env, jstr, NULL);
-    main_loop(name);
-}
+    const char *name = (*env)->GetStringUTFChars(env, jstr1, NULL);
+    const char *log_dir = (*env)->GetStringUTFChars(env, jstr2, NULL);
 
+    main_loop(name, log_dir);
 
-int main(int argc, const char **argv_) {
-  unsigned int loops = 1, i;
-  char **argv, **argi, **argj;
-  struct arg arg;
-  int error = 0;
-
-  error = main_loop(argv_[1]);
-  return error;
+    (*env)->ReleaseStringUTFChars(env, jstr1, NULL);
+    (*env)->ReleaseStringUTFChars(env, jstr2, NULL);
 }

@@ -1,3 +1,0 @@
-[submodule "libvpx"]
-	path = libvpx
-	url = https://github.com/kaist-ina/libvpx.git
