@@ -75,8 +75,8 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
     const char *name = (*env)->GetStringUTFChars(env, jstr1, NULL);
     const char *log_dir = (*env)->GetStringUTFChars(env, jstr2, NULL);
 
-    //decode_test(name);
-    serialize_test(name, log_dir);
+    decode_test(name, log_dir);
+    //serialize_test(name, log_dir);
 
     (*env)->ReleaseStringUTFChars(env, jstr1, name);
     (*env)->ReleaseStringUTFChars(env, jstr2, log_dir);
