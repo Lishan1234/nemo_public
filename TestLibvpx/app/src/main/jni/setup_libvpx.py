@@ -7,12 +7,28 @@ parser = argparse.ArgumentParser(description='setup_libvpx')
 parser.add_argument('--abi', type=str, default='arm64-v8a')
 args = parser.parse_args()
 
-if os.path.isfile('libvpx'):
+if os.path.exists('libvpx'):
     os.remove('libvpx')
     os.symlink('../../../../../libvpx', 'libvpx')
 else:
     os.symlink('../../../../../libvpx', 'libvpx')
 
+def create_symlink(abi, name):
+    config_file = 'libvpx_android_configs/{}/{}'.format(abi, name)
+    assert os.path.isfile(config_file)
+    if os.path.isfile('{}'.format(name)):
+        os.remove('{}'.format(name))
+        os.symlink(config_file, '{}'.format(name))
+    else:
+        os.symlink(config_file, '{}'.format(name))
+
+create_symlink(args.abi, 'vpx_config.h')
+create_symlink(args.abi, 'vp9_rtcd.h')
+#create_symlink(args.abi, 'vpx_dsp_rtcd.h')
+#create_symlink(args.abi, 'vpx_scale_rtcd.h')
+#create_symlink(args.abi, 'vpx_version.h')
+
+"""
 config_file = 'libvpx_android_configs/{}/vpx_config.h'.format(args.abi)
 assert os.path.isfile(config_file)
 if os.path.isfile('vpx_config.h'):
@@ -21,7 +37,6 @@ if os.path.isfile('vpx_config.h'):
 else:
     os.symlink(config_file, 'vpx_config.h')
 
-"""
 SOURCE = os.path.abspath('../../../../../libvpx')
 TARGET = os.path.abspath('libvpx')
 

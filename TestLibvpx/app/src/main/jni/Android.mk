@@ -33,6 +33,8 @@ include $(LIBVPX_ROOT)/third_party/libwebm/Android.mk
 
 # build libvpxJNI.so
 include $(CLEAR_VARS)
+libvpx_test_codes := tests/decode_test.c \
+                    tests/serialize_test.c
 LOCAL_PATH := $(WORKING_DIR)
 LOCAL_MODULE := libvpxtestJNI
 LOCAL_ARM_MODE := arm
@@ -43,7 +45,8 @@ LOCAL_SRC_FILES += libvpx/args.c
 LOCAL_SRC_FILES += libvpx/ivfdec.c 
 LOCAL_SRC_FILES += libvpx/tools_common.c
 LOCAL_SRC_FILES += libvpx/y4menc.c 
-LOCAL_SRC_FILES += libvpx/webmdec.cc 
+LOCAL_SRC_FILES += libvpx/webmdec.cc
+LOCAL_SRC_FILES += $(libvpx_test_codes)
 #LOCAL_LDFLAGS := -L$(MOBINAS_LIB_PATH)
 #LOCAL_LDLIBS := -llog -lz -lm -landroid -lyuv
 LOCAL_LDLIBS := -llog -lz -lm -landroid 

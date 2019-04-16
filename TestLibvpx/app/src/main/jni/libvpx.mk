@@ -50,4 +50,7 @@ LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/libvpx \
                            $(LOCAL_PATH)/libvpx/vpx
 
 LOCAL_LDFLAGS := -Wl,--version-script=$(CONFIG_DIR)/libvpx.ver
+LOCAL_LDLIBS := -llog -lz -lm -landroid
 include $(BUILD_SHARED_LIBRARY)
+
+
