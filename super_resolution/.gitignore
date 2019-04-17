@@ -2,6 +2,7 @@ checkpoint/
 log/
 tmp/
 data/
+data_deprecated/
 deprecated/
 *.png
 *.sh
