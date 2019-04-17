@@ -5,13 +5,12 @@ from tensorflow.keras import Model
 from model import ops
 
 def make_model(args):
-    return EDSR_v2(args)
+    return EDSR_v5(args)
 
-class EDSR_v2:
+class EDSR_v5:
     def __init__(self, args):
         self.num_blocks = args.num_blocks
         self.num_filters = args.num_filters
-        self.num_reduced_filters = args.num_reduced_filters
         self.data_format = args.data_format
         self.scale = args.scale
         self.hwc = args.hwc
@@ -31,8 +30,6 @@ class EDSR_v2:
         name += '_'
         name += 'F{}'.format(self.num_filters)
         name += '_'
-        name += 'RF{}'.format(self.num_reduced_filters)
-        name += '_'
         name += 'S{}'.format(self.scale)
 
         if self.bitrate is not None:
@@ -47,18 +44,18 @@ class EDSR_v2:
 
     def _build_upsample(self, x):
         if self.upsample_type == 'transpose':
-            return ops.transpose_upsample(x, self.scale, self.channel_in, self.data_format, 5, self.num_reduced_filters) #compact version
+            return ops.transpose_upsample(x, self.scale, self.channel_in, self.data_format) #compact version
         elif self.upsample_type == 'subpixel':
             return ops.subpixel_upsample(x, self.scale, self.channel_in, self.data_format) #compact version
         elif self.upsample_type == 'resize_bilinear':
-            x = ops.bilinear_upsample(x, self.scale, self.data_format, self.num_reduced_filters)
+            x = ops.bilinear_upsample(x, self.scale, self.data_format)
             x = layers.Conv2D(self.channel_in,
                                         (3,3),
                                         padding='same',
                                         data_format=self.data_format)(x)
             return x
         elif self.upsample_type == 'resize_nearest':
-            x = ops.nearest_upsample(x, self.scale, self.data_format, self.num_reduced_filters)
+            x = ops.nearest_upsample(x, self.scale, self.data_format)
             x = layers.Conv2D(self.channel_in,
                                         (3,3),
                                         padding='same',
@@ -69,36 +66,13 @@ class EDSR_v2:
     def build(self):
         if self.hwc is not None:
             if self.data_format == 'channels_first':
-                inputs = layers.Input(shape=(self.hwc[2], self.hwc[0], self.hwc[1]))
+                inputs = layers.Input(shape=(self.hwc[2], self.hwc[0], self.hwc[1]), batch_size=1)
             else:
-                inputs = layers.Input(shape=(self.hwc[0], self.hwc[1], self.hwc[2]))
+                inputs = layers.Input(shape=(self.hwc[0], self.hwc[1], self.hwc[2]), batch_size=1)
         else:
             inputs = layers.Input(shape=(None, None, self.channel_in))
 
-        outputs = layers.Conv2D(self.num_filters,
-                                        (3,3),
-                                        padding='same',
-                                        data_format=self.data_format)(inputs)
-        res = outputs
-
-        for _ in range(self.num_blocks):
-            outputs = ops.residual_block(x=outputs,
-                                        num_filters=self.num_filters,
-                                        kernel_size=3,
-                                        data_format=self.data_format)
-
-        outputs = layers.Conv2D(self.num_filters,
-                                        (3,3),
-                                        padding='same',
-                                        data_format=self.data_format)(outputs)
-        outputs = layers.Add()([outputs, res])
-        predictions = self._build_upsample(outputs)
-        """
-        predictions = layers.Conv2D(self.channel_in,
-                                        (3,3),
-                                        padding='same',
-                                        data_format=self.data_format)(outputs)
-        """
+        predictions = self._build_upsample(inputs)
 
         model = Model(inputs=inputs, outputs=predictions)
         #model.summary()
