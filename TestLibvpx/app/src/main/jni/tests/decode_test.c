@@ -12,10 +12,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vpxdec.h>
 
 #include "android_example_testlibvpx_MainActivity.h"
+//#include "./vpxdec.h"
 #include "./vpx_config.h"
-#include "./decode_test.h"
+//#include "./decode_test.h"
 //#include "vpx_config.h"
 
 #if CONFIG_LIBYUV
@@ -41,7 +43,7 @@
 #endif
 #include "./y4menc.h"
 
-#define TAG "vpxdec.c JNI"
+#define TAG "decode_test.c JNI"
 #define _UNKNOWN   0
 #define _DEFAULT   1
 #define _VERBOSE   2
@@ -418,7 +420,7 @@ static int img_shifted_realloc_required(const vpx_image_t *img,
 }
 #endif
 
-int decode_test(const char *fn, const char *log_dir) {
+int decode_test(const char *video_dir, const char *log_dir, video_info_t video_info) {
     vpx_codec_ctx_t decoder;
     int i;
     int ret = EXIT_FAILURE;
@@ -427,7 +429,7 @@ int decode_test(const char *fn, const char *log_dir) {
     FILE *infile;
     int frame_in = 0, frame_out = 0, flipuv = 0, noblit = 0;
     int do_md5 = 0, progress = 0;
-    int stop_after = 0, postproc = 0, summary = 0, quiet = 1;
+    int stop_after = 120, postproc = 0, summary = 0, quiet = 1; //TODO (hyunho): set stop_after by configuration
     int arg_skip = 0;
     int ec_enabled = 0;
     int keep_going = 0;
@@ -490,16 +492,20 @@ int decode_test(const char *fn, const char *log_dir) {
     progress = 1;
     summary = 1;
 
-    if (!fn) {
+    if (!video_dir) {
         LOGE("No input file specified!\n");
         exit(EXIT_FAILURE);
     }
 
     /* Open file */
-    infile = strcmp(fn, "-") ? fopen(fn, "rb") : set_binary_mode(stdin);
+    char video_path[PATH_MAX];
+    if (video_info.upsample) {sprintf(video_path, "%s/%dp_%d_bicubic.%s", video_dir, video_info.resolution, video_info.duration, video_info.format);}
+    else {sprintf(video_path, "%s/%dp_%d.%s", video_dir, video_info.resolution, video_info.duration, video_info.format);}
+    //sprintf(video_path, "%s/test.%s", video_dir, video_info.format);
+    infile = strcmp(video_path, "-") ? fopen(video_path, "rb") : set_binary_mode(stdin);
 
     if (!infile) {
-        LOGE("Failed to open input file '%s'", strcmp(fn, "-") ? fn : "stdin");
+        LOGE("Failed to open input file '%s'", strcmp(video_path, "-") ? video_path : "stdin");
         exit(EXIT_FAILURE);
     }
 
@@ -620,6 +626,14 @@ int decode_test(const char *fn, const char *log_dir) {
     if (framestats_file) fprintf(framestats_file, "bytes,qp\n");
 
     /* Decode file */
+    char prefix[PATH_MAX];
+#if DEBUG_RESIZE
+    assert(video_info.upsample == 0);
+    sprintf(prefix, "%s/%dp_%d_resize", log_dir, video_info.resolution * video_info.scale, video_info.duration);
+#else
+    if (video_info.upsample) {sprintf(prefix, "%s/%dp_%d_bicubic", log_dir, video_info.resolution, video_info.duration);}
+    else {sprintf(prefix, "%s/%dp_%d", log_dir, video_info.resolution, video_info.duration);}
+#endif
     while (frame_avail || got_data) {
         vpx_codec_iter_t iter = NULL;
         vpx_image_t *img;
@@ -634,7 +648,7 @@ int decode_test(const char *fn, const char *log_dir) {
 
                 vpx_usec_timer_start(&timer);
 
-                if (vpx_codec_decode(&decoder, buf, (unsigned int)bytes_in_buffer, NULL,
+                if (vpx_codec_decode(&decoder, buf, (unsigned int)bytes_in_buffer, (void *) &prefix, //TODO (hyunho): pass user_priv about log directory
                                      0)) {
                     const char *detail = vpx_codec_error_detail(&decoder);
                     LOGW("Failed to decode frame %d: %s", frame_in,
