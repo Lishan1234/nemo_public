@@ -91,7 +91,13 @@ def nearest_upsample(x, scale, data_format='channel_last', num_reduced_filters=N
                             data_format=data_format)(x)
     return layers.UpSampling2D(size=(scale, scale), data_format=data_format, interpolation='nearest')(x)
 
-def transpose_upsample(x, scale, num_filters, data_format='channel_last', num_kernels=5):
+def transpose_upsample(x, scale, num_filters, data_format='channel_last', num_kernels=5, num_reduced_filters=None):
+    if num_reduced_filters is not None:
+        assert isinstance(num_reduced_filters, int)
+        x = layers.Conv2D(num_reduced_filters,
+                            (1,1),
+                            padding='same',
+                            data_format=data_format)(x)
     x = layers.Conv2DTranspose(filters=num_filters,
                             kernel_size=(num_kernels,num_kernels), #should be bigger than (stride) in Qualcomm SNPE
                             strides=(scale,scale),

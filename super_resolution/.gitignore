@@ -1,5 +1,5 @@
 checkpoint/
-log/
+log*/
 tmp/
 data/
 data_deprecated/
