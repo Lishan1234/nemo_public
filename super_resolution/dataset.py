@@ -1,5 +1,6 @@
 import tensorflow as tf   # only work from tensorflow==1.9.0-rc1 and after
 import os, glob, sys
+import numpy as np
 
 from option import args
 
@@ -23,8 +24,9 @@ class TFRecordDataset():
         else:
             self.train_tfrecord_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}_{}_{}_{}_{}_train.tfrecords'.format(args.train_data, args.patch_size, args.num_patch, args.scale, args.bitrate))
             self.valid_tfrecord_path = os.path.join(args.data_dir, args.valid_data, args.data_type, '{}_{}_{}_valid.tfrecords'.format(args.valid_data, args.scale, args.bitrate))
-        #print(self.train_tfrecord_path)
-        #print(self.valid_tfrecord_path)
+
+        print(self.train_tfrecord_path)
+        print(self.valid_tfrecord_path)
         assert os.path.isfile(self.train_tfrecord_path)
         assert os.path.isfile(self.valid_tfrecord_path)
 
@@ -86,7 +88,30 @@ class TFRecordDataset():
 
         return dataset
 
+def _parse_function_v2(lr_image_decoded, hr_filename, lr_bicubic_filename):
+    #lr_image_decoded = tf.read_file(lr_filename)
+    #lr_image_decoded = tf.image.decode_image(lr_image_decoded)
+    #lr_image_decoded = tf.image.convert_image_dtype(lr_image_decoded, tf.float32)
+    #lr_image_decoded = tf.divide(lr_image_decoded, 255.0)
+    #hr_image_string = tf.read_file(hr_filename)
+    #hr_image_decoded = tf.image.decode_png(hr_image_string, channels=3)
+    #hr_image_decoded = tf.cast(hr_image_decoded, tf.float32)
+    hr_image_decoded =  tf.io.read_file(hr_filename)
+    hr_image_decoded = tf.image.decode_image(hr_image_decoded)
+    hr_image_decoded = tf.image.convert_image_dtype(hr_image_decoded, tf.float32)
+    #hr_image_decoded = tf.divide(hr_image_decoded, 255.0)
+    #lr_bicubic_image_string = tf.read_file(lr_bicubic_filename)
+    #lr_bicubic_image_decoded = tf.image.decode_png(lr_bicubic_image_string, channels=3)
+    #lr_bicubic_image_decoded = tf.cast(lr_bicubic_image_decoded, tf.float32)
+    #lr_bicubic_image_decoded = tf.divide(lr_bicubic_image_decoded, 255.0)
+    lr_bicubic_image_decoded =  tf.io.read_file(lr_bicubic_filename)
+    lr_bicubic_image_decoded = tf.image.decode_image(lr_bicubic_image_decoded)
+    lr_bicubic_image_decoded = tf.image.convert_image_dtype(lr_bicubic_image_decoded, tf.float32)
+
+    return lr_image_decoded, hr_image_decoded, lr_bicubic_image_decoded
+
 def _parse_function(lr_filename, hr_filename, lr_bicubic_filename):
+    """
     lr_image_string = tf.read_file(lr_filename)
     lr_image_decoded = tf.image.decode_png(lr_image_string, channels=3)
     lr_image_decoded = tf.cast(lr_image_decoded, tf.float32)
@@ -99,8 +124,83 @@ def _parse_function(lr_filename, hr_filename, lr_bicubic_filename):
     lr_bicubic_image_decoded = tf.image.decode_png(lr_bicubic_image_string, channels=3)
     lr_bicubic_image_decoded = tf.cast(lr_bicubic_image_decoded, tf.float32)
     lr_bicubic_image_decoded = tf.divide(lr_bicubic_image_decoded, 255.0)
+    """
+    lr_image_decoded = tf.read_file(lr_filename)
+    lr_image_decoded = tf.image.decode_image(lr_image_decoded)
+    lr_image_decoded = tf.image.convert_image_dtype(lr_image_decoded, tf.float32)
+    #lr_image_decoded = tf.divide(lr_image_decoded, 255.0)
+    #hr_image_string = tf.read_file(hr_filename)
+    #hr_image_decoded = tf.image.decode_png(hr_image_string, channels=3)
+    #hr_image_decoded = tf.cast(hr_image_decoded, tf.float32)
+    hr_image_decoded =  tf.io.read_file(hr_filename)
+    hr_image_decoded = tf.image.decode_image(hr_image_decoded)
+    hr_image_decoded = tf.image.convert_image_dtype(hr_image_decoded, tf.float32)
+    #hr_image_decoded = tf.divide(hr_image_decoded, 255.0)
+    #hr_image_decoded = tf.divide(hr_image_decoded, 255.0)
+    #lr_bicubic_image_string = tf.read_file(lr_bicubic_filename)
+    #lr_bicubic_image_decoded = tf.image.decode_png(lr_bicubic_image_string, channels=3)
+    #lr_bicubic_image_decoded = tf.cast(lr_bicubic_image_decoded, tf.float32)
+    #lr_bicubic_image_decoded = tf.divide(lr_bicubic_image_decoded, 255.0)
+    lr_bicubic_image_decoded =  tf.io.read_file(lr_bicubic_filename)
+    lr_bicubic_image_decoded = tf.image.decode_image(lr_bicubic_image_decoded)
+    lr_bicubic_image_decoded = tf.image.convert_image_dtype(lr_bicubic_image_decoded, tf.float32)
+    #lr_bicubic_image_decoded = tf.divide(lr_bicubic_image_decoded, 255.0)
 
     return lr_image_decoded, hr_image_decoded, lr_bicubic_image_decoded
+
+class FeatureDataset():
+    def __init__(self, args, model_name):
+        #TODO: option for lazy loading approach
+        hr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/original'.format(args.hr))
+        if args.bitrate is None:
+            lr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/feature'.format(args.hr//args.scale), model_name)
+            lr_bicubic_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/bicubic_{}p'.format(args.hr//args.scale, args.hr))
+        else:
+            lr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p-{}k/feature'.format(args.hr//args.scale, args.bitrate))
+            lr_bicubic_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p-{}k/bicubic_{}p'.format(args.hr//args.scale, args.bitrate, args.hr))
+
+        self.hr_image_filenames = sorted(glob.glob('{}/*.png'.format(hr_image_path)))
+        self.lr_image_filenames = sorted(glob.glob('{}/*.npy'.format(lr_image_path)))
+        self.lr_bicubic_image_filenames = sorted(glob.glob('{}/*.png'.format(lr_bicubic_image_path)))
+
+        self.lr_images = []
+        for lr_image_filename in self.lr_image_filenames:
+            self.lr_images.append(np.load(lr_image_filename))
+
+        #print(self.lr_images[0])
+        #print(self.hr_image_filenames)
+        #print(self.lr_image_filenames)
+        #print(self.lr_bicubic_image_filenames)
+
+        assert len(self.hr_image_filenames) != 0
+        assert len(self.lr_image_filenames) != 0
+        assert len(self.lr_bicubic_image_filenames) != 0
+
+        """ @deprecated: memory explosion problem occured
+        self.hr_images = []
+        self.lr_images = []
+        self.lr_bicubic_images = []
+
+        with tf.device('cpu:0'):
+            for lr_filename, lr_bicubic_filename, hr_filename in zip(lr_image_filenames, lr_bicubic_image_filenames, hr_image_filenames):
+                self.hr_images.append(load_image(hr_filename))
+                self.lr_images.append(load_image(lr_filename))
+                self.lr_bicubic_images.append(load_image(lr_bicubic_filename))
+        """
+
+    def get_length(self):
+        #return len(hr_images)
+        return len(self.hr_image_filenames)
+
+    def create_dataset(self, num_sample=None):
+        #dataset = tf.data.Dataset.from_tensor_slices((self.lr_images, self.hr_images, self.lr_bicubic_images))
+
+        dataset = tf.data.Dataset.from_tensor_slices((self.lr_images, self.hr_image_filenames, self.lr_bicubic_image_filenames))
+        dataset = dataset.repeat(1)
+        dataset = dataset.map(_parse_function_v2, num_parallel_calls=2)
+        dataset = dataset.batch(1)
+
+        return dataset
 
 class ImageDataset():
     def __init__(self, args):
@@ -117,10 +217,6 @@ class ImageDataset():
         self.lr_image_filenames = sorted(glob.glob('{}/*.png'.format(lr_image_path)))
         self.lr_bicubic_image_filenames = sorted(glob.glob('{}/*.png'.format(lr_bicubic_image_path)))
 
-        print(args.scale)
-        print(args.hr//args.scale)
-        print(hr_image_path)
-        print(lr_image_path)
         assert len(self.hr_image_filenames) != 0
         assert len(self.lr_image_filenames) != 0
         assert len(self.lr_bicubic_image_filenames) != 0
