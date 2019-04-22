@@ -7,4 +7,6 @@
 
 #endif //TESTLIBVPX_DECODE_TEST_H
 
-int decode_test(const char *fn, const char *log_dir);
+#include "./vpxdec.h"
+
+int decode_test(const char *video_dir,  const char *log_dir, video_info_t video_info);

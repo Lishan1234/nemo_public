@@ -26,7 +26,8 @@ public class MainActivity extends AppCompatActivity {
         //Get video path
         File videoDir = getExternalFilesDir("mobinas" + File.separator + "data");
         File logDir = getExternalFilesDir("mobinas" + File.separator + "log");
-        String videoPath = videoDir.getAbsolutePath() + File.separator + "test.webm";
+        //String videoPath = videoDir.getAbsolutePath() + File.separator + "test.webm";
+        String videoPath = videoDir.getAbsolutePath();
         String logPath = logDir.getAbsolutePath();
 
         //Execute a libvpx unit test

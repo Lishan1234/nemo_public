@@ -45,6 +45,7 @@
 #include "./webmdec.h"
 #endif
 #include "./y4menc.h"
+//#include "vpxdec.h"
 
 #include <android/log.h>
 #include <tests/serialize_test.h>
@@ -70,15 +71,32 @@
 #define LOGS(...) __android_log_print(_SILENT,TAG,__VA_ARGS__)
 
 JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVideo
-        (JNIEnv *env, jobject jobj, jstring jstr1, jstring jstr2)
+        (JNIEnv *env, jobject jobj, jstring jstr1, jstring jstr2) //TODO (hyunho): get struct to configure video/test(num_frames, ...) in more details, refer google Keep data
 {
-    const char *name = (*env)->GetStringUTFChars(env, jstr1, NULL);
+    const char *video_dir = (*env)->GetStringUTFChars(env, jstr1, NULL);
     const char *log_dir = (*env)->GetStringUTFChars(env, jstr2, NULL);
 
-    decode_test(name, log_dir);
-    //serialize_test(name, log_dir);
+    assert(!(define DEBUG_SERIALIZE && define DEBUG_RESIZE));
 
-    (*env)->ReleaseStringUTFChars(env, jstr1, name);
+    video_info_t hr_video_info = {.resolution = 960, .duration=20, .upsample=0, .format="webm", .scale=4};
+    video_info_t lr_video_info = {.resolution = 240, .duration=20, .upsample=0, .format="webm", .scale=4};
+    video_info_t hr_upsample_video_info = {.resolution = 960, .duration=20, .upsample=1, .format="webm", .scale=4};
+    video_info_t lr_video2_info = {.resolution = 288, .duration=11, .upsample=0, .format="webm", .scale=4};
+
+
+#if DEBUG_SERIALIZE
+    decode_test(video_dir, log_dir, hr_video_info);
+    decode_test(video_dir, log_dir, lr_video_info);
+    decode_test(video_dir, log_dir, hr_upsample_video_info);
+#endif
+
+#if DEBUG_RESIZE
+    //decode_test(video_dir, log_dir, lr_video2_info);
+    decode_test(video_dir, log_dir, lr_video_info); //TODO (hyunho): a) deserialized resized frames, b) save visible frames seperately
+    //measure_quality("240p_20", "960p_20", "960p_20_bicubic", log_dir); //TODO: a) measure quality in PSNR/SSIM
+#endif
+
+    (*env)->ReleaseStringUTFChars(env, jstr1, video_dir);
     (*env)->ReleaseStringUTFChars(env, jstr2, log_dir);
 
     LOGI("vpxDecodeVideo ends");
