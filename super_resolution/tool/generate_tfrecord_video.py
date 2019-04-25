@@ -36,9 +36,9 @@ else:
     train_lr_bicubic_image_path = os.path.join(args.data_root, args.train_data, args.data_name, '{}p-{}k/bicubic_{}p'.format(args.hr//args.scale, args.bitrate, args.hr))
 train_writer = tf.io.TFRecordWriter(train_tf_records_filename)
 
-train_hr_image_filenames = glob.glob('{}/*.png'.format(train_hr_image_path))
-train_lr_image_filenames = glob.glob('{}/*.png'.format(train_lr_image_path))
-train_lr_bicubic_image_filenames = glob.glob('{}/*.png'.format(train_lr_bicubic_image_path))
+train_hr_image_filenames = sorted(glob.glob('{}/*.png'.format(train_hr_image_path)))
+train_lr_image_filenames = sorted(glob.glob('{}/*.png'.format(train_lr_image_path)))
+train_lr_bicubic_image_filenames = sorted(glob.glob('{}/*.png'.format(train_lr_bicubic_image_path)))
 
 train_hr_images = []
 train_lr_images = []

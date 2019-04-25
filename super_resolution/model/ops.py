@@ -16,6 +16,25 @@ class ReLU(tf.keras.layers.Layer):
     def compute_output_shape(self, input_shape):
         return tf.TensorShape(input_shape)
 
+def residual_block_(x, num_filters, kernel_size, data_format='channel_last'):
+    with tf.variable_scope('residual_block'):
+        res = x
+
+        x = layers.Conv2D(num_filters,
+                            (kernel_size,kernel_size),
+                            padding='same',
+                            data_format=data_format)(x)
+        x = layers.ReLU(max_value=1.0)(x)
+
+        x = layers.Conv2D(num_filters,
+                            (kernel_size,kernel_size),
+                            padding='same',
+                            data_format=data_format)(x)
+
+        x = layers.Add()([x, res])
+
+    return x
+
 def residual_block(x, num_filters, kernel_size, data_format='channel_last'):
     with tf.variable_scope('residual_block'):
         res = x
@@ -73,31 +92,13 @@ def mobilenetv2_block(x, num_filters, kernel_size, expand_factor, data_format='c
 
     return x
 
-def bilinear_upsample(x, scale, data_format='channel_last', num_reduced_filters=None):
-    if num_reduced_filters is not None:
-        assert isinstance(num_reduced_filters, int)
-        x = layers.Conv2D(num_reduced_filters,
-                            (1,1),
-                            padding='same',
-                            data_format=data_format)(x)
+def bilinear_upsample(x, scale, data_format='channel_last'):
     return layers.UpSampling2D(size=(scale, scale), data_format=data_format, interpolation='bilinear')(x)
 
-def nearest_upsample(x, scale, data_format='channel_last', num_reduced_filters=None):
-    if num_reduced_filters is not None:
-        assert isinstance(num_reduced_filters, int)
-        x = layers.Conv2D(num_reduced_filters,
-                            (1,1),
-                            padding='same',
-                            data_format=data_format)(x)
+def nearest_upsample(x, scale, data_format='channel_last'):
     return layers.UpSampling2D(size=(scale, scale), data_format=data_format, interpolation='nearest')(x)
 
-def transpose_upsample(x, scale, num_filters, data_format='channel_last', num_kernels=5, num_reduced_filters=None):
-    if num_reduced_filters is not None:
-        assert isinstance(num_reduced_filters, int)
-        x = layers.Conv2D(num_reduced_filters,
-                            (1,1),
-                            padding='same',
-                            data_format=data_format)(x)
+def transpose_upsample(x, scale, num_filters, data_format='channel_last', num_kernels=5):
     x = layers.Conv2DTranspose(filters=num_filters,
                             kernel_size=(num_kernels,num_kernels), #should be bigger than (stride) in Qualcomm SNPE
                             strides=(scale,scale),
@@ -109,6 +110,86 @@ def _depth_to_space_function(x):
     input = x[0]
     scale = x[1]
     return tf.depth_to_space(input, scale)
+
+"""
+        #clip
+        x = x * 255.0
+        x = tf.math.round(x)
+        x = tf.clip_by_value(x, -510.0, 510.0)
+
+        #quantize
+        x = x + 510.0
+        x = x / 4.0
+        x = tf.math.round(x)
+
+        if self.is_debug:
+            with tf.device("/cpu:0"):
+                tf.print(x)
+
+        x = x - 127.5
+        x = x * 4.0
+        x = x * 1/255.0
+"""
+
+class Quantize(tf.keras.layers.Layer):
+    def __init__(self, is_debug=False, **kwargs):
+        super(Quantize, self).__init__(**kwargs)
+        self.is_debug = is_debug
+
+    def build(self, input_shape):
+        pass
+
+    def call(self, x):
+        if self.is_debug:
+            with tf.device("/cpu:0"):
+                tf.print(x)
+        #clip
+        x = x * 255.0
+        x = tf.math.round(x)
+        x = tf.clip_by_value(x, -510.0, 510.0)
+
+        #quantize
+        x = x + 510.0
+        x = x / 4.0
+        x = tf.math.round(x)
+
+        if self.is_debug:
+            with tf.device("/cpu:0"):
+                tf.print(x)
+
+        return x
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
+    def get_config(self):
+        pass
+
+class Dequantize(tf.keras.layers.Layer):
+    def __init__(self, is_debug=False, **kwargs):
+        super(Dequantize, self).__init__(**kwargs)
+        self.is_debug = is_debug
+
+    def build(self, input_shape):
+        pass
+
+    def call(self, x):
+        #dequantize
+        x = x - 127.5
+        x = x * 4.0
+        x = x * 1/255.0
+
+        if self.is_debug:
+            with tf.device("/cpu:0"):
+                tf.print(x)
+
+        return x
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
+    def get_config(self):
+        pass
 
 class SubPixelUpscaling(tf.keras.layers.Layer):
     """ Sub-pixel convolutional upscaling layer based on the paper "Real-Time Single Image
