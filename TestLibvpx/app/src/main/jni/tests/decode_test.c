@@ -4,6 +4,7 @@
 
 #include <jni.h>
 #include <android/log.h>
+#include <time.h>
 
 #include <linux/limits.h>
 #include <assert.h>
@@ -421,6 +422,10 @@ static int img_shifted_realloc_required(const vpx_image_t *img,
 #endif
 
 int decode_test(const char *video_dir, const char *log_dir, video_info_t video_info) {
+    //Hyunho: maybe move to vpxdec.c
+    memset(video_info.log_dir, 0, PATH_MAX);
+    sprintf(video_info.log_dir, "%s", log_dir);
+
     vpx_codec_ctx_t decoder;
     int i;
     int ret = EXIT_FAILURE;
@@ -486,7 +491,7 @@ int decode_test(const char *video_dir, const char *log_dir, video_info_t video_i
     if (!interface)
         die("Error: Unrecognized argument (%s) to --codec\n", arg.val);
     outfile_pattern = "test.yuv";
-    cfg.threads = 1;
+    cfg.threads = 4;
     num_external_frame_buffers = 10;
     framestats_file = open_logfile("framestats", log_dir);
     progress = 1;
@@ -590,6 +595,16 @@ int decode_test(const char *video_dir, const char *log_dir, video_info_t video_i
             goto fail;
         }
     }
+    //TODO (hyunho): enable multi-thread decoding
+    /*
+    int enable_row_mt = 1;
+    if (interface->fourcc == VP9_FOURCC &&
+        vpx_codec_control(&decoder, VP9D_SET_ROW_MT, enable_row_mt)) {
+        fprintf(stderr, "Failed to set decoder in row multi-thread mode: %s\n",
+                vpx_codec_error(&decoder));
+        goto fail;
+    }
+    */
     if (!quiet) LOGE( "%s\n", decoder.name);
 
 #if CONFIG_VP8_DECODER
@@ -625,15 +640,9 @@ int decode_test(const char *video_dir, const char *log_dir, video_info_t video_i
 
     if (framestats_file) fprintf(framestats_file, "bytes,qp\n");
 
-    /* Decode file */
-    char prefix[PATH_MAX];
-#if DEBUG_RESIZE
-    assert(video_info.upsample == 0);
-    sprintf(prefix, "%s/%dp_%d_resize", log_dir, video_info.resolution * video_info.scale, video_info.duration);
-#else
-    if (video_info.upsample) {sprintf(prefix, "%s/%dp_%d_bicubic", log_dir, video_info.resolution, video_info.duration);}
-    else {sprintf(prefix, "%s/%dp_%d", log_dir, video_info.resolution, video_info.duration);}
-#endif
+    clock_t start, end;
+    double cpu_time_used;
+    start = clock();
     while (frame_avail || got_data) {
         vpx_codec_iter_t iter = NULL;
         vpx_image_t *img;
@@ -648,7 +657,7 @@ int decode_test(const char *video_dir, const char *log_dir, video_info_t video_i
 
                 vpx_usec_timer_start(&timer);
 
-                if (vpx_codec_decode(&decoder, buf, (unsigned int)bytes_in_buffer, (void *) &prefix, //TODO (hyunho): pass user_priv about log directory
+                if (vpx_codec_decode(&decoder, buf, (unsigned int)bytes_in_buffer, (void *) &video_info, //TODO (hyunho): pass user_priv about log directory
                                      0)) {
                     const char *detail = vpx_codec_error_detail(&decoder);
                     LOGW("Failed to decode frame %d: %s", frame_in,
@@ -852,6 +861,8 @@ int decode_test(const char *video_dir, const char *log_dir, video_info_t video_i
             }
         }
     }
+    end = clock();
+    LOGD("elapsed_time: %f", ((double) (end - start)) / CLOCKS_PER_SEC);
 
     if (summary || progress) {
         show_progress(frame_in, frame_out, dx_time);

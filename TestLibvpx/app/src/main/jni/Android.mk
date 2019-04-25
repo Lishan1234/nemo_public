@@ -33,8 +33,7 @@ include $(LIBVPX_ROOT)/third_party/libwebm/Android.mk
 
 # build libvpxJNI.so
 include $(CLEAR_VARS)
-libvpx_test_codes := tests/decode_test.c \
-                    tests/serialize_test.c
+libvpx_test_codes := tests/decode_test.c
 LOCAL_PATH := $(WORKING_DIR)
 LOCAL_MODULE := libvpxtestJNI
 LOCAL_ARM_MODE := arm
