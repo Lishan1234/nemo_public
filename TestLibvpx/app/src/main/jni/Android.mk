@@ -48,7 +48,7 @@ LOCAL_SRC_FILES += libvpx/webmdec.cc
 LOCAL_SRC_FILES += $(libvpx_test_codes)
 #LOCAL_LDFLAGS := -L$(MOBINAS_LIB_PATH)
 #LOCAL_LDLIBS := -llog -lz -lm -landroid -lyuv
-LOCAL_LDLIBS := -llog -lz -lm -landroid 
+LOCAL_LDLIBS := -llog -lz -lm -landroid
 LOCAL_SHARED_LIBRARIES := libvpx libyuv
 LOCAL_STATIC_LIBRARIES := cpufeatures libwebm
 include $(BUILD_SHARED_LIBRARY)

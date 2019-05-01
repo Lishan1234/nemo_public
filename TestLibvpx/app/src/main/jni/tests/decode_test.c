@@ -28,9 +28,21 @@
 #include "./args.h"
 #include "./ivfdec.h"
 
+#include "vpx_mem/vpx_mem.h"
 #include "vpx/vpx_decoder.h"
 #include "vpx_ports/mem_ops.h"
 #include "vpx_ports/vpx_timer.h"
+#include "vpx_scale/yv12config.h"
+#include "vpx_dsp/psnr.h"
+
+//#include <vpx_mem/vpx_mem.h>
+//#include <vp9/vp9_iface_common.h>
+//#include <vpx_scale/yv12config.h>
+//#include <vpx_util/vpx_write_yuv_frame.h>
+//#include <vpx_dsp/psnr.h>
+
+
+///home/hyunho/MobiNAS/TestLibvpx/app/src/main/jni/libvpx/vpx_ports/mem_ops.h
 
 #if CONFIG_VP8_DECODER || CONFIG_VP9_DECODER
 #include "vpx/vp8dx.h"
@@ -421,8 +433,7 @@ static int img_shifted_realloc_required(const vpx_image_t *img,
 }
 #endif
 
-int decode_test(const char *video_dir, const char *log_dir, video_info_t video_info) {
-    //Hyunho: maybe move to vpxdec.c
+int decode_test(const char *video_dir, const char *log_dir, decode_info_t video_info) {
     memset(video_info.log_dir, 0, PATH_MAX);
     sprintf(video_info.log_dir, "%s", log_dir);
 
@@ -432,9 +443,9 @@ int decode_test(const char *video_dir, const char *log_dir, video_info_t video_i
     uint8_t *buf = NULL;
     size_t bytes_in_buffer = 0, buffer_size = 0;
     FILE *infile;
-    int frame_in = 0, frame_out = 0, flipuv = 0, noblit = 0;
+    int stop_after = 10, frame_in = 0, frame_out = 0, flipuv = 0, noblit = 0;
     int do_md5 = 0, progress = 0;
-    int stop_after = 120, postproc = 0, summary = 0, quiet = 1; //TODO (hyunho): set stop_after by configuration
+    int postproc = 0, summary = 0, quiet = 1; //TODO (hyunho): set stop_after by configuration
     int arg_skip = 0;
     int ec_enabled = 0;
     int keep_going = 0;
@@ -486,16 +497,36 @@ int decode_test(const char *video_dir, const char *log_dir, video_info_t video_i
 #endif
     input.vpx_input_ctx = &vpx_input_ctx;
 
-    /* Setup (Hyunho) */
+    /*******************Hyunho************************/ //TODO (hyunho): allocate memory, free memory, quality measurement, ...
+    /*
+    char file_path[PATH_MAX];
+    YV12_BUFFER_CONFIG *original_frame = (YV12_BUFFER_CONFIG *) vpx_calloc(1, sizeof(YV12_BUFFER_CONFIG));
+    //YV12_BUFFER_CONFIG *original_frame = (YV12_BUFFER_CONFIG *) vpx_calloc(1, sizeof(YV12_BUFFER_CONFIG));
+    //YV12_BUFFER_CONFIG *reference_frame = (YV12_BUFFER_CONFIG *) vpx_calloc(1, sizeof(YV12_BUFFER_CONFIG));
+    //YV12_BUFFER_CONFIG *compare_frame = (YV12_BUFFER_CONFIG *) vpx_calloc(1, sizeof(YV12_BUFFER_CONFIG));
+    PSNR_STATS psnr_original;
+    PSNR_STATS psnr_compare;
+
+    stop_after = decode_info.stop_after;
+    int save_quality = decode_info.save_quality;
+    int save_serialized_frame = decode_info.save_serialized_frame;
+    int save_decoded_frame = decode_info.save_decoded_frame;
+
+    memset(file_path, 0, PATH_MAX);
+    sprintf(file_path, "%s/log", decode_info.log_dir);
+    FILE *log_file = fopen(file_path, "w");
+    */
+
     interface = get_vpx_decoder_by_name("vp9");
     if (!interface)
         die("Error: Unrecognized argument (%s) to --codec\n", arg.val);
     outfile_pattern = "test.yuv";
-    cfg.threads = 4;
+    cfg.threads = 1;
     num_external_frame_buffers = 10;
     framestats_file = open_logfile("framestats", log_dir);
     progress = 1;
     summary = 1;
+    /*******************Hyunho************************/
 
     if (!video_dir) {
         LOGE("No input file specified!\n");
@@ -504,9 +535,9 @@ int decode_test(const char *video_dir, const char *log_dir, video_info_t video_i
 
     /* Open file */
     char video_path[PATH_MAX];
-    if (video_info.upsample) {sprintf(video_path, "%s/%dp_%d_bicubic.%s", video_dir, video_info.resolution, video_info.duration, video_info.format);}
-    else {sprintf(video_path, "%s/%dp_%d.%s", video_dir, video_info.resolution, video_info.duration, video_info.format);}
-    //sprintf(video_path, "%s/test.%s", video_dir, video_info.format);
+    if (video_info.upsample) {sprintf(video_path, "%s/%dp_%d_bicubic.webm", video_dir, video_info.resolution, video_info.duration);}
+    else {sprintf(video_path, "%s/%dp_%d.webm", video_dir, video_info.resolution, video_info.duration);}
+    //sprintf(video_path, "%s/test.%s", video_dir, decode_info.format);
     infile = strcmp(video_path, "-") ? fopen(video_path, "rb") : set_binary_mode(stdin);
 
     if (!infile) {
@@ -715,6 +746,67 @@ int decode_test(const char *video_dir, const char *log_dir, video_info_t video_i
 
         if (progress) show_progress(frame_in, frame_out, dx_time);
 
+        /*******************Hyunho************************/
+        /*
+        if (image2yuvconfig(img, original_frame))
+        {
+            LOGE("convert image to yuv fail");
+            goto DEBUG_EXIT;
+        }
+
+        if (save_serialized_frame) {
+            memset(file_path, 0, sizeof(char) * PATH_MAX);
+            if (decode_info.upsample == 1) sprintf(file_path, "%s/%dp_%d_upsample", decode_info.log_dir, decode_info.resolution, frame_out);
+            else sprintf(file_path, "%s/%dp_%d", decode_info.log_dir, decode_info.resolution, frame_out);
+
+            if (vpx_serialize_save(file_path, original_frame))
+            {
+                LOGE("serialization fail");
+            };
+        }
+
+        if (save_decoded_frame) {
+            memset(file_path, 0, sizeof(char) * PATH_MAX);
+            if (decode_info.upsample == 1) sprintf(file_path, "%s/%dp_%d_upsample_y", decode_info.log_dir, decode_info.resolution, frame_out);
+            else sprintf(file_path, "%s/%dp_%dy", decode_info.log_dir, decode_info.resolution, frame_out);
+
+            if (vpx_write_y_frame(file_path, original_frame)) //TODO (hyunho): check whether using frame_to_show is valid or not
+            {
+                LOGE("vpx_write_y_frame fail");
+            }
+        }
+
+        if (save_quality) {
+            memset(file_path, 0, sizeof(char) * PATH_MAX);
+            sprintf(file_path, "%s/%dp_%d_y", decode_info.log_dir, decode_info.resolution * decode_info.scale, frame_out);
+            if(vpx_deserialize_load(compare_frame, file_path, original_frame->y_crop_width * decode_info.scale, original_frame->y_crop_height * decode_info.scale,
+                    original_frame->subsampling_x, original_frame->subsampling_y, 0)) //TODO (hyunho): check byte alignment value
+            {
+                LOGE("deserailize fail");
+                goto DEBUG_EXIT;
+            }
+
+            memset(file_path, 0, sizeof(char) * PATH_MAX);
+            sprintf(file_path, "%s/%dp_%d", decode_info.log_dir, decode_info.resolution * decode_info.scale, frame_out);
+            if(vpx_deserialize_load(reference_frame, file_path, original_frame->y_crop_width * decode_info.scale, original_frame->y_crop_height * decode_info.scale,
+                                    original_frame->subsampling_x, original_frame->subsampling_y, 0)) //TODO (hyunho): check byte alignment value
+            {
+                LOGE("deserailize fail");
+                goto DEBUG_EXIT;
+            }
+
+
+            vpx_calc_psnr(original_frame, reference_frame, &psnr_original);
+            vpx_calc_psnr(compare_frame, reference_frame, &psnr_compare);
+
+            LOGI("%d frame: original %.2fdB, compare %.2fdB", frame_out, psnr_original.psnr[0], psnr_compare.psnr[0]);
+            fprintf(log_file, "%.2f\t%.2f\t%.2f\n", psnr_original.psnr[0], psnr_compare.psnr[0], (double)frame_out * 1000000.0 / (double)dx_time);
+        }
+
+        DEBUG_EXIT:
+        */
+        /*******************Hyunho************************/
+
         if (!noblit && img) {
             const int PLANES_YUV[] = { VPX_PLANE_Y, VPX_PLANE_U, VPX_PLANE_V };
             const int PLANES_YVU[] = { VPX_PLANE_Y, VPX_PLANE_V, VPX_PLANE_U };
@@ -915,6 +1007,14 @@ int decode_test(const char *video_dir, const char *log_dir, video_info_t video_i
     free(argv);
 
     LOGI("main_loop success");
+
+    /*******************Hyunho************************/
+    /*
+    free(original_frame);
+    free(reference_frame);
+    free(compare_frame);
+    */
+    /*******************Hyunho************************/
 
     return ret;
 }

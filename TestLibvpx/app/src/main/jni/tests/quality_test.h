@@ -7,4 +7,4 @@
 
 #endif //TESTLIBVPX_QUALITY_TEST_H
 
-int quality_test(video_info_t video_info, const char *log_dir);
+int quality_test(decode_info_t video_info, const char *log_dir);

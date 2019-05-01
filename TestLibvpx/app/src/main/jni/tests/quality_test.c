@@ -32,7 +32,7 @@
 #define LOGF(...) __android_log_print(_FATAL,TAG,__VA_ARGS__)
 #define LOGS(...) __android_log_print(_SILENT,TAG,__VA_ARGS__)
 
-int quality_test(video_info_t video_info, const char *log_dir) {
+int quality_test(decode_info_t video_info, const char *log_dir) {
     //iterate: a) stop_num / w/o stop_num, {x}_{y} y++ / x++ 하면서 iterate
     int frame_status = 1;
     int superframe_status = 1;
