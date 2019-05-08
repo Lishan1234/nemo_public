@@ -102,7 +102,6 @@
 #define SAVE_SERIALIZE 0
 
 /* for debugging */
-#define CONFIG_SAVE_QUALITY 0
-#define CONFIG_SAVE_IMAGE 0
+#define CONFIG_CACHE_DEBUG 1
 
 #endif /* VPX_CONFIG_H */

@@ -89,7 +89,9 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
     //decode_test(video_dir, log_dir, setup_lr_video);
     //decode_test(video_dir, log_dir, setup_hr_upsample_video);
 
-    decode_test(video_dir, log_dir, test_quality_lr_video);
+    //decode_test(video_dir, log_dir, test_quality_lr_video);
+    decode_test(video_dir, log_dir, test_runtime_lr_video);
+
 
 #if DEBUG_SERIALIZE
     //decode_test(video_dir, log_dir, setup_hr_video);

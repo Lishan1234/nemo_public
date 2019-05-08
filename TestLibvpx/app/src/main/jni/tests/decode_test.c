@@ -443,7 +443,7 @@ int decode_test(const char *video_dir, const char *log_dir, decode_info_t video_
     uint8_t *buf = NULL;
     size_t bytes_in_buffer = 0, buffer_size = 0;
     FILE *infile;
-    int stop_after = 10, frame_in = 0, frame_out = 0, flipuv = 0, noblit = 0;
+    int stop_after = 120, frame_in = 0, frame_out = 0, flipuv = 0, noblit = 0;
     int do_md5 = 0, progress = 0;
     int postproc = 0, summary = 0, quiet = 1; //TODO (hyunho): set stop_after by configuration
     int arg_skip = 0;
