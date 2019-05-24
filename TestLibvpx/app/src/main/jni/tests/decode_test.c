@@ -258,10 +258,10 @@ static int file_is_raw(struct VpxInputContext *input) {
     return is_raw;
 }
 
-static void show_progress(int frame_in, int frame_out, uint64_t dx_time) {
-    LOGI("%d decoded frames/%d showed frames in %" PRId64 " us (%.2f fps)\r",
+static void show_progress(int frame_in, int frame_out, uint64_t dx_time, uint64_t dx_time_) {
+    LOGI("%d decoded frames/%d showed frames in %" PRId64 " us (%.2f fps, %.2f msec)\r",
          frame_in, frame_out, dx_time,
-         (double)frame_out * 1000000.0 / (double)dx_time);
+         (double)frame_out * 1000000.0 / (double)dx_time, (dx_time - dx_time_)/1000.0);
 }
 
 struct ExternalFrameBuffer {
@@ -443,7 +443,7 @@ int decode_test(const char *video_dir, const char *log_dir, decode_info_t video_
     uint8_t *buf = NULL;
     size_t bytes_in_buffer = 0, buffer_size = 0;
     FILE *infile;
-    int stop_after = 2, frame_in = 0, frame_out = 0, flipuv = 0, noblit = 0;
+    int stop_after = 20, frame_in = 0, frame_out = 0, flipuv = 0, noblit = 0;
     int do_md5 = 0, progress = 0;
     int postproc = 0, summary = 0, quiet = 1; //TODO (hyunho): set stop_after by configuration
     int arg_skip = 0;
@@ -451,7 +451,7 @@ int decode_test(const char *video_dir, const char *log_dir, decode_info_t video_
     int keep_going = 0;
     const VpxInterface *interface = NULL;
     const VpxInterface *fourcc_interface = NULL;
-    uint64_t dx_time = 0;
+    uint64_t dx_time = 0, dx_time_ =0;
     struct arg arg;
     char **argv, **argi, **argj;
 
@@ -522,7 +522,7 @@ int decode_test(const char *video_dir, const char *log_dir, decode_info_t video_
         die("Error: Unrecognized argument (%s) to --codec\n", arg.val);
     outfile_pattern = "test.yuv";
     cfg.threads = 1;
-    num_external_frame_buffers = 10;
+    num_external_frame_buffers = 100;
     framestats_file = open_logfile("framestats", log_dir);
     progress = 1;
     summary = 1;
@@ -686,6 +686,7 @@ int decode_test(const char *video_dir, const char *log_dir, decode_info_t video_
                 frame_avail = 1;
                 frame_in++;
 
+                dx_time_ = dx_time;
                 vpx_usec_timer_start(&timer);
 
                 if (vpx_codec_decode(&decoder, buf, (unsigned int)bytes_in_buffer, (void *) &video_info, //TODO (hyunho): pass user_priv about log directory
@@ -744,7 +745,7 @@ int decode_test(const char *video_dir, const char *log_dir, decode_info_t video_
         }
         frames_corrupted += corrupted;
 
-        if (progress) show_progress(frame_in, frame_out, dx_time);
+        if (progress) show_progress(frame_in, frame_out, dx_time, dx_time_);
 
         /*******************Hyunho************************/
         /*
@@ -957,7 +958,7 @@ int decode_test(const char *video_dir, const char *log_dir, decode_info_t video_
     LOGD("elapsed_time: %f", ((double) (end - start)) / CLOCKS_PER_SEC);
 
     if (summary || progress) {
-        show_progress(frame_in, frame_out, dx_time);
+        show_progress(frame_in, frame_out, dx_time, dx_time_);
     }
 
     if (frames_corrupted) {

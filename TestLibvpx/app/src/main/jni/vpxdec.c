@@ -79,15 +79,15 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
 
     assert(!(define DEBUG_SERIALIZE && define DEBUG_RESIZE));
 
-    decode_info_t setup_hr_video = {.resolution = 960, .upsample=0, .duration=20, .scale=4, .save_decoded_frame=1, .save_serialized_frame=1, .save_quality=0, .mode=DECODE};
+    decode_info_t setup_hr_video = {.resolution = 960, .upsample=0, .duration=20, .scale=4, .save_decoded_frame=1, .save_serialized_frame=1,.save_quality=0, .mode=DECODE};
     decode_info_t setup_lr_video = {.resolution = 240, .upsample=0, .duration=20, .scale=4, .save_decoded_frame=1, .save_serialized_frame=1, .save_quality=0, .mode=DECODE};
     decode_info_t setup_hr_upsample_video = {.resolution = 960, .upsample=1, .duration=20, .scale=4, .save_decoded_frame=1, .save_serialized_frame=1, .save_quality=0, .mode=DECODE};
     decode_info_t test_quality_lr_video = {.resolution = 240, .upsample=0, .duration=20, .scale=4, .save_decoded_frame=1, .save_serialized_frame=1, .save_quality=1, .mode=DECODE_CACHE};
     decode_info_t test_runtime_lr_video = {.resolution = 240, .upsample=0, .duration=20, .scale=4, .save_decoded_frame=0, .save_serialized_frame=0, .save_quality=0, .mode=DECODE_CACHE};
 
-    //decode_test(video_dir, log_dir, setup_hr_video);
-    //decode_test(video_dir, log_dir, setup_lr_video);
-    //decode_test(video_dir, log_dir, setup_hr_upsample_video);
+//    decode_test(video_dir, log_dir, setup_hr_video);
+//    decode_test(video_dir, log_dir, setup_lr_video);
+//    decode_test(video_dir, log_dir, setup_hr_upsample_video);
 
     decode_test(video_dir, log_dir, test_quality_lr_video);
     //decode_test(video_dir, log_dir, test_runtime_lr_video);

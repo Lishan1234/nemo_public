@@ -100,6 +100,7 @@
 #define DEBUG_QUALITY 0
 #define SAVE_IMAGE 0
 #define SAVE_SERIALIZE 0
+#define DEBUG 0
 
 /* for debugging */
 #define CONFIG_CACHE_DEBUG 1
