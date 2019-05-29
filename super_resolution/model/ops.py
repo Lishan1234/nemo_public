@@ -145,7 +145,6 @@ class Quantize(tf.keras.layers.Layer):
                 tf.print(x)
         #clip
         x = x * 255.0
-        x = tf.math.round(x)
         x = tf.clip_by_value(x, -510.0, 510.0)
 
         #quantize
