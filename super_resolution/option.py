@@ -14,7 +14,7 @@ parser.add_argument('--load_on_memory', action='store_true')
 parser.add_argument('--model_type', type=str, default='edsr',
                     #choices=('edsr, mobilenetv1, mobilenetv2, shufflenetv2'),
                     help='type of model')
-parser.add_argument('--upsample_type', type=str, default='subpixel',
+parser.add_argument('--upsample_type', type=str, default='transpose',
                     #choices=('transpose', 'subpixel', 'resize_bilinear', 'resize_nearest'),
                     help='type of upsample block')
 parser.add_argument('--num_blocks', type=int, default=4, help='number of convolution blocks')
@@ -38,7 +38,7 @@ parser.add_argument('--num_reduced_kernels', type=int, default=3)
 #Train
 parser.add_argument('--lr_init', type=float, default=1e-04)
 parser.add_argument('--num_batch', type=int, default=64)
-parser.add_argument('--num_epoch', type=int, default=150)
+parser.add_argument('--num_epoch', type=int, default=100)
 parser.add_argument('--num_batch_per_epoch', type=int, default=1000)
 parser.add_argument('--loss_type', type=str, default='l1',
                     choices=('l1', 'l2'))
@@ -80,8 +80,12 @@ parser.add_argument('--snpe_device_serial', type=str, default=None, help='Used f
 parser.add_argument('--snpe_copy_lib', action='store_true')
 parser.add_argument('--snpe_copy_data', action='store_true')
 
-#edsr_v2
+#edsr_v2, edsr_v9
 parser.add_argument('--mode', type=int, default=3, choices=(0,1,2,3), help='operation mode for configuring edsr_v2')
+
+#edsr_v9
+parser.add_argument('--num_extra_blocks', type=int, default=1)
+parser.add_argument('--num_extra_filters', type=int, default=16)
 
 args = parser.parse_args()
 if args.hwc is not None:

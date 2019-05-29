@@ -55,9 +55,9 @@ class Trainer():
     #TODO: save model for .pb, .h5 with input shape
     def save_model(self):
         checkpoint_prefix = os.path.join(self.checkpoint_dir, 'ckpt')
-        #self.root.save(checkpoint_prefix)
+        self.root.save(checkpoint_prefix)
         #self.model.save_weights(os.path.join(self.checkpoint_dir, 'keras'), save_format='h5')
-        self.model.save(os.path.join(self.checkpoint_dir, 'model.h5'), include_optimizer=False)
+        #self.model.save(os.path.join(self.checkpoint_dir, 'model.h5'), include_optimizer=False)
 
     def train(self):
         with self.writer.as_default(), tf.contrib.summary.always_record_summaries(), tf.device('gpu:{}'.format(self.args.gpu_idx)):

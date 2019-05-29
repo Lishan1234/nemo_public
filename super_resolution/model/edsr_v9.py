@@ -5,9 +5,9 @@ from tensorflow.keras import Model
 from model import ops
 
 def make_model(args):
-    return EDSR_v2(args)
+    return EDSR_v9(args)
 
-class EDSR_v2:
+class EDSR_v9:
     def __init__(self, args):
         self.num_blocks = args.num_blocks
         self.num_filters = args.num_filters
@@ -20,6 +20,8 @@ class EDSR_v2:
         self.channel_in = args.channel_in
         self.bitrate = args.bitrate
         self.mode = args.mode
+        self.num_extra_blocks = args.num_extra_blocks
+        self.num_extra_filters = args.num_extra_filters
 
     def get_name(self):
         name = ''
@@ -35,6 +37,10 @@ class EDSR_v2:
         name += 'RF{}'.format(self.num_reduced_filters)
         name += '_'
         name += 'S{}'.format(self.scale)
+        name += '_'
+        name += 'EXB{}'.format(self.num_extra_blocks)
+        name += '_'
+        name += 'EXF{}'.format(self.num_extra_filters)
 
         if self.bitrate is not None:
             name += '_'
@@ -145,6 +151,20 @@ class EDSR_v2:
 
         outputs = self._build_feature_reduction(outputs)
         outputs = self._build_feature_quantization(outputs)
+
+        #Extra residual blocks
+        outputs = layers.Conv2D(self.num_extra_filters,
+                                        (3,3),
+                                        padding='same',
+                                        data_format=self.data_format,
+                                        name='extra_conv')(outputs)
+        for idx in range(self.num_extra_blocks):
+            outputs = ops.residual_block(x=outputs,
+                                        num_filters=self.num_extra_filters,
+                                        kernel_size=3,
+                                        data_format=self.data_format,
+                                        name='extra{}'.format(idx))
+
         predictions = self._build_upsample(outputs)
 
         model = Model(inputs=inputs, outputs=predictions)
@@ -180,6 +200,19 @@ class EDSR_v2:
             inputs = layers.Input(shape=(None, None, self.channel_in))
 
         outputs = self._build_feature_quantization(inputs)
+
+        #Extra residual blocks
+        outputs = layers.Conv2D(self.num_extra_filters,
+                                        (3,3),
+                                        padding='same',
+                                        data_format=self.data_format)(outputs)
+        for idx in range(self.num_extra_blocks):
+            outputs = ops.residual_block(x=outputs,
+                                        num_filters=self.num_extra_filters,
+                                        kernel_size=3,
+                                        data_format=self.data_format,
+                                        name='extra{}'.format(idx))
+
         predictions = self._build_upsample(outputs)
 
         model = Model(inputs=inputs, outputs=predictions)

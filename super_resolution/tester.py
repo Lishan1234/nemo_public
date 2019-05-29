@@ -42,12 +42,17 @@ class Tester():
         log_dir = os.path.join(self.args.log_dir, self.args.train_data, model_builder.get_name())
         self.writer = tf.contrib.summary.create_file_writer(log_dir)
 
+    def save_as_h5(self, checkpoint_dir=None):
+        assert tf.train.latest_checkpoint(self.checkpoint_dir) is not None
+        self.root.restore(tf.train.latest_checkpoint(self.checkpoint_dir))
+        self.model.save(os.path.join(self.checkpoint_dir, 'final.h5'), include_optimizer=False)
+
     #TODO: save model for .pb, .h5 with input shape
     def load_model(self, checkpoint_dir=None):
-        #assert tf.train.latest_checkpoint(self.checkpoint_dir) is not None
-        #self.root.restore(tf.train.latest_checkpoint(self.checkpoint_dir))
-        filepath = os.path.join(self.checkpoint_dir, 'model.h5')
-        self.model.load_weights(filepath, True)
+        assert tf.train.latest_checkpoint(self.checkpoint_dir) is not None
+        self.root.restore(tf.train.latest_checkpoint(self.checkpoint_dir))
+        #filepath = os.path.join(self.checkpoint_dir, 'final.h5')
+        #self.model.load_weights(filepath, True)
 
     def save_feature(self):
         #image_dataloader = TFRecordDataset(self.args).create_valid_dataset()
@@ -59,7 +64,7 @@ class Tester():
                 input_image, _, _= images[0], images[1], images[2]
                 output_image = self.model(input_image)
                 output_image = tf.squeeze(output_image).numpy()
-                #scipy.misc.imsave("{}/{:04d}.png".format(self.feature_image_dir, idx+1), output_image)
+                scipy.misc.imsave("{}/{:04d}.png".format(self.feature_image_dir, idx+1), output_image)
                 np.save("{}/{:04d}.npy".format(self.feature_image_dir, idx+1), output_image)
                 util.print_progress(idx+1, image_dataset_len, 'Test Progress:', 'Complete', 1, 50)
 
@@ -113,6 +118,7 @@ class Tester():
 
                 output_psnr_value = tf.image.psnr(output_image, target_image, max_val=1.0)
                 baseline_psnr_value = tf.image.psnr(baseline_image, target_image, max_val=1.0)
+                #print(baseline_psnr_value)
 
                 output_psnr_list.append(output_psnr_value.numpy())
                 baseline_psnr_list.append(baseline_psnr_value.numpy())
@@ -123,10 +129,14 @@ class Tester():
                 #scipy.misc.imsave("{}/{}".format(self.sr_image_dir, name), output_image)
                 #util.print_progress(idx+1, image_dataset_len, 'Test Progress:', 'Complete', 1, 50)
 
-                print(baseline_image)
-                print(target_image)
-                break
+                #print(baseline_image)
+                #print(target_image)
 
             #print result
             print('Average PSNR: {}dB (SR), {}dB (Bicubic)'.format(np.mean(output_psnr_list), np.mean(baseline_psnr_list)))
             print(output_psnr_list) #for checking temporal variation
+
+            #TODO: tmp
+            with open("log_final.txt", "a") as log:
+                #log.write("{} {} {} {} {0:.2f}".format(self.args.num_blocks, self.args.num_filters, self.args.upsample_type, self.args.mode, np.mean(output_psnr_list)))
+                log.write("{} {} {:.2f}\n".format(self.args.upsample_type, self.args.mode, np.mean(output_psnr_list)))
