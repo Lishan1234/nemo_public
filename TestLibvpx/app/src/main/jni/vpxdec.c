@@ -49,6 +49,7 @@
 
 #include <android/log.h>
 #include <tests/serialize_test.h>
+#include <tests/quality_test.h>
 
 #define TAG "vpxdec.c JNI"
 #define _UNKNOWN   0
@@ -78,22 +79,37 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
 
     assert(!(define DEBUG_SERIALIZE && define DEBUG_RESIZE));
 
-    video_info_t hr_video_info = {.resolution = 960, .duration=20, .upsample=0, .format="webm", .scale=4};
-    video_info_t lr_video_info = {.resolution = 240, .duration=20, .upsample=0, .format="webm", .scale=4};
-    video_info_t hr_upsample_video_info = {.resolution = 960, .duration=20, .upsample=1, .format="webm", .scale=4};
-    video_info_t lr_video2_info = {.resolution = 288, .duration=11, .upsample=0, .format="webm", .scale=4};
+    decode_info_t setup_hr_video = {.resolution = 960, .upsample=0, .duration=20, .scale=4, .save_decoded_frame=1, .save_serialized_frame=1,.save_quality=0, .mode=DECODE};
+    decode_info_t setup_lr_video = {.resolution = 240, .upsample=0, .duration=20, .scale=4, .save_decoded_frame=1, .save_serialized_frame=1, .save_quality=0, .mode=DECODE};
+    decode_info_t setup_hr_upsample_video = {.resolution = 960, .upsample=1, .duration=20, .scale=4, .save_decoded_frame=1, .save_serialized_frame=1, .save_quality=0, .mode=DECODE};
+    decode_info_t test_quality_lr_video = {.resolution = 240, .upsample=0, .duration=20, .scale=4, .save_decoded_frame=1, .save_serialized_frame=1, .save_quality=1, .mode=DECODE_CACHE};
+    decode_info_t test_runtime_lr_video = {.resolution = 240, .upsample=0, .duration=20, .scale=4, .save_decoded_frame=0, .save_serialized_frame=0, .save_quality=0, .mode=DECODE_CACHE};
+
+//    decode_test(video_dir, log_dir, setup_hr_video);
+//    decode_test(video_dir, log_dir, setup_lr_video);
+//    decode_test(video_dir, log_dir, setup_hr_upsample_video);
+
+    decode_test(video_dir, log_dir, test_quality_lr_video);
+    //decode_test(video_dir, log_dir, test_runtime_lr_video);
 
 
 #if DEBUG_SERIALIZE
-    decode_test(video_dir, log_dir, hr_video_info);
-    decode_test(video_dir, log_dir, lr_video_info);
-    decode_test(video_dir, log_dir, hr_upsample_video_info);
+    //decode_test(video_dir, log_dir, setup_hr_video);
+    //decode_test(video_dir, log_dir, setup_lr_video);
+    //decode_test(video_dir, log_dir, setup_hr_upsample_video);
+    //decode_test(video_dir, log_dir, lr_360p_video_info);
+    //decode_test(video_dir, log_dir, lr_480p_video_info);
 #endif
 
 #if DEBUG_RESIZE
     //decode_test(video_dir, log_dir, lr_video2_info);
-    decode_test(video_dir, log_dir, lr_video_info); //TODO (hyunho): a) deserialized resized frames, b) save visible frames seperately
-    //measure_quality("240p_20", "960p_20", "960p_20_bicubic", log_dir); //TODO: a) measure quality in PSNR/SSIM
+    //decode_test(video_dir, log_dir, setup_lr_video);
+    //decode_test(video_dir, log_dir, lr_360p_video_info);
+    decode_test(video_dir, log_dir, lr_480p_video_info);
+#endif
+
+#if DEBUG_QUALITY
+    decode_test(video_dir, log_dir, setup_lr_video);
 #endif
 
     (*env)->ReleaseStringUTFChars(env, jstr1, video_dir);

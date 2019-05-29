@@ -24,7 +24,7 @@ def create_symlink(abi, name):
 
 create_symlink(args.abi, 'vpx_config.h')
 create_symlink(args.abi, 'vp9_rtcd.h')
-#create_symlink(args.abi, 'vpx_dsp_rtcd.h')
+create_symlink(args.abi, 'vpx_dsp_rtcd.h')
 #create_symlink(args.abi, 'vpx_scale_rtcd.h')
 #create_symlink(args.abi, 'vpx_version.h')
 

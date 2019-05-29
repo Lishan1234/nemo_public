@@ -8,6 +8,11 @@ cmd = 'python setup_snpe.py --model_type edsr_v2 --num_reduced_filters 3 --num_b
 os.system(cmd)
 
 cmd = 'python setup_snpe.py --model_type edsr_v2 --num_reduced_filters 3 --num_blocks 8 --num_filters 64 --upsample_type resize_bilinear --hwc 240,426,3 --train_data news --data_type 60_0.5 --lr 240 --snpe_project_root "../../../snpe" --snpe_tensorflow_root "../../../../tensorflow"'
+
+cmd = 'python setup_snpe.py --num_blocks 8 --num_filters 64 --model_type edsr_v2 --num_reduced_filters 3 --upsample_type transpose --hwc 240,426,3 --train_data news --data_type 60_0.5 --lr 240 --snpe_project_root "../../../snpe" --snpe_tensorflow_root "../../../../tensorflow"'
+os.system(cmd)
+
+cmd = 'python setup_snpe.py --num_blocks 8 --num_filters 64 --model_type edsr_v2 --num_reduced_filters 3 --upsample_type resize_bilinear --hwc 240,426,3 --train_data news --data_type 60_0.5 --lr 240 --snpe_project_root "../../../snpe" --snpe_tensorflow_root "../../../../tensorflow"'
 os.system(cmd)
 
 """
