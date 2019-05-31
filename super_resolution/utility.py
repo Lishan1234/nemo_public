@@ -1,6 +1,9 @@
 import sys
 import tensorflow as tf
 import random
+import shlex
+import json
+import subprocess
 
 def print_progress(iteration, total, prefix = '', suffix = '', decimals = 1, barLength = 100):
     formatStr = "{0:." + str(decimals) + "f}"
@@ -76,3 +79,21 @@ def crop_augment_image(hr_image, lr_image, scale, patch_size):
         lr_image_cropped = tf.image.rot90(lr_image_cropped)
 
     return hr_image_cropped, lr_image_cropped
+
+def findFPS(video_path):
+    cmd = "/usr/bin/ffprobe -v quiet -print_format json -show_streams"
+    args = shlex.split(cmd)
+    args.append(video_path)
+    ffprobeOutput = subprocess.check_output(args).decode("utf-8")
+    ffprobeOutput = json.loads(ffprobeOutput)
+
+    fps = ffprobeOutput['streams'][0]['r_frame_rate']
+    fps = int(fps.split('/')[0])
+
+    return fps
+
+def findWidthHeight(resolution):
+    if resolution == 270:
+        return 1080, 270
+    else:
+        raise NotImplementedError

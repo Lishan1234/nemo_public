@@ -7,15 +7,15 @@ import numpy as np
 
 parser = argparse.ArgumentParser(description="Video dataset")
 
-parser.add_argument('--data_dir', type=str, default="data")
+parser.add_argument('--data_dir', type=str, default="/ssd1/data")
 parser.add_argument('--dataset', type=str, required=True)
 parser.add_argument('--video_len', type=int, default=60)
 parser.add_argument('--video_start', type=int, default=0)
 parser.add_argument('--target_resolution', type=int, default=1080) #target HR resolution
 parser.add_argument('--original_resolution', default=2160) #original HR resolution - raw source
 parser.add_argument('--video_format', type=str, default="webm")
-parser.add_argument('--fps', type=float, default=1.0)
-parser.add_argument('--mode', choices=('video', 'tfrecord', 'all'), required=True)
+parser.add_argument('--fps', type=float, default=5.0)
+parser.add_argument('--mode', type=str,  required=True)
 parser.add_argument('--enable_debug', action='store_true')
 parser.add_argument('--patch_size', type=int, default=48)
 parser.add_argument('--num_patch', type=int, default=10000)
@@ -32,12 +32,13 @@ VP9_DASH_PARAMS="-tile-columns 4 -frame-parallel 1"
 
 video_dir = os.path.join(args.data_dir, args.dataset, "video")
 frame_dir = os.path.join(args.data_dir, args.dataset, "{}_{}_{}_{:.2f}".format(args.target_resolution, args.video_len, args.video_start, args.fps))
+sr_dir = os.path.join(args.data_dir, args.dataset, "{}_{}_{}".format(args.target_resolution, args.video_len, args.video_start))
 tfrecord_dir = os.path.join(args.data_dir, args.dataset, "{}_{}_{}_{:.2f}".format(args.target_resolution, args.video_len, args.video_start, args.fps))
 os.makedirs(video_dir, exist_ok=True)
 os.makedirs(frame_dir, exist_ok=True)
+os.makedirs(sr_dir, exist_ok=True)
 os.makedirs(tfrecord_dir, exist_ok=True)
 original_video_path = os.path.join(video_dir, "{}p.{}".format(args.original_resolution, args.video_format))
-
 
 len_hour = "{:02d}".format(int(args.video_len / 3600))
 remainder = args.video_len - int(args.video_len / 3600) * 3600
@@ -49,6 +50,7 @@ remainder = args.video_start - int(args.video_start / 3600) * 3600
 start_min = "{:02d}".format(int(remainder / 60))
 start_sec = "{:02d}".format(args.video_start % 60)
 
+print(original_video_path)
 assert os.path.exists(original_video_path)
 
 #TODO: prepare bicubic upsampled images
@@ -60,7 +62,9 @@ def setup_video():
         resized_video_path = os.path.join(video_dir, "{}p_{}k_{}sec_{}st.{}".format(resized_resolution, resize_bitrate, args.video_len, args.video_start, args.video_format))
 
         if not os.path.exists(resized_video_path):
-            cmd = "ffmpeg -i {} -ss {}:{}:{} -t {}:{}:{} -c:v libvpx-vp9 -vf scale=-1:{} -b:v {}k -keyint_min 120 -g 120 -threads 4 -speed 4 {} -an -f webm -dash 1 {}".format(original_video_path, start_hour, start_min, start_sec, len_hour, len_min, len_sec, resized_resolution, resize_bitrate, VP9_DASH_PARAMS, resized_video_path)
+            """ Temporally use GOP size as 30 """
+            #cmd = "ffmpeg -i {} -ss {}:{}:{} -t {}:{}:{} -c:v libvpx-vp9 -vf scale=-1:{} -b:v {}k -keyint_min 120 -g 120 -threads 4 -speed 4 {} -an -f webm -dash 1 {}".format(original_video_path, start_hour, start_min, start_sec, len_hour, len_min, len_sec, resized_resolution, resize_bitrate, VP9_DASH_PARAMS, resized_video_path)
+            cmd = "ffmpeg -i {} -ss {}:{}:{} -t {}:{}:{} -c:v libvpx-vp9 -vf scale=-1:{} -b:v {}k -keyint_min 30 -g 30 -threads 4 -speed 4 {} -an -f webm -dash 1 {}".format(original_video_path, start_hour, start_min, start_sec, len_hour, len_min, len_sec, resized_resolution, resize_bitrate, VP9_DASH_PARAMS, resized_video_path)
             os.system(cmd)
 
         #Generate images by sampling
@@ -74,7 +78,9 @@ def setup_video():
             upsample_bitrate = BITRATE[args.target_resolution]
             upsample_video_path = os.path.join(video_dir, "{}p_{}p_{}k_{}sec_{}st.{}".format(args.target_resolution, resized_resolution, upsample_bitrate, args.video_len, args.video_start, args.video_format))
             if not os.path.exists(upsample_video_path):
-                cmd = "ffmpeg -i {} -c:v libvpx-vp9 -vf scale=-1:{} -b:v {}k -keyint_min 120 -g 120 -threads 4 -speed 4 {} -an -f webm -dash 1 {}".format(resized_video_path, args.target_resolution, upsample_bitrate, VP9_DASH_PARAMS, upsample_video_path)
+                """ Temporally use GOP size as 30 """
+                #cmd = "ffmpeg -i {} -c:v libvpx-vp9 -vf scale=-1:{} -b:v {}k -keyint_min 120 -g 120 -threads 4 -speed 4 {} -an -f webm -dash 1 {}".format(resized_video_path, args.target_resolution, upsample_bitrate, VP9_DASH_PARAMS, upsample_video_path)
+                cmd = "ffmpeg -i {} -c:v libvpx-vp9 -vf scale=-1:{} -b:v {}k -keyint_min 30 -g 30 -threads 4 -speed 4 {} -an -f webm -dash 1 {}".format(resized_video_path, args.target_resolution, upsample_bitrate, VP9_DASH_PARAMS, upsample_video_path)
                 os.system(cmd)
 
             #Generate images by sampling
@@ -94,6 +100,20 @@ def setup_video():
     os.makedirs(sampled_frame_dir, exist_ok=True)
     cmd = "ffmpeg -i {} -vf fps={} {}/%04d.png".format(resized_video_path, args.fps, sampled_frame_dir)
     os.system(cmd)
+
+def setup_sr():
+    for scale in scales:
+        if (scale == 1):
+            continue
+        resized_resolution = args.target_resolution // scale
+        resize_bitrate = BITRATE[resized_resolution]
+        resized_video_path = os.path.join(video_dir, "{}p_{}k_{}sec_{}st.{}".format(resized_resolution, resize_bitrate, args.video_len, args.video_start, args.video_format))
+
+        assert (os.path.exists(resized_video_path))
+        input_dir = os.path.join(sr_dir, "{}p".format(resized_resolution))
+        os.makedirs(input_dir, exist_ok=True)
+        cmd = "ffmpeg -i {} {}/%04d.png".format(resized_video_path, input_dir)
+        os.system(cmd)
 
 def setup_tfrecord():
     tf.enable_eager_execution()
@@ -200,6 +220,10 @@ if __name__ == "__main__":
         setup_video()
     elif args.mode == "tfrecord":
         setup_tfrecord()
+    elif args.mode == "sr":
+        setup_sr()
     elif args.mode == "all":
         setup_video()
         setup_tfrecord()
+    else:
+        raise NotImplementedError

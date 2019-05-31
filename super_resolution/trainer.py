@@ -1,7 +1,8 @@
-import tensorflow as tf
-import os, time
+import os, time, sys
 from importlib import import_module
+
 import utility as util
+import tensorflow as tf
 
 tfe = tf.contrib.eager
 
@@ -27,7 +28,7 @@ class Trainer():
         self.root = tf.train.Checkpoint(optimizer=self.optimizer,
                             model=self.model,
                             optimizer_step=tf.train.get_or_create_global_step())
-        self.checkpoint_dir = os.path.join(self.args.checkpoint_dir, self.args.train_data, model_builder.get_name())
+        self.checkpoint_dir = os.path.join(args.data_dir, args.train_data, args.train_datatype, args.checkpoint_dir, model_builder.get_name())
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
         #Dataset
@@ -47,7 +48,6 @@ class Trainer():
     def apply_lr_decay(self, lr_decay_rate):
         self.learning_rate.assign(self.learning_rate * lr_decay_rate)
 
-    #TODO: save model for .pb, .h5 with input shape
     def load_model(self):
         assert tf.train.latest_checkpoint(self.checkpoint_dir) is not None
         self.root.restore(tf.train.latest_checkpoint(self.checkpoint_dir))
@@ -65,6 +65,7 @@ class Trainer():
             #Iterate until num_batch_per_epoch
             start_time = time.time()
             for idx, batch in enumerate(self.train_dataset.take(self.args.num_batch_per_epoch)):
+
                 """@deprecated
                 #validate & visualize
                 if idx != 0 and idx % self.args.num_batch_per_epoch == 0:
