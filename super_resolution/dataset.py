@@ -1,5 +1,5 @@
 import tensorflow as tf   # only work from tensorflow==1.9.0-rc1 and after
-import os, glob, sys
+import os, glob, sys, time
 import numpy as np
 
 from option import args
@@ -17,16 +17,19 @@ class TFRecordDataset():
     def __init__(self, args):
         self.num_batch = args.num_batch
         self.num_batch_per_epoch = args.num_batch_per_epoch
+        self.train_tfrecord_path = os.path.join(args.data_dir, args.train_data, args.train_datatype, 'train_{}p.tfrecords'.format(args.target_resolution//args.scale))
+        self.valid_tfrecord_path = os.path.join(args.data_dir, args.valid_data, args.valid_datatype, 'valid_{}p.tfrecords'.format(args.target_resolution//args.scale))
 
+        """
         if args.bitrate is None:
             self.train_tfrecord_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}_{}_{}_{}_train.tfrecords'.format(args.train_data, args.patch_size, args.num_patch, args.scale))
             self.valid_tfrecord_path = os.path.join(args.data_dir, args.valid_data, args.data_type, '{}_{}_valid.tfrecords'.format(args.valid_data, args.scale))
         else:
             self.train_tfrecord_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}_{}_{}_{}_{}_train.tfrecords'.format(args.train_data, args.patch_size, args.num_patch, args.scale, args.bitrate))
             self.valid_tfrecord_path = os.path.join(args.data_dir, args.valid_data, args.data_type, '{}_{}_{}_valid.tfrecords'.format(args.valid_data, args.scale, args.bitrate))
+        """
 
-        print(self.train_tfrecord_path)
-        print(self.valid_tfrecord_path)
+        print(self.train_tfrecord_path, self.valid_tfrecord_path)
         assert os.path.isfile(self.train_tfrecord_path)
         assert os.path.isfile(self.valid_tfrecord_path)
 
@@ -148,16 +151,17 @@ def _parse_function(lr_filename, hr_filename, lr_bicubic_filename):
 
     return lr_image_decoded, hr_image_decoded, lr_bicubic_image_decoded
 
+#TODO: args.hr, args.lr are deprecated, args.data_type
 class FeatureDataset():
     def __init__(self, args, model_name):
         #TODO: option for lazy loading approach
-        hr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/original'.format(args.hr))
+        hr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/original'.format(args.target_resolution))
         if args.bitrate is None:
-            lr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/feature'.format(args.hr//args.scale), model_name)
-            lr_bicubic_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/bicubic_{}p'.format(args.hr//args.scale, args.hr))
+            lr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/feature'.format(args.target_resolution//args.scale), model_name)
+            lr_bicubic_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p/bicubic_{}p'.format(args.target_resolution//args.scale, args.target_resolution))
         else:
-            lr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p-{}k/feature'.format(args.hr//args.scale, args.bitrate))
-            lr_bicubic_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p-{}k/bicubic_{}p'.format(args.hr//args.scale, args.bitrate, args.hr))
+            lr_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p-{}k/feature'.format(args.target_resolution//args.scale, args.bitrate))
+            lr_bicubic_image_path = os.path.join(args.data_dir, args.train_data, args.data_type, '{}p-{}k/bicubic_{}p'.format(args.target_resolution//args.scale, args.bitrate, args.target_resolution))
 
         self.hr_image_filenames = sorted(glob.glob('{}/*.png'.format(hr_image_path)))
         self.lr_image_filenames = sorted(glob.glob('{}/*.npy'.format(lr_image_path)))
@@ -202,6 +206,7 @@ class FeatureDataset():
 
         return dataset
 
+#TODO: args.hr, args.lr, args.data_type are deprecated
 class ImageDataset():
     def __init__(self, args):
         #TODO: option for lazy loading approach
@@ -244,6 +249,31 @@ class ImageDataset():
         dataset = dataset.map(_parse_function, num_parallel_calls=2)
         dataset = dataset.batch(1)
 
+        return dataset
+
+def _single_parse_func(filename):
+    image_decoded = tf.read_file(filename)
+    image_decoded = tf.image.decode_image(image_decoded)
+    image_decoded = tf.image.convert_image_dtype(image_decoded, tf.float32)
+    return image_decoded
+
+class InferenceDataset():
+    def __init__(self, args):
+        image_path = os.path.join(args.data_dir, args.valid_data, args.valid_datatype, '{}p'.format(args.target_resolution//args.scale))
+        self.image_filenames = sorted(glob.glob('{}/*.png'.format(image_path)))
+        #print(image_path)
+        #print(self.image_filenames)
+        #print(len(self.image_filenames))
+        assert len(self.image_filenames) != 0
+
+    def get_length(self):
+        return len(self.image_filenames)
+
+    def create_dataset(self, num_sample=None):
+        dataset = tf.data.Dataset.from_tensor_slices((self.image_filenames))
+        dataset = dataset.repeat(1)
+        dataset = dataset.map(_single_parse_func, num_parallel_calls=4)
+        dataset = dataset.batch(1)
         return dataset
 
 if __name__ == '__main__':

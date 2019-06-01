@@ -35,22 +35,40 @@ def residual_block_(x, num_filters, kernel_size, data_format='channel_last'):
 
     return x
 
-def residual_block(x, num_filters, kernel_size, data_format='channel_last'):
+def residual_block(x, num_filters, kernel_size, data_format='channel_last', name=None):
     with tf.variable_scope('residual_block'):
-        res = x
+        if name is None:
+            res = x
 
-        x = layers.Conv2D(num_filters,
-                            (kernel_size,kernel_size),
-                            padding='same',
-                            data_format=data_format)(x)
-        x = ReLU()(x)
+            x = layers.Conv2D(num_filters,
+                                (kernel_size,kernel_size),
+                                padding='same',
+                                data_format=data_format)(x)
+            x = ReLU()(x)
 
-        x = layers.Conv2D(num_filters,
-                            (kernel_size,kernel_size),
-                            padding='same',
-                            data_format=data_format)(x)
+            x = layers.Conv2D(num_filters,
+                                (kernel_size,kernel_size),
+                                padding='same',
+                                data_format=data_format)(x)
 
-        x = layers.Add()([x, res])
+            x = layers.Add()([x, res])
+        else:
+            res = x
+
+            x = layers.Conv2D(num_filters,
+                                (kernel_size,kernel_size),
+                                padding='same',
+                                data_format=data_format,
+                                name='{}_conv1'.format(name))(x)
+            x = ReLU()(x)
+
+            x = layers.Conv2D(num_filters,
+                                (kernel_size,kernel_size),
+                                padding='same',
+                                data_format=data_format,
+                                name='{}_conv2'.format(name))(x)
+
+            x = layers.Add(name='{}_add1'.format(name))([x, res])
 
     return x
 
@@ -145,11 +163,15 @@ class Quantize(tf.keras.layers.Layer):
                 tf.print(x)
         #clip
         x = x * 255.0
-        x = tf.clip_by_value(x, -510.0, 510.0)
+
+        #x = tf.clip_by_value(x, -510.0, 510.0)
+        x = tf.clip_by_value(x, -1020.0, 1020.0)
 
         #quantize
-        x = x + 510.0
-        x = x / 4.0
+        #x = x + 510.0
+        #x = x / 4.0
+        x = x + 1020
+        x = x / 8.0
         x = tf.math.round(x)
 
         if self.is_debug:
@@ -174,8 +196,11 @@ class Dequantize(tf.keras.layers.Layer):
 
     def call(self, x):
         #dequantize
+        #x = x - 127.5
+        #x = x * 4.0
+        #x = x * 1/255.0
         x = x - 127.5
-        x = x * 4.0
+        x = x * 8.0
         x = x * 1/255.0
 
         if self.is_debug:

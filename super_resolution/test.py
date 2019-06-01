@@ -16,6 +16,37 @@ tester = Tester(args, model_builder)
 tester.load_model()
 tester.save_feature()
 
+"""
+args.mode = 3
+model_module = import_module('model.' + args.model_type.lower())
+model_builder = model_module.make_model(args)
+tester = Tester(args, model_builder)
+tester.save_as_h5()
+"""
+"""
+args.mode = 2
+model_module = import_module('model.' + args.model_type.lower())
+model_builder = model_module.make_model(args)
+tester = Tester(args, model_builder)
+tester.load_model()
+tester.validate()
+
+args.mode = 3
+model_module = import_module('model.' + args.model_type.lower())
+model_builder = model_module.make_model(args)
+tester = Tester(args, model_builder)
+tester.load_model()
+tester.validate()
+"""
+
+"""
+args.mode = 0
+model_module = import_module('model.' + args.model_type.lower())
+model_builder = model_module.make_model(args)
+tester = Tester(args, model_builder)
+tester.load_model()
+tester.save_feature()
+
 args.mode = 1
 model_module = import_module('model.' + args.model_type.lower())
 model_builder = model_module.make_model(args)
@@ -23,7 +54,6 @@ tester_ = Tester(args, model_builder)
 tester_.load_model()
 tester_.validate_feature()
 
-"""
 args.mode = 2
 model_module = import_module('model.' + args.model_type.lower())
 model_builder = model_module.make_model(args)
