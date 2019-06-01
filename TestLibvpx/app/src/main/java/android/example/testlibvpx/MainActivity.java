@@ -1,13 +1,15 @@
 package android.example.testlibvpx;
 
+import android.content.Context;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 
 import java.io.File;
+import java.io.IOException;
 
 public class MainActivity extends AppCompatActivity {
-    public native void vpxDecodeVideo(String videoSavedPath, String logPath);
+    public native void vpxDecodeVideo(String videoSavedPath, String logPath, String framePath, String serializePath);
     private static final String TAG = MainActivity.class.getSimpleName();
 
     static{
@@ -18,21 +20,49 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        final String name = "mobinas";
+        final String content = "starcraft";
 
-        //Unzip and copy data
-        int resourceId = this.getResources().getIdentifier("data", "raw", this.getPackageName());
-        RawExtractor.execute(this, "data", resourceId);
+//        Unzip and copy data
+//        int resourceId = this.getResources().getIdentifier("starcraft", "raw", this.getPackageName());
+//        RawExtractor.execute(this, name, content, "video", resourceId); //TODO: use this as a content name
 
         //Get video path
-        File videoDir = getExternalFilesDir("mobinas" + File.separator + "data");
-        File logDir = getExternalFilesDir("mobinas" + File.separator + "log");
-        //String videoPath = videoDir.getAbsolutePath() + File.separator + "test.webm";
+        File videoDir = getExternalFilesDir(name + File.separator + content + File.separator + "video");
+        File logDir = getExternalFilesDir(name + File.separator + content + File.separator + "log");
+        File frameDir = getExternalFilesDir(name + File.separator + content + File.separator + "frame");
+        File serializeDir = getExternalFilesDir(name + File.separator + content + File.separator + "serialize");
+
+        try{
+            if(!logDir.exists() && logDir.isDirectory()) doCreateDirectory(logDir);
+            if(!frameDir.exists() && frameDir.isDirectory()) doCreateDirectory(frameDir);
+            if(!serializeDir.exists() && serializeDir.isDirectory()) doCreateDirectory(serializeDir);
+        }
+        catch (IOException e)
+        {
+            Log.e(TAG, e.getMessage(), e);
+        }
+
+
         String videoPath = videoDir.getAbsolutePath();
         String logPath = logDir.getAbsolutePath();
+        String framePath = frameDir.getAbsolutePath();
+        String serializePath = serializeDir.getAbsolutePath();
 
         //Execute a libvpx unit test
-        vpxDecodeVideo(videoPath, logPath);
+        vpxDecodeVideo(videoPath, logPath, framePath, serializePath);
 
         Log.i(TAG, "MainActivity ends");
     }
+
+    private static void doCreateDirectory(File directory) throws IOException {
+        if (!directory.mkdirs()) {
+            throw new IOException("Can not create directory: " + directory.getAbsolutePath());
+        }
+    }
+
+    private static boolean modelExists(File modelRoot) {
+        return modelRoot.listFiles().length > 0;
+    }
+
 }

@@ -94,15 +94,8 @@
 #define CONFIG_FP_MB_STATS 0
 #define CONFIG_EMULATE_HARDWARE 0
 
-/* for unit test */
-#define DEBUG_SERIALIZE 0
-#define DEBUG_RESIZE 0
-#define DEBUG_QUALITY 0
+/* for saving */
 #define SAVE_IMAGE 0
 #define SAVE_SERIALIZE 0
-#define DEBUG 0
-
-/* for debugging */
-#define CONFIG_CACHE_DEBUG 1
 
 #endif /* VPX_CONFIG_H */
