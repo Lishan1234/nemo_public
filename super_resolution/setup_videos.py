@@ -61,6 +61,18 @@ for video_file in filtered_video_files:
     copy = os.path.join(data_dir, video_file)
     shutil.copyfile(origin, copy)
 
+#make a video file name list txt file
+f = open("{}/video_list".format(data_dir), 'w')
+for video_file in filtered_video_files:
+    if hr_pattern.match(video_file): f.write("{}\n".format(video_file))
+for video_file in filtered_video_files:
+    if lr_pattern.match(video_file): f.write("{}\n".format(video_file))
+for video_file in filtered_video_files:
+    if lr_bicubic_pattern.match(video_file): f.write("{}\n".format(video_file))
+for video_file in filtered_video_files:
+    if sr_pattern.match(video_file): f.write("{}\n".format(video_file))
+f.close()
+
 #compress videos
 """
 home = os.path.expanduser('~')
