@@ -1,14 +1,15 @@
 import os, time, sys, time
 from importlib import import_module
 
+from config import *
+from dataset import InferenceDataset
+from option import *
+import utility as util
+
 import scipy.misc
 import numpy as np
 import tensorflow as tf
 from PIL import Image
-
-from dataset import InferenceDataset
-from option import *
-import utility as util
 
 class Tester():
     def __init__(self, args, model_builder):
@@ -62,11 +63,12 @@ class Tester():
         fps = util.findFPS(original_video_path)
         width, height = util.findWidthHeight(self.args.target_resolution // self.args.scale)
 
-        cmd = '/usr/bin/ffmpeg -framerate 30 -s 1920x1080 -pix_fmt rgb24 -i {}/%04d.raw -vcodec libvpx-vp9 -threads 4 -speed 4 -pix_fmt yuv420p -lossless 1 {}'.format(self.output_image_dir, sr_video_path)
+        #TODO: temporally set key interval to 30
+        cmd = '/usr/bin/ffmpeg -framerate 30 -s 1920x1080 -pix_fmt rgb24 -i {}/%04d.raw -vcodec libvpx-vp9 -threads 4 -speed 4 -pix_fmt yuv420p -lossless 1 -keyint_min {} -g {} {}'.format(self.output_image_dir, KEY_INTERVAL, KEY_INTERVAL, sr_video_path)
         os.system(cmd)
 
         cmd = 'rm {}/*.raw'.format(self.output_image_dir)
-        os.system(cmd)
+        #os.system(cmd)
 
 if __name__ == '__main__':
     tf.enable_eager_execution()

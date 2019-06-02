@@ -37,6 +37,8 @@ lr_bicubic_pattern = re.compile(lr_bicubic_regex)
 sr_regex = "^{}p_{}p_{}sec_{}st".format(args.target_resolution, args.target_resolution // args.scale, args.video_len, args.video_start)
 sr_pattern = re.compile(sr_regex)
 
+print(hr_regex)
+
 #filter videos
 for video_file in video_files:
     #find a HR video
@@ -64,13 +66,13 @@ for video_file in filtered_video_files:
 #make a video file name list txt file
 f = open("{}/video_list".format(data_dir), 'w')
 for video_file in filtered_video_files:
-    if hr_pattern.match(video_file): f.write("{}\n".format(video_file))
+    if hr_pattern.match(video_file): f.write("{}\n".format(video_file.split(".")[0]))
 for video_file in filtered_video_files:
-    if lr_pattern.match(video_file): f.write("{}\n".format(video_file))
+    if lr_pattern.match(video_file): f.write("{}\n".format(video_file.split(".")[0]))
 for video_file in filtered_video_files:
-    if lr_bicubic_pattern.match(video_file): f.write("{}\n".format(video_file))
+    if lr_bicubic_pattern.match(video_file): f.write("{}\n".format(video_file.split(".")[0]))
 for video_file in filtered_video_files:
-    if sr_pattern.match(video_file): f.write("{}\n".format(video_file))
+    if sr_pattern.match(video_file): f.write("{}\n".format(video_file.split(".")[0]))
 f.close()
 
 #compress videos

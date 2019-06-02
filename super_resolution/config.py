@@ -1,0 +1,1 @@
+KEY_INTERVAL = 30

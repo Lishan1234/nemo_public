@@ -1,5 +1,6 @@
 import os, glob, random, sys, time, argparse
 import utility as util
+from config import *
 
 import tensorflow as tf
 from PIL import Image
@@ -64,7 +65,7 @@ def setup_video():
         if not os.path.exists(resized_video_path):
             """ Temporally use GOP size as 30 """
             #cmd = "ffmpeg -i {} -ss {}:{}:{} -t {}:{}:{} -c:v libvpx-vp9 -vf scale=-1:{} -b:v {}k -keyint_min 120 -g 120 -threads 4 -speed 4 {} -an -f webm -dash 1 {}".format(original_video_path, start_hour, start_min, start_sec, len_hour, len_min, len_sec, resized_resolution, resize_bitrate, VP9_DASH_PARAMS, resized_video_path)
-            cmd = "ffmpeg -i {} -ss {}:{}:{} -t {}:{}:{} -c:v libvpx-vp9 -vf scale=-1:{} -b:v {}k -keyint_min 30 -g 30 -threads 4 -speed 4 {} -an -f webm -dash 1 {}".format(original_video_path, start_hour, start_min, start_sec, len_hour, len_min, len_sec, resized_resolution, resize_bitrate, VP9_DASH_PARAMS, resized_video_path)
+            cmd = "ffmpeg -i {} -ss {}:{}:{} -t {}:{}:{} -c:v libvpx-vp9 -vf scale=-1:{} -b:v {}k -keyint_min {} -g {} -threads 4 -speed 4 {} -an -f webm -dash 1 {}".format(original_video_path, start_hour, start_min, start_sec, len_hour, len_min, len_sec, resized_resolution, resize_bitrate, KEY_INTERVAL, KEY_INTERVAL, VP9_DASH_PARAMS, resized_video_path)
             os.system(cmd)
 
         #Generate images by sampling
@@ -80,7 +81,7 @@ def setup_video():
             if not os.path.exists(upsample_video_path):
                 """ Temporally use GOP size as 30 """
                 #cmd = "ffmpeg -i {} -c:v libvpx-vp9 -vf scale=-1:{} -b:v {}k -keyint_min 120 -g 120 -threads 4 -speed 4 {} -an -f webm -dash 1 {}".format(resized_video_path, args.target_resolution, upsample_bitrate, VP9_DASH_PARAMS, upsample_video_path)
-                cmd = "ffmpeg -i {} -c:v libvpx-vp9 -vf scale=-1:{} -b:v {}k -keyint_min 30 -g 30 -threads 4 -speed 4 {} -an -f webm -dash 1 {}".format(resized_video_path, args.target_resolution, upsample_bitrate, VP9_DASH_PARAMS, upsample_video_path)
+                cmd = "ffmpeg -i {} -c:v libvpx-vp9 -vf scale=-1:{} -b:v {}k -keyint_min {} -g {} -threads 4 -speed 4 {} -an -f webm -dash 1 {}".format(resized_video_path, args.target_resolution, upsample_bitrate, KEY_INTERVAL, KEY_INTERVAL, VP9_DASH_PARAMS, upsample_video_path)
                 os.system(cmd)
 
             #Generate images by sampling
