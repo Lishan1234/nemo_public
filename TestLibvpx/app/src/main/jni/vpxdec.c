@@ -72,12 +72,13 @@
 #define LOGS(...) __android_log_print(_SILENT,TAG,__VA_ARGS__)
 
 JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVideo
-        (JNIEnv *env, jobject jobj, jstring jstr1, jstring jstr2) //TODO (hyunho): get struct to configure video/test(num_frames, ...) in more details, refer google Keep data
+        (JNIEnv *env, jobject jobj, jstring jstr1, jstring jstr2, jstring jstr3, jstring jstr4) //TODO (hyunho): get struct to configure video/test(num_frames, ...) in more details, refer google Keep data
 {
     const char *video_dir = (*env)->GetStringUTFChars(env, jstr1, NULL);
     const char *log_dir = (*env)->GetStringUTFChars(env, jstr2, NULL);
+    const char *frame_dir = (*env)->GetStringUTFChars(env, jstr3, NULL);
+    const char *serialize_dir = (*env)->GetStringUTFChars(env, jstr4, NULL);
 
-    assert(!(define DEBUG_SERIALIZE && define DEBUG_RESIZE));
 
     decode_info_t setup_hr_video = {.resolution = 960, .upsample=0, .duration=20, .scale=4, .save_decoded_frame=1, .save_serialized_frame=1,.save_quality=0, .mode=DECODE};
     decode_info_t setup_lr_video = {.resolution = 240, .upsample=0, .duration=20, .scale=4, .save_decoded_frame=1, .save_serialized_frame=1, .save_quality=0, .mode=DECODE};
@@ -85,35 +86,17 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
     decode_info_t test_quality_lr_video = {.resolution = 240, .upsample=0, .duration=20, .scale=4, .save_decoded_frame=1, .save_serialized_frame=1, .save_quality=1, .mode=DECODE_CACHE};
     decode_info_t test_runtime_lr_video = {.resolution = 240, .upsample=0, .duration=20, .scale=4, .save_decoded_frame=0, .save_serialized_frame=0, .save_quality=0, .mode=DECODE_CACHE};
 
-//    decode_test(video_dir, log_dir, setup_hr_video);
-//    decode_test(video_dir, log_dir, setup_lr_video);
-//    decode_test(video_dir, log_dir, setup_hr_upsample_video);
+//    decode_test(video_dir, log_dir, frame_dir, serialize_dir, setup_hr_video);
+//    decode_test(video_dir, log_dir, frame_dir, serialize_dir, setup_lr_video);
+//    decode_test(video_dir, log_dir, frame_dir, serialize_dir, setup_hr_upsample_video);
 
-    decode_test(video_dir, log_dir, test_quality_lr_video);
-    //decode_test(video_dir, log_dir, test_runtime_lr_video);
-
-
-#if DEBUG_SERIALIZE
-    //decode_test(video_dir, log_dir, setup_hr_video);
-    //decode_test(video_dir, log_dir, setup_lr_video);
-    //decode_test(video_dir, log_dir, setup_hr_upsample_video);
-    //decode_test(video_dir, log_dir, lr_360p_video_info);
-    //decode_test(video_dir, log_dir, lr_480p_video_info);
-#endif
-
-#if DEBUG_RESIZE
-    //decode_test(video_dir, log_dir, lr_video2_info);
-    //decode_test(video_dir, log_dir, setup_lr_video);
-    //decode_test(video_dir, log_dir, lr_360p_video_info);
-    decode_test(video_dir, log_dir, lr_480p_video_info);
-#endif
-
-#if DEBUG_QUALITY
-    decode_test(video_dir, log_dir, setup_lr_video);
-#endif
+//    decode_test(video_dir, log_dir, frame_dir, serialize_dir, test_quality_lr_video);
+    decode_test(video_dir, log_dir, frame_dir, serialize_dir, test_runtime_lr_video);
 
     (*env)->ReleaseStringUTFChars(env, jstr1, video_dir);
     (*env)->ReleaseStringUTFChars(env, jstr2, log_dir);
+    (*env)->ReleaseStringUTFChars(env, jstr3, frame_dir);
+    (*env)->ReleaseStringUTFChars(env, jstr4, serialize_dir);
 
     LOGI("vpxDecodeVideo ends");
 }

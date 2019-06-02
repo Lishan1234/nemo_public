@@ -11,17 +11,18 @@ import java.util.zip.ZipInputStream;
 
 public class RawExtractor {
     private static final String LOG_TAG = RawExtractor.class.getSimpleName();
-    public static final String MODELS_ROOT_DIR = "mobinas";
+    //public static final String MODELS_ROOT_DIR = "mobinas";
     private static final int CHUNK_SIZE = 1024;
 
     private RawExtractor() {}
 
-    public static void execute(final Context context, final String testName, final int modelRawResId) {
+    public static void execute(final Context context, final String rootDir, final String contentDir, final String videoDir, final int modelRawResId) {
         ZipInputStream zipInputStream = null;
         try {
-            final File modelsRoot = getOrCreateExternalModelsRootDirectory(context);
-            final File modelRoot = createModelDirectory(modelsRoot, testName);
-            if (modelExists(modelRoot)) {
+            final File taskRoot = getOrCreateExternalDirectory(context, rootDir);
+            final File contentRoot = createDirectory(taskRoot, contentDir);
+            final File videoRoot = createDirectory(contentRoot, videoDir);
+            if (modelExists(videoRoot)) {
                 //TODO: remove saved files
                 return;
             }
@@ -29,7 +30,7 @@ public class RawExtractor {
             zipInputStream = new ZipInputStream(context.getResources().openRawResource(modelRawResId));
             ZipEntry zipEntry;
             while ((zipEntry = zipInputStream.getNextEntry()) != null) {
-                final File entry = new File(modelRoot, zipEntry.getName());
+                final File entry = new File(videoRoot, zipEntry.getName());
                 if (zipEntry.isDirectory()) {
                     doCreateDirectory(entry);
                 } else {
@@ -67,8 +68,8 @@ public class RawExtractor {
         }
     }
 
-    private static File getOrCreateExternalModelsRootDirectory(Context context) throws IOException {
-        final File modelsRoot = context.getExternalFilesDir(MODELS_ROOT_DIR);
+    private static File getOrCreateExternalDirectory(Context context, final String rootDir) throws IOException {
+        final File modelsRoot = context.getExternalFilesDir(rootDir);
         if (modelsRoot == null) {
             throw new IOException("Unable to access application external storage.");
         }
@@ -80,7 +81,7 @@ public class RawExtractor {
         return modelsRoot;
     }
 
-    private static File createModelDirectory(File modelsRoot, String modelName) throws IOException {
+    private static File createDirectory(File modelsRoot, String modelName) throws IOException {
         final File modelRoot = new File(modelsRoot, modelName);
         if (!modelRoot.isDirectory() && !modelRoot.mkdir()) {
             throw new IOException("Unable to create model root directory: " +

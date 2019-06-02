@@ -433,9 +433,13 @@ static int img_shifted_realloc_required(const vpx_image_t *img,
 }
 #endif
 
-int decode_test(const char *video_dir, const char *log_dir, decode_info_t video_info) {
+int decode_test(const char *video_dir, const char *log_dir, const char *frame_dir, const char *serialize_dir, decode_info_t video_info) {
     memset(video_info.log_dir, 0, PATH_MAX);
     sprintf(video_info.log_dir, "%s", log_dir);
+    memset(video_info.frame_dir, 0, PATH_MAX);
+    sprintf(video_info.frame_dir, "%s", frame_dir);
+    memset(video_info.serialize_dir, 0, PATH_MAX);
+    sprintf(video_info.serialize_dir, "%s", serialize_dir);
 
     vpx_codec_ctx_t decoder;
     int i;
@@ -443,7 +447,7 @@ int decode_test(const char *video_dir, const char *log_dir, decode_info_t video_
     uint8_t *buf = NULL;
     size_t bytes_in_buffer = 0, buffer_size = 0;
     FILE *infile;
-    int stop_after = 20, frame_in = 0, frame_out = 0, flipuv = 0, noblit = 0;
+    int stop_after = 10, frame_in = 0, frame_out = 0, flipuv = 0, noblit = 0;
     int do_md5 = 0, progress = 0;
     int postproc = 0, summary = 0, quiet = 1; //TODO (hyunho): set stop_after by configuration
     int arg_skip = 0;

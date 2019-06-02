@@ -16,6 +16,8 @@ typedef enum{
 
 typedef struct DecodeInfo{
     char log_dir[PATH_MAX];
+    char frame_dir[PATH_MAX];
+    char serialize_dir[PATH_MAX];
     int resolution;
     int duration;
     int upsample;

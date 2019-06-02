@@ -9,4 +9,4 @@
 
 #include "./vpxdec.h"
 
-int decode_test(const char *video_dir,  const char *log_dir, decode_info_t video_info);
+int decode_test(const char *video_dir,  const char *log_dir, const char *frame_dir, const char *serialize_dir, decode_info_t video_info);
