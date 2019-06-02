@@ -72,26 +72,202 @@
 #define LOGS(...) __android_log_print(_SILENT,TAG,__VA_ARGS__)
 
 JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVideo
-        (JNIEnv *env, jobject jobj, jstring jstr1, jstring jstr2, jstring jstr3, jstring jstr4) //TODO (hyunho): get struct to configure video/test(num_frames, ...) in more details, refer google Keep data
+        (JNIEnv *env, jobject jobj, jstring jstr1, jstring jstr2, jstring jstr3, jstring jstr4, jint jint1, jint jint2) //TODO (hyunho): get struct to configure video/test(num_frames, ...) in more details, refer google Keep data
 {
     const char *video_dir = (*env)->GetStringUTFChars(env, jstr1, NULL);
     const char *log_dir = (*env)->GetStringUTFChars(env, jstr2, NULL);
     const char *frame_dir = (*env)->GetStringUTFChars(env, jstr3, NULL);
     const char *serialize_dir = (*env)->GetStringUTFChars(env, jstr4, NULL);
 
+    //TODO (parse): [Python] read multiple log files
+    //TODO (save): [Python] a) avg quality - avg latency, b) avg quality (chunk) - chunk idx, c) quality - frame idx, d) latency, #block info, frame index, e) avg latency, variation, f) avg quality, #key frames, #frames, model info
 
-    decode_info_t setup_hr_video = {.resolution = 960, .upsample=0, .duration=20, .scale=4, .save_decoded_frame=1, .save_serialized_frame=1,.save_quality=0, .mode=DECODE};
-    decode_info_t setup_lr_video = {.resolution = 240, .upsample=0, .duration=20, .scale=4, .save_decoded_frame=1, .save_serialized_frame=1, .save_quality=0, .mode=DECODE};
-    decode_info_t setup_hr_upsample_video = {.resolution = 960, .upsample=1, .duration=20, .scale=4, .save_decoded_frame=1, .save_serialized_frame=1, .save_quality=0, .mode=DECODE};
-    decode_info_t test_quality_lr_video = {.resolution = 240, .upsample=0, .duration=20, .scale=4, .save_decoded_frame=1, .save_serialized_frame=1, .save_quality=1, .mode=DECODE_CACHE};
-    decode_info_t test_runtime_lr_video = {.resolution = 240, .upsample=0, .duration=20, .scale=4, .save_decoded_frame=0, .save_serialized_frame=0, .save_quality=0, .mode=DECODE_CACHE};
+    //TODO (analysis): [C] bilinear interp overhead
+    //TODO (optm.): [C] apply loop filter (optional)
+    //TODO (anaylsis): [Python] measure SSIM per seconds (optional)
+    int target_resolution = (int) jint1;
+    int scale = (int) jint2;
+    int stop_after = 900;
+
+    //1. Parse video_list
+    char path[PATH_MAX];
+    memset(path, 0, PATH_MAX);
+    sprintf(path, "%s/video_list", video_dir);
+    FILE *file = fopen(path, "r");
+    decode_info_t decode_info;
+
+    //TODO: allocate video filename
+    char hr_video_file[PATH_MAX];
+    char lr_video_file[PATH_MAX];
+    char lr_bicubic_video_file[PATH_MAX];
+    char sr_hq_video_file[PATH_MAX];
+    char sr_lq_video_file[PATH_MAX];
+    memset(hr_video_file, 0, sizeof(hr_video_file));
+    memset(hr_video_file, 0, sizeof(lr_video_file));
+    memset(hr_video_file, 0, sizeof(lr_bicubic_video_file));
+    memset(hr_video_file, 0, sizeof(sr_hq_video_file));
+    memset(hr_video_file, 0, sizeof(sr_lq_video_file));
+
+    //2. Execute evaluation
+    int count = 0;
+    if (file != NULL) {
+        char line[1000];
+        while(fgets(line, sizeof line, file) != NULL)
+        {
+            memset(&decode_info, 0, sizeof(decode_info));
+//            LOGD("prefix: %s, target_resolution: %d, scale: %d", line, target_resolution, scale);
+            //decode HR & save serialize data
+            if (count == 0) {
+                decode_info.resolution = target_resolution;
+                decode_info.upsample = 0;
+                decode_info.scale = 4;
+                decode_info.save_decoded_frame = 0;
+                decode_info.save_serialized_frame = 1;
+                decode_info.save_quality = 0;
+                decode_info.save_intermediate = 0;
+                decode_info.mode = DECODE;
+                decode_info.stop_after = stop_after;
+
+                line[strlen(line) - 1] = 0;
+                sprintf(hr_video_file, "%s", line);
+                decode_info.target_file = &hr_video_file;
+                memset(decode_info.prefix, 0, PATH_MAX);
+                sprintf(decode_info.prefix, "%s", hr_video_file);
+//                LOGD("target_file: %s, prefix: %s", decode_info.target_file, decode_info.prefix);
+                decode_test(video_dir, log_dir, frame_dir, serialize_dir, decode_info);
+
+            }
+            //decode LR & save serialize data
+            else if (count == 1) {
+                decode_info.resolution = target_resolution / scale;
+                decode_info.upsample = 0;
+                decode_info.scale = 4;
+                decode_info.save_decoded_frame = 0;
+//                decode_info.save_serialized_frame = 0;
+                decode_info.save_serialized_frame = 1;
+                decode_info.save_intermediate = 0;
+                decode_info.save_quality = 0;
+                decode_info.mode = DECODE;
+                decode_info.stop_after = stop_after;
+
+                line[strlen(line) - 1] = 0;
+                sprintf(lr_video_file, "%s", line);
+                decode_info.target_file = &lr_video_file;
+                memset(decode_info.prefix, 0, PATH_MAX);
+                sprintf(decode_info.prefix, "%s", lr_video_file);
+                decode_test(video_dir, log_dir, frame_dir, serialize_dir, decode_info);
+            }
+            //decode LR bicubic & save quality
+            else if (count == 2) {
+                decode_info.resolution = target_resolution;
+                decode_info.upsample = 1;
+                decode_info.scale = 4;
+                decode_info.save_decoded_frame = 0;
+                decode_info.save_serialized_frame = 0;
+                decode_info.save_intermediate = 0;
+                decode_info.save_quality = 1;
+                decode_info.mode = DECODE;
+                decode_info.stop_after = stop_after;
+
+                line[strlen(line) - 1] = 0;
+                sprintf(lr_bicubic_video_file, "%s", line);
+                decode_info.target_file = &lr_bicubic_video_file;
+                decode_info.compare_file = &hr_video_file;
+                memset(decode_info.prefix, 0, PATH_MAX);
+                sprintf(decode_info.prefix, "%s", lr_bicubic_video_file);
+                decode_test(video_dir, log_dir, frame_dir, serialize_dir, decode_info);
+            }
+            //decode SR & save quality
+            //decode SR-cache & save quality
+            else if (count == 3) {
+                decode_info.resolution = target_resolution;
+                decode_info.upsample = 0;
+                decode_info.scale = 4;
+                decode_info.save_decoded_frame = 0;
+                decode_info.save_intermediate = 0;
+                decode_info.save_serialized_frame = 0;
+                decode_info.save_serialized_key_frame = 0;
+                decode_info.save_serialized_key_frame = 1;
+                decode_info.save_quality = 1;
+                decode_info.mode = DECODE;
+                decode_info.stop_after = stop_after;
+
+                line[strlen(line) - 1] = 0;
+                sprintf(sr_hq_video_file, "%s", line);
+                decode_info.target_file = &sr_hq_video_file;
+                decode_info.compare_file = &hr_video_file;
+                memset(decode_info.prefix, 0, PATH_MAX);
+                sprintf(decode_info.prefix, "%s", sr_hq_video_file);
+                decode_test(video_dir, log_dir, frame_dir, serialize_dir, decode_info);
+
+                decode_info.mode = DECODE_CACHE;
+                decode_info.resolution = target_resolution / scale;
+                decode_info.save_decoded_frame = 0;
+                decode_info.save_serialized_frame = 0;
+                decode_info.save_serialized_key_frame = 0;
+                decode_info.save_quality = 1;
+                decode_info.target_file = &lr_video_file;
+                decode_info.compare_file = &hr_video_file;
+                decode_info.cache_file = &sr_hq_video_file;
+                memset(decode_info.prefix, 0, PATH_MAX);
+                sprintf(decode_info.prefix, "cache_%s", sr_hq_video_file);
+                decode_test(video_dir, log_dir, frame_dir, serialize_dir, decode_info);
+
+                goto TEST_END;
+            }
+            //decode SR & save quality
+            else if (count == 4) {
+                decode_info.resolution = target_resolution;
+                decode_info.upsample = 0;
+                decode_info.scale = 4;
+                decode_info.save_decoded_frame = 0;
+                decode_info.save_serialized_frame = 0;
+                decode_info.save_intermediate =  0;
+                decode_info.save_quality = 1;
+                decode_info.mode = DECODE;
+                decode_info.stop_after = stop_after;
+
+                line[strlen(line) - 1] = 0;
+                sprintf(sr_lq_video_file, "%s", line);
+                decode_info.target_file = &sr_lq_video_file;
+                decode_info.compare_file = &hr_video_file;
+                memset(decode_info.prefix, 0, PATH_MAX);
+                sprintf(decode_info.prefix, "%s", sr_lq_video_file);
+                decode_test(video_dir, log_dir, frame_dir, serialize_dir, decode_info);
+
+                break;
+            }
+            else {
+                LOGE("unexpected video files");
+                goto TEST_END;
+            }
+            count ++;
+        }
+    }
+    else {
+        perror(path);
+        goto TEST_END;
+    }
+
+    if (count != 4) {
+        LOGE("not enough video files");
+        goto TEST_END;
+    }
+
+//    decode_info_t setup_hr_video = {.resolution = 960, .upsample=0, .duration=20, .scale=4, .save_decoded_frame=1, .save_serialized_frame=1,.save_quality=0, .mode=DECODE};
+//    decode_info_t setup_lr_video = {.resolution = 240, .upsample=0, .duration=20, .scale=4, .save_decoded_frame=1, .save_serialized_frame=1, .save_quality=0, .mode=DECODE};
+//    decode_info_t setup_hr_upsample_video = {.resolution = 960, .upsample=1, .duration=20, .scale=4, .save_decoded_frame=0, .save_serialized_frame=0, .save_quality=1, .mode=DECODE};
+//    decode_info_t test_quality_lr_video = {.resolution = 240, .upsample=0, .duration=20, .scale=4, .save_decoded_frame=1, .save_serialized_frame=1, .save_quality=1, .mode=DECODE_CACHE};
+//    decode_info_t test_runtime_lr_video = {.resolution = 240, .upsample=0, .duration=20, .scale=4, .save_decoded_frame=0, .save_serialized_frame=0, .save_quality=0, .mode=DECODE_CACHE};
 
 //    decode_test(video_dir, log_dir, frame_dir, serialize_dir, setup_hr_video);
 //    decode_test(video_dir, log_dir, frame_dir, serialize_dir, setup_lr_video);
 //    decode_test(video_dir, log_dir, frame_dir, serialize_dir, setup_hr_upsample_video);
 
 //    decode_test(video_dir, log_dir, frame_dir, serialize_dir, test_quality_lr_video);
-    decode_test(video_dir, log_dir, frame_dir, serialize_dir, test_runtime_lr_video);
+//    decode_test(video_dir, log_dir, frame_dir, serialize_dir, test_runtime_lr_video);
+
+    TEST_END:
 
     (*env)->ReleaseStringUTFChars(env, jstr1, video_dir);
     (*env)->ReleaseStringUTFChars(env, jstr2, log_dir);

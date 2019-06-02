@@ -9,7 +9,7 @@ import java.io.File;
 import java.io.IOException;
 
 public class MainActivity extends AppCompatActivity {
-    public native void vpxDecodeVideo(String videoSavedPath, String logPath, String framePath, String serializePath);
+    public native void vpxDecodeVideo(String videoSavedPath, String logPath, String framePath, String serializePath, int target_resolution, int scale);
     private static final String TAG = MainActivity.class.getSimpleName();
 
     static{
@@ -22,13 +22,15 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         final String name = "mobinas";
         final String content = "starcraft";
+        final int target_resolution = 1080;
+        final int scale = 4;
 
 //        Unzip and copy data
 //        int resourceId = this.getResources().getIdentifier("starcraft", "raw", this.getPackageName());
 //        RawExtractor.execute(this, name, content, "video", resourceId); //TODO: use this as a content name
 
         //Get video path
-        File videoDir = getExternalFilesDir(name + File.separator + content + File.separator + "video");
+        File videoDir = getExternalFilesDir(name + File.separator + content + File.separator);
         File logDir = getExternalFilesDir(name + File.separator + content + File.separator + "log");
         File frameDir = getExternalFilesDir(name + File.separator + content + File.separator + "frame");
         File serializeDir = getExternalFilesDir(name + File.separator + content + File.separator + "serialize");
@@ -50,7 +52,7 @@ public class MainActivity extends AppCompatActivity {
         String serializePath = serializeDir.getAbsolutePath();
 
         //Execute a libvpx unit test
-        vpxDecodeVideo(videoPath, logPath, framePath, serializePath);
+        vpxDecodeVideo(videoPath, logPath, framePath, serializePath, target_resolution, scale);
 
         Log.i(TAG, "MainActivity ends");
     }

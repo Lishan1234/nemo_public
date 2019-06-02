@@ -433,13 +433,13 @@ static int img_shifted_realloc_required(const vpx_image_t *img,
 }
 #endif
 
-int decode_test(const char *video_dir, const char *log_dir, const char *frame_dir, const char *serialize_dir, decode_info_t video_info) {
-    memset(video_info.log_dir, 0, PATH_MAX);
-    sprintf(video_info.log_dir, "%s", log_dir);
-    memset(video_info.frame_dir, 0, PATH_MAX);
-    sprintf(video_info.frame_dir, "%s", frame_dir);
-    memset(video_info.serialize_dir, 0, PATH_MAX);
-    sprintf(video_info.serialize_dir, "%s", serialize_dir);
+int decode_test(const char *video_dir, const char *log_dir, const char *frame_dir, const char *serialize_dir, decode_info_t decode_info) {
+    memset(decode_info.log_dir, 0, PATH_MAX);
+    sprintf(decode_info.log_dir, "%s", log_dir);
+    memset(decode_info.frame_dir, 0, PATH_MAX);
+    sprintf(decode_info.frame_dir, "%s", frame_dir);
+    memset(decode_info.serialize_dir, 0, PATH_MAX);
+    sprintf(decode_info.serialize_dir, "%s", serialize_dir);
 
     vpx_codec_ctx_t decoder;
     int i;
@@ -447,9 +447,9 @@ int decode_test(const char *video_dir, const char *log_dir, const char *frame_di
     uint8_t *buf = NULL;
     size_t bytes_in_buffer = 0, buffer_size = 0;
     FILE *infile;
-    int stop_after = 10, frame_in = 0, frame_out = 0, flipuv = 0, noblit = 0;
+    int stop_after = decode_info.stop_after, frame_in = 0, frame_out = 0, flipuv = 0, noblit = 0;
     int do_md5 = 0, progress = 0;
-    int postproc = 0, summary = 0, quiet = 1; //TODO (hyunho): set stop_after by configuration
+    int postproc = 0, summary = 0, quiet = 1; //TODO (hyunho): set stop_after by configuration ...
     int arg_skip = 0;
     int ec_enabled = 0;
     int keep_going = 0;
@@ -526,7 +526,7 @@ int decode_test(const char *video_dir, const char *log_dir, const char *frame_di
         die("Error: Unrecognized argument (%s) to --codec\n", arg.val);
     outfile_pattern = "test.yuv";
     cfg.threads = 1;
-    num_external_frame_buffers = 100;
+    num_external_frame_buffers = 1000;
     framestats_file = open_logfile("framestats", log_dir);
     progress = 1;
     summary = 1;
@@ -538,9 +538,13 @@ int decode_test(const char *video_dir, const char *log_dir, const char *frame_di
     }
 
     /* Open file */
+    //TODO (hyunho): refactor
     char video_path[PATH_MAX];
-    if (video_info.upsample) {sprintf(video_path, "%s/%dp_%d_bicubic.webm", video_dir, video_info.resolution, video_info.duration);}
-    else {sprintf(video_path, "%s/%dp_%d.webm", video_dir, video_info.resolution, video_info.duration);}
+    memset(video_path, 0, PATH_MAX);
+    sprintf(video_path, "%s/%s.webm", video_dir, decode_info.target_file);
+    LOGD("video_path: %s", video_path);
+//    if (decode_info.upsample) {sprintf(video_path, "%s/%dp_%d_bicubic.webm", video_dir, decode_info.resolution, decode_info.duration);}
+//    else {sprintf(video_path, "%s/%dp_%d.webm", video_dir, decode_info.resolution, decode_info.duration);}
     //sprintf(video_path, "%s/test.%s", video_dir, decode_info.format);
     infile = strcmp(video_path, "-") ? fopen(video_path, "rb") : set_binary_mode(stdin);
 
@@ -693,7 +697,7 @@ int decode_test(const char *video_dir, const char *log_dir, const char *frame_di
                 dx_time_ = dx_time;
                 vpx_usec_timer_start(&timer);
 
-                if (vpx_codec_decode(&decoder, buf, (unsigned int)bytes_in_buffer, (void *) &video_info, //TODO (hyunho): pass user_priv about log directory
+                if (vpx_codec_decode(&decoder, buf, (unsigned int)bytes_in_buffer, (void *) &decode_info, //TODO (hyunho): pass user_priv about log directory
                                      0)) {
                     const char *detail = vpx_codec_error_detail(&decoder);
                     LOGW("Failed to decode frame %d: %s", frame_in,
