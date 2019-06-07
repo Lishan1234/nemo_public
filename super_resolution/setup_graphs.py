@@ -2,6 +2,7 @@ import os, glob, random, sys, time, argparse
 import utility as util
 import re
 import shutil
+import subprocess
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -26,7 +27,20 @@ parser.add_argument('--end_idx', type=int, default=None)
 args = parser.parse_args()
 
 #0. setup
-result_dir = os.path.join(args.data_dir, args.dataset, 'result')
+if args.device_id is None:
+    cmd_board = 'adb shell getprop ro.product.board'
+    cmd_model = 'adb shell getprop ro.product.model'
+else:
+    cmd_board = 'adb shell -s {} getprop ro.product.board'.format(args.device_id)
+    cmd_model = 'adb shell -s {} getprop ro.product.model'.format(args.device_id)
+proc_board = subprocess.Popen(cmd_board, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+board = proc_board.stdout.readlines()[0].decode().rstrip('\r\n').replace(' ', '')
+proc_model = subprocess.Popen(cmd_model, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+model = proc_model.stdout.readlines()[0].decode().rstrip('\r\n').replace(' ', '')
+prefix = '{}_{}'.format(board, model)
+print(prefix)
+
+result_dir = os.path.join(args.data_dir, args.dataset, 'result', prefix)
 video_dir = os.path.join(args.data_dir, args.dataset, 'video')
 video_list_path = os.path.join(video_dir, 'video_list')
 os.makedirs(result_dir, exist_ok=True)
@@ -38,12 +52,15 @@ with open(video_list_path, 'r') as f:
 
 #1. download log files
 src_log_dir = '/storage/emulated/0/Android/data/android.example.testlibvpx/files/mobinas/{}/log'.format(args.dataset)
-dst_root = os.path.join(args.data_dir, args.dataset)
+dst_log_dir = os.path.join(args.data_dir, args.dataset, 'log', prefix)
+os.makedirs(dst_log_dir, exist_ok=True)
 
 if args.device_id is None:
-    cmd = 'adb pull {} {}'.format(src_log_dir, dst_root)
+    cmd = 'adb shell find "{}" -iname "*.log" | tr -d "\015" | while read line; do adb pull "$line" {}; done;'.format(src_log_dir, dst_log_dir)
+    #cmd = 'adb shell "ls {} | xargs -n 1 adb pull"'.format(src_log_dir, dst_log_dir)
+    #cmd = 'adb pull {} {}'.format(src_log_dir, dst_log_dir)
 else:
-    cmd = 'adb -s {} pull {} {}'.format(args.device_id, src_log_dir, dst_root)
+    cmd = 'adb -s {} pull {} {}'.format(args.device_id, src_log_dir, dst_log_dir)
 os.system(cmd)
 
 #2. generage matplot graphs (for large-scale evaluation) & save into a 'result' folder
@@ -54,14 +71,14 @@ log_file_dict = {}
 for method in methods:
     log_file_dict[method] = {}
 
-log_dir = os.path.join(args.data_dir, args.dataset, "log")
-log_files = [f for f in os.listdir(log_dir) if os.path.isfile(os.path.join(log_dir, f))]
+log_files = [f for f in os.listdir(dst_log_dir) if os.path.isfile(os.path.join(dst_log_dir, f))]
 
 bicubic_pattern = video_list[2].rstrip('\r\n')
 lq_dnn_pattern = video_list[4].rstrip('\r\n')
 hq_dnn_pattern = video_list[3].rstrip('\r\n')
 
 for log_file in log_files:
+    print(log_file)
     prefix = None
     if bicubic_pattern in log_file:
         prefix = 'bicubic'
@@ -75,11 +92,11 @@ for log_file in log_files:
 
     if prefix is not None:
         if 'quality' in log_file:
-            log_file_dict[prefix]['quality'] = os.path.join(log_dir, log_file)
+            log_file_dict[prefix]['quality'] = os.path.join(dst_log_dir, log_file)
         if 'latency' in log_file:
-            log_file_dict[prefix]['latency'] = os.path.join(log_dir, log_file)
+            log_file_dict[prefix]['latency'] = os.path.join(dst_log_dir, log_file)
         if 'metadata' in log_file:
-            log_file_dict[prefix]['metadata'] = os.path.join(log_dir, log_file)
+            log_file_dict[prefix]['metadata'] = os.path.join(dst_log_dir, log_file)
 
 #load values
 metrics = ['quality', 'latency', 'super_frame', 'block', 'intra_block', 'inter_block', 'inter_block_skip']
@@ -90,6 +107,7 @@ for method in methods:
     for metric in metrics:
         log_dict[method][metric] = []
 
+    print(log_file_dict[method]['quality'])
     with open(log_file_dict[method]['quality'], 'r') as f:
         while True:
             line = f.readline()
