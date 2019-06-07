@@ -38,7 +38,7 @@ parser.add_argument('--loss_type', type=str, default='l1',
 #Directory
 #parser.add_argument('--data_dir', type=str, default='/ssd1')
 parser.add_argument('--checkpoint_dir', type=str, default='checkpoint')
-parser.add_argument('--data_dir', type=str, default='/ssd1/data')
+parser.add_argument('--data_dir', type=str, default='./data')
 parser.add_argument('--log_dir', type=str, default='log', help='Tensorboard loggin directory')
 
 #Dataset
@@ -49,8 +49,8 @@ parser.add_argument('--log_dir', type=str, default='log', help='Tensorboard logg
 #parser.add_argument('--hr', type=int, default=960)
 parser.add_argument('--original_resolution', type=int, default=2160)
 parser.add_argument('--target_resolution', type=int, default=1080)
-parser.add_argument('--train_data', type=str, required=True)
-parser.add_argument('--train_datatype', type=str, required=True)
+parser.add_argument('--train_data', type=str, default=None)
+parser.add_argument('--train_datatype', type=str, default=None)
 parser.add_argument('--valid_data', type=str, default=None)
 parser.add_argument('--valid_datatype', type=str, default=None)
 
@@ -71,6 +71,11 @@ parser.add_argument('--snpe_tensorflow_root', type=str, default='../../tensorflo
 parser.add_argument('--snpe_device_serial', type=str, default=None, help='Used for adb commands')
 parser.add_argument('--snpe_copy_lib', action='store_true')
 parser.add_argument('--snpe_copy_data', action='store_true')
+
+#Benchmark
+parser.add_argument('--benchmark_device_id', type=str, default=None)
+parser.add_argument('--benchmark_iter_num', type=int, default=1)
+parser.add_argument('--benchmark_runtime', type=str, default=None)
 
 args = parser.parse_args()
 if args.hwc is not None:

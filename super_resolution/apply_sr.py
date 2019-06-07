@@ -68,7 +68,7 @@ class Tester():
         os.system(cmd)
 
         cmd = 'rm {}/*.raw'.format(self.output_image_dir)
-        #os.system(cmd)
+        os.system(cmd)
 
 if __name__ == '__main__':
     tf.enable_eager_execution()
