@@ -9,7 +9,7 @@ import numpy as np
 
 parser = argparse.ArgumentParser(description="Video dataset")
 
-parser.add_argument('--data_dir', type=str, default="/ssd1/data")
+parser.add_argument('--data_dir', type=str, default="./data")
 parser.add_argument('--dataset', type=str, required=True)
 parser.add_argument('--video_len', type=int, default=60)
 parser.add_argument('--video_start', type=int, default=0)
@@ -61,7 +61,9 @@ os.makedirs(data_dir, exist_ok=True)
 for video_file in filtered_video_files:
     origin = os.path.join(video_dir, video_file)
     copy = os.path.join(data_dir, video_file)
-    shutil.copyfile(origin, copy)
+    #shutil.copyfile(origin, copy)
+    print(origin, copy)
+    os.symlink(origin, copy)
 
 #make a video file name list txt file
 f = open("{}/video_list".format(data_dir), 'w')

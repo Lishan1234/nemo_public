@@ -8,7 +8,7 @@ import numpy as np
 
 parser = argparse.ArgumentParser(description="Video dataset")
 
-parser.add_argument('--data_dir', type=str, default="/ssd1/data")
+parser.add_argument('--data_dir', type=str, default="./data")
 parser.add_argument('--dataset', type=str, required=True)
 parser.add_argument('--video_len', type=int, default=60)
 parser.add_argument('--video_start', type=int, default=0)
