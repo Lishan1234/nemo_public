@@ -1,7 +1,7 @@
 checkpoint/
 log*/
 tmp/
-data/
+data
 data_deprecated/
 deprecated/
 *.png
