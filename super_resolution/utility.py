@@ -4,6 +4,10 @@ import random
 import shlex
 import json
 import subprocess
+import os
+import platform
+
+OPT_4_INFERENCE_SCRIPT              = 'optimize_for_inference.py'
 
 def print_progress(iteration, total, prefix = '', suffix = '', decimals = 1, barLength = 100):
     formatStr = "{0:." + str(decimals) + "f}"
@@ -97,3 +101,88 @@ def findWidthHeight(resolution):
         return 1080, 270
     else:
         raise NotImplementedError
+
+def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
+        """
+    Freezes the state of a session into a pruned computation graph.
+
+    Creates a new computation graph where variable nodes are replaced by
+    constants taking their current value in the session. The new graph will be
+    pruned so subgraphs that are not necessary to compute the requested
+    outputs are removed.
+    @param session The TensorFlow session to be frozen.
+    @param keep_var_names A list of variable names that should not be frozen,
+                          or None to freeze all the variables in the graph.
+    @param output_names Names of the relevant graph outputs.
+    @param clear_devices Remove the device directives from the graph for better portability.
+    @return The frozen graph definition.
+    """
+        graph = session.graph
+        with graph.as_default():
+            freeze_var_names = list(set(v.op.name for v in tf.global_variables()).difference(keep_var_names or []))
+            output_names = output_names or []
+            output_names += [v.op.name for v in tf.global_variables()]
+            input_graph_def = graph.as_graph_def()
+            if clear_devices:
+                for node in input_graph_def.node:
+                    node.device = ''
+            frozen_graph = tf.graph_util.convert_variables_to_constants(
+                session, input_graph_def, output_names, freeze_var_names)
+            return frozen_graph
+
+def find_optimize_for_inference():
+    cmd = 'pip show tensorflow'
+    proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    lines = proc.stdout.readlines()
+
+    tensorflow_dir = None
+    for line in lines:
+        line = line.decode().rstrip('\r\n')
+        if 'Location' in line:
+            tensorflow_dir = line.split(' ')[1]
+
+            for root, dirs, files in os.walk(os.path.join(tensorflow_dir, 'tensorflow')):
+                if OPT_4_INFERENCE_SCRIPT in files:
+                    return os.path.join(root, OPT_4_INFERENCE_SCRIPT)
+
+            break
+
+    return None
+
+def optimize_for_inference(pb_filename, input_name, output_name, checkpoint_dir):
+    # Try to optimize the inception v3 PB for inference
+    opt_4_inference_file = find_optimize_for_inference()
+
+    if not opt_4_inference_file:
+        print("\nWARNING: cannot find " + OPT_4_INFERENCE_SCRIPT + " script. Skipping inference optimization.\n")
+    else:
+        print('INFO: Optimizing for inference Inception v3 using ' + opt_4_inference_file)
+        print('      Please wait. It could take a while...')
+        cmd = ['python', opt_4_inference_file,
+               '--input', os.path.join(checkpoint_dir, pb_filename),
+               '--output', os.path.join(checkpoint_dir, pb_filename + '_opt'),
+               '--input_names', input_name,
+               '--output_names', output_name]
+        subprocess.call(cmd)
+        pb_filename = pb_filename + '_opt'
+
+    return pb_filename
+
+#Caution: needs system python to install tensorflow
+def convert_to_dlc(pb_filename, input_name, output_name, model_name, checkpoint_dir, h, w, c):
+    dlc_filename = '{}.dlc'.format(model_name)
+
+    if 'PYTHONPATH' in os.environ:
+        os.environ['PYTHONPATH'] = '{}:../snpe/lib/python'.format(os.environ['PYTHONPATH'])
+    else:
+        os.environ['PYTHONPATH'] = '../snpe/lib/python'
+
+    print('INFO: Converting ' + pb_filename +' to SNPE DLC format')
+    cmd = ['/usr/bin/python2',
+           '../snpe/bin/x86_64-linux-clang/snpe-tensorflow-to-dlc',
+           '--graph', os.path.join(checkpoint_dir, pb_filename),
+           '--input_dim', input_name, '1,{},{},{}'.format(h, w, c),
+           '--out_node', output_name,
+           '--dlc', os.path.join(checkpoint_dir, dlc_filename),
+           '--allow_unconsumed_nodes']
+    subprocess.call(cmd)

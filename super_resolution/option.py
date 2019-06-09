@@ -38,6 +38,7 @@ parser.add_argument('--loss_type', type=str, default='l1',
 #Directory
 #parser.add_argument('--data_dir', type=str, default='/ssd1')
 parser.add_argument('--checkpoint_dir', type=str, default='checkpoint')
+parser.add_argument('--result_dir', type=str, default='result')
 parser.add_argument('--data_dir', type=str, default='./data')
 parser.add_argument('--log_dir', type=str, default='log', help='Tensorboard loggin directory')
 
