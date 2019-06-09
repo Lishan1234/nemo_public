@@ -5,6 +5,7 @@ import shlex
 import json
 import subprocess
 import os
+import platform
 
 OPT_4_INFERENCE_SCRIPT              = 'optimize_for_inference.py'
 
@@ -167,10 +168,18 @@ def optimize_for_inference(pb_filename, input_name, output_name, checkpoint_dir)
 
     return pb_filename
 
+#Caution: needs system python to install tensorflow
 def convert_to_dlc(pb_filename, input_name, output_name, model_name, checkpoint_dir, h, w, c):
     dlc_filename = '{}.dlc'.format(model_name)
+
+    if 'PYTHONPATH' in os.environ:
+        os.environ['PYTHONPATH'] = '{}:../snpe/lib/python'.format(os.environ['PYTHONPATH'])
+    else:
+        os.environ['PYTHONPATH'] = '../snpe/lib/python'
+
     print('INFO: Converting ' + pb_filename +' to SNPE DLC format')
-    cmd = ['snpe-tensorflow-to-dlc',
+    cmd = ['/usr/bin/python2',
+           '../snpe/bin/x86_64-linux-clang/snpe-tensorflow-to-dlc',
            '--graph', os.path.join(checkpoint_dir, pb_filename),
            '--input_dim', input_name, '1,{},{},{}'.format(h, w, c),
            '--out_node', output_name,
