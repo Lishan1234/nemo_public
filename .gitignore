@@ -1,6 +1,7 @@
 *.exe
 *.bmp
 *.yuv
+*.pyc
 __pycache__
 temp_data/
 tool/

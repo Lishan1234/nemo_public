@@ -87,7 +87,7 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
     //TODO (anaylsis): [Python] measure SSIM per seconds (optional)
     int target_resolution = (int) jint1;
     int scale = (int) jint2;
-    int stop_after = 900;
+    int stop_after = 120;
 
     //1. Parse video_list
     char path[PATH_MAX];
@@ -121,7 +121,7 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
                 decode_info.resolution = target_resolution;
                 decode_info.upsample = 0;
                 decode_info.scale = 4;
-                decode_info.save_decoded_frame = 0;
+                decode_info.save_decoded_frame = 1;
                 decode_info.save_serialized_frame = 1;
                 decode_info.save_quality = 0;
                 decode_info.save_intermediate = 0;
@@ -142,7 +142,7 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
                 decode_info.resolution = target_resolution / scale;
                 decode_info.upsample = 0;
                 decode_info.scale = 4;
-                decode_info.save_decoded_frame = 0;
+                decode_info.save_decoded_frame = 1;
 //                decode_info.save_serialized_frame = 0;
                 decode_info.save_serialized_frame = 1;
                 decode_info.save_intermediate = 0;
@@ -175,7 +175,7 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
                 decode_info.compare_file = &hr_video_file;
                 memset(decode_info.prefix, 0, PATH_MAX);
                 sprintf(decode_info.prefix, "%s", lr_bicubic_video_file);
-                decode_test(video_dir, log_dir, frame_dir, serialize_dir, decode_info);
+//                decode_test(video_dir, log_dir, frame_dir, serialize_dir, decode_info);
             }
             //decode SR & save quality
             //decode SR-cache & save quality
@@ -186,7 +186,7 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
                 decode_info.save_decoded_frame = 0;
                 decode_info.save_intermediate = 0;
                 decode_info.save_serialized_frame = 0;
-                decode_info.save_serialized_key_frame = 0;
+//                decode_info.save_serialized_key_frame = 0;
                 decode_info.save_serialized_key_frame = 1;
                 decode_info.save_quality = 1;
                 decode_info.mode = DECODE;
@@ -198,11 +198,12 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
                 decode_info.compare_file = &hr_video_file;
                 memset(decode_info.prefix, 0, PATH_MAX);
                 sprintf(decode_info.prefix, "%s", sr_hq_video_file);
-                decode_test(video_dir, log_dir, frame_dir, serialize_dir, decode_info);
+//                decode_test(video_dir, log_dir, frame_dir, serialize_dir, decode_info);
 
                 decode_info.mode = DECODE_CACHE;
                 decode_info.resolution = target_resolution / scale;
-                decode_info.save_decoded_frame = 0;
+                decode_info.save_decoded_frame = 1;
+                decode_info.save_intermediate = 0;
                 decode_info.save_serialized_frame = 0;
                 decode_info.save_serialized_key_frame = 0;
                 decode_info.save_quality = 1;
@@ -211,9 +212,7 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
                 decode_info.cache_file = &sr_hq_video_file;
                 memset(decode_info.prefix, 0, PATH_MAX);
                 sprintf(decode_info.prefix, "cache_%s", sr_hq_video_file);
-                decode_test(video_dir, log_dir, frame_dir, serialize_dir, decode_info);
-
-                goto TEST_END;
+//                decode_test(video_dir, log_dir, frame_dir, serialize_dir, decode_info);
             }
             //decode SR & save quality
             else if (count == 4) {
@@ -233,7 +232,7 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
                 decode_info.compare_file = &hr_video_file;
                 memset(decode_info.prefix, 0, PATH_MAX);
                 sprintf(decode_info.prefix, "%s", sr_lq_video_file);
-                decode_test(video_dir, log_dir, frame_dir, serialize_dir, decode_info);
+//                decode_test(video_dir, log_dir, frame_dir, serialize_dir, decode_info);
 
                 break;
             }

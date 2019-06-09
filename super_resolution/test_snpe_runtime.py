@@ -265,7 +265,7 @@ if __name__ == '__main__':
     model_name = model_builder.get_name()
     setup_assets(model, model_name, prefix)
 
-    #setup_prerequisites()
-    #setup_dlc_data(model_name, prefix)
-    #measure_dnn_latency(model_name, prefix)
+    setup_prerequisites()
+    setup_dlc_data(model_name, prefix)
+    measure_dnn_latency(model_name, prefix)
     measure_layer_latency(model_name, prefix)
