@@ -47,6 +47,8 @@
 const int FAILURE = 1;
 const int SUCCESS = 0;
 
+//TODO: check whehter ITENSOR, CPUBUFFER can be improved
+
 int main(int argc, char** argv)
 {
     enum {UNKNOWN, USERBUFFER_FLOAT, USERBUFFER_TF8, ITENSOR};
