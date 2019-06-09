@@ -1,13 +1,20 @@
 package com.example.batteryprofiler;
 
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.net.Uri;
 import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.RequiresApi;
+import android.support.constraint.ConstraintLayout;
 import android.support.v7.app.AppCompatActivity;
+import android.text.PrecomputedText;
 import android.util.Log;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.Toast;
 
 import com.google.android.exoplayer2.DefaultLoadControl;
@@ -22,6 +29,7 @@ import com.google.android.exoplayer2.source.dash.DashChunkSource;
 import com.google.android.exoplayer2.source.dash.DashMediaSource;
 import com.google.android.exoplayer2.source.dash.DefaultDashChunkSource;
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector;
+import com.google.android.exoplayer2.ui.AspectRatioFrameLayout;
 import com.google.android.exoplayer2.ui.PlayerView;
 import com.google.android.exoplayer2.upstream.DataSource;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
@@ -47,6 +55,9 @@ public class ExoPlayer extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.exoplayer);
 
+        //make landscape and hide navigation button
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
 
         prep_exo();
 
@@ -112,6 +123,8 @@ public class ExoPlayer extends AppCompatActivity {
 
         //create player and set it to view
         mPlayerView = findViewById(R.id.video_view);
+
+
         DefaultRenderersFactory renderFactory = new DefaultRenderersFactory(this);
         renderFactory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER);
         mSimpleExoPlayer =
@@ -121,6 +134,9 @@ public class ExoPlayer extends AppCompatActivity {
                         new DefaultLoadControl(),
                         null);
         mPlayerView.setPlayer(mSimpleExoPlayer);
+
+        //stretch to fit screen
+        mPlayerView.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_FILL);
 
         //Create  media source
         Uri uri = Uri.parse(video);
