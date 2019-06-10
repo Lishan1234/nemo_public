@@ -170,6 +170,12 @@ fig.savefig(os.path.join(result_dir, 'eval01_{}.png'.format(postfix)))
 #TODO 1: handle key frame - key frame latency is discared in cache mode
 #TODO 2: consider DNN latency by loading DNN measurement results
 #TODO 3: latency = max(270p decode, count(inference) * time(inference)) vs. max(270p decode + cache, count(inference) * time(inference))
+
+#lq_dnn_latency =
+#hq_dnn_latency =
+#lq_dnn_latency = max(np.average(log_dict['no_cache']['latency']), )
+#hq_dnn_latency = max(np.average(log_dict['no_cache']['latency']), )
+
 plt.rcParams['figure.figsize'] = (15, 15)
 fig, ax = plt.subplots()
 ax.plot([np.average(log_dict['bicubic']['latency'])], [np.average(log_dict['bicubic']['quality'])], label='bicubic', color='y', marker='o', markersize=12)

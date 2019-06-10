@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser(description="Video dataset")
 parser.add_argument('--data_dir', type=str, default="./data")
 parser.add_argument('--dataset', type=str, required=True)
 parser.add_argument('--video_len', type=int, default=60)
-parser.add_argument('--video_start', type=int, default=0)
+parser.add_argument('--video_start', type=int, required=True)
 parser.add_argument('--target_resolution', type=int, default=1080) #target HR resolution
 parser.add_argument('--original_resolution', default=2160) #original HR resolution - raw source
 parser.add_argument('--video_format', type=str, default="webm")
@@ -38,21 +38,26 @@ lr_bicubic_pattern = re.compile(lr_bicubic_regex)
 sr_regex = "^{}p_{}p_{}sec_{}st".format(args.target_resolution, args.target_resolution // args.scale, args.video_len, args.video_start)
 sr_pattern = re.compile(sr_regex)
 
+print('video_files: {}'.format(video_files))
 #filter videos
 for video_file in video_files:
     if hr_pattern.match(video_file): filtered_video_files.append(video_file)
     if lr_pattern.match(video_file): filtered_video_files.append(video_file)
     if lr_bicubic_pattern.match(video_file): filtered_video_files.append(video_file)
     if sr_pattern.match(video_file): filtered_video_files.append(video_file)
-print(filtered_video_files)
+print('filtered_video_files: {}'.format(filtered_video_files))
 
 #create a root dir if not existing
 src_data_dir = os.path.join(args.data_dir, args.dataset, args.dataset)
 dst_data_root = '/storage/emulated/0/Android/data/android.example.testlibvpx/files/mobinas'
 dst_data_dir = os.path.join(dst_data_root, args.dataset)
+dst_video_dir = os.path.join(dst_data_dir, 'video')
 cmd = 'adb shell "mkdir -p {}"'.format(dst_data_root)
 os.system(cmd)
+cmd = 'adb shell "mkdir -p {}"'.format(dst_video_dir)
+os.system(cmd)
 
+"""
 #remove an existing dataset in mobile
 os.path.join(dst_data_dir, args.dataset)
 if args.device_id is None:
@@ -64,14 +69,15 @@ os.system(cmd)
 #create a data dir
 #cmd = 'adb shell "mkdir -p {}"'.format(dst_data_dir)
 os.system(cmd)
+"""
 
 #copy a new dataset
 for video_file in filtered_video_files:
     video_path = os.path.join(video_dir, video_file)
     if args.device_id is None:
-        cmd = 'adb push {} {}'.format(video_path, dst_data_dir)
+        cmd = 'adb push {} {}/'.format(video_path, dst_video_dir)
     else:
-        cmd = 'adb -s {} push {} {}'.format(args.device_id, video_path, dst_data_dir)
+        cmd = 'adb -s {} push {} {}/'.format(args.device_id, video_path, dst_video_dir)
     os.system(cmd)
 
 #make a video file name list txt file
@@ -88,9 +94,9 @@ for video_file in filtered_video_files:
 f.close()
 
 if args.device_id is None:
-    cmd = 'adb push {} {}'.format(video_list, dst_data_dir)
+    cmd = 'adb push {} {}/'.format(video_list, dst_video_dir)
 else:
-    cmd = 'adb -s {} push {} {}'.format(args.device_id, video_list, dst_data_dir)
+    cmd = 'adb -s {} push {} {}/'.format(args.device_id, video_list, dst_video_dir)
 os.system(cmd)
 
 #TODO: check whether it works correctly

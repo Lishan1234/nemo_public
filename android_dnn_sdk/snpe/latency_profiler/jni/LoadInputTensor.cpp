@@ -1,6 +1,6 @@
 //==============================================================================
 //
-//  Copyright (c) 2017-2018 Qualcomm Technologies, Inc.
+//  Copyright (c) 2017-2019 Qualcomm Technologies, Inc.
 //  All Rights Reserved.
 //  Confidential and Proprietary - Qualcomm Technologies, Inc.
 //
@@ -12,6 +12,7 @@
 #include <assert.h>
 #include <unordered_map>
 #include <cstring>
+#include <cstdlib>
 
 #include "LoadInputTensor.hpp"
 #include "Util.hpp"
@@ -51,6 +52,13 @@ std::unique_ptr<zdl::DlSystem::ITensor> loadInputTensor (std::unique_ptr<zdl::SN
        With the input dimensions computed create a tensor to convey the input into the network. */
     input = zdl::SNPE::SNPEFactory::getTensorFactory().createTensor(inputShape);
 
+    if (input->getSize() != inputVec.size()) {
+        std::cerr << "Size of input does not match network.\n"
+                  << "Expecting: " << input->getSize() << "\n"
+                  << "Got: " << inputVec.size() << "\n";
+        std::exit(EXIT_FAILURE);
+    }
+
     /* Copy the loaded input file contents into the networks input tensor. SNPE's ITensor supports C++ STL functions like std::copy() */
     std::copy(inputVec.begin(), inputVec.end(), input->begin());
     return std::move(input);
@@ -88,6 +96,14 @@ zdl::DlSystem::TensorMap loadMultipleInput (std::unique_ptr<zdl::SNPE::SNPE>& sn
             const auto &inputShape_opt = snpe->getInputDimensions(inputTensorNames.at(j));
             const auto &inputShape = *inputShape_opt;
             inputs[j] = zdl::SNPE::SNPEFactory::getTensorFactory().createTensor(inputShape);
+
+            if (inputs[j]->getSize() != inputVec.size()) {
+                std::cerr << "Size of input does not match network.\n"
+                          << "Expecting: " << inputs[j]->getSize() << "\n"
+                          << "Got: " << inputVec.size() << "\n";
+                std::exit(EXIT_FAILURE);
+            }
+
             std::copy(inputVec.begin(), inputVec.end(), inputs[j]->begin());
             inputTensorMap.add(inputName.c_str(), inputs[j].release());
         }
