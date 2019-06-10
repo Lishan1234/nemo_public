@@ -44,7 +44,7 @@ def prepare_fake_image(data_dir, prefix):
     img_w = WIDTH[img_h]
     img_fake = np.random.rand(img_h, img_w, args.channel_in)
     img_fake = img_fake * 255.0
-    img_fake = img_fake.astype(np.uint8)
+    img_fake = img_fake.astype(np.float32)
     img_fake.tofile(os.path.join(data_dir, DATA_NAME))
 
     with open(os.path.join(data_dir,TARGET_RAW_LIST_FILE), 'w') as f:
@@ -107,7 +107,9 @@ def setup_remote_asset(model_name, dlc_name, prefix):
     os.system(adb_cmd_prefix + 'shell "mkdir -p /data/local/tmp/snpeexample/dsp/lib"')
     os.system(adb_cmd_prefix + 'push $SNPE_ROOT/lib/$SNPE_TARGET_ARCH/* /data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/lib')
     os.system(adb_cmd_prefix + 'push $SNPE_ROOT/lib/dsp/* /data/local/tmp/snpeexample/dsp/lib')
-    os.system(adb_cmd_prefix + 'push $SNPE_ROOT/../../android_dnn_sdk/snpe/latency_profiler/libs/arm64-v8a/* /data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/lib')
+    #os.system(adb_cmd_prefix + 'push $SNPE_ROOT/examples/NativeCpp/SampleCode/libs/$SNPE_TARGET_ARCH_OBJ_DIR/* /data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/lib')
+    os.system(adb_cmd_prefix + 'push $SNPE_ROOT/../../android_dnn_sdk/snpe/latency_profiler/libs/$SNPE_TARGET_ARCH_OBJ_DIR/* /data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/lib')
+    #os.system(adb_cmd_prefix + 'push $SNPE_ROOT/examples/NativeCpp/SampleCode/obj/local/$SNPE_TARGET_ARCH_OBJ_DIR/snpe-sample /data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/bin')
     os.system(adb_cmd_prefix + 'push $SNPE_ROOT/../../android_dnn_sdk/snpe/latency_profiler/obj/local/$SNPE_TARGET_ARCH_OBJ_DIR/snpe-sample /data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/bin')
 
     #setup dlc, data
@@ -146,6 +148,7 @@ def measure_dnn_latency(model_name, prefix):
             'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/lib',
             'export PATH=$PATH:/data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/bin',
             'cd {}'.format(os.path.join(DEVICE_ROOT_DIR, 'data')),
+            #'snpe-sample -d {} {} -i {}'.format(dst_dlc_path, runtime_opt, dst_data_list_path),
             'snpe-sample -d {} {} -n {} -i {} -o {} '.format(dst_dlc_path, runtime_opt, args.benchmark_iter_num, dst_data_list_path, dst_result_dir),
             'exit']
 

@@ -20,8 +20,6 @@ std::unique_ptr<zdl::SNPE::SNPE> setBuilderOptions(std::unique_ptr<zdl::DlContai
                                                    zdl::DlSystem::UDLBundle udlBundle,
                                                    bool useUserSuppliedBuffers,
                                                    zdl::DlSystem::PlatformConfig platformConfig,
-                                                   bool useCaching,
-                                                   zdl::DlSystem::PerformanceProfile_t performanceProfile
-                                                   );
+                                                   bool useCaching);
 
 #endif
