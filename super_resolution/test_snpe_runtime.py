@@ -187,5 +187,5 @@ if __name__ == '__main__':
 
     setup_local_asset(model, model_name, dlc_name, prefix)
     setup_remote_asset(model_name, dlc_name, prefix)
-    measure_dnn_latency(model_name, prefix)
-    #measure_layer_latency(model_name, prefix)
+    #measure_dnn_latency(model_name, prefix)
+    measure_layer_latency(model_name, prefix)

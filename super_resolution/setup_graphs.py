@@ -3,6 +3,7 @@ import utility as util
 import re
 import shutil
 import subprocess
+import json
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -38,7 +39,6 @@ board = proc_board.stdout.readlines()[0].decode().rstrip('\r\n').replace(' ', ''
 proc_model = subprocess.Popen(cmd_model, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 model = proc_model.stdout.readlines()[0].decode().rstrip('\r\n').replace(' ', '')
 prefix = '{}_{}'.format(board, model)
-print(prefix)
 
 result_dir = os.path.join(args.data_dir, args.dataset, 'result', prefix)
 video_dir = os.path.join(args.data_dir, args.dataset, 'video')
@@ -64,7 +64,7 @@ else:
 os.system(cmd)
 
 #2. generage matplot graphs (for large-scale evaluation) & save into a 'result' folder
-methods = ['bicubic', 'lq_dnn', 'hq_dnn', 'hq_dnn_cache']
+methods = ['lr', 'bicubic', 'lq_dnn', 'hq_dnn', 'hq_dnn_cache']
 
 #read files
 log_file_dict = {}
@@ -73,30 +73,33 @@ for method in methods:
 
 log_files = [f for f in os.listdir(dst_log_dir) if os.path.isfile(os.path.join(dst_log_dir, f))]
 
+lr_pattern = video_list[1].rstrip('\r\n')
 bicubic_pattern = video_list[2].rstrip('\r\n')
 lq_dnn_pattern = video_list[4].rstrip('\r\n')
 hq_dnn_pattern = video_list[3].rstrip('\r\n')
 
 for log_file in log_files:
     print(log_file)
-    prefix = None
+    _method = None
+    if lr_pattern in log_file:
+        _method = 'lr'
     if bicubic_pattern in log_file:
-        prefix = 'bicubic'
+        _method = 'bicubic'
     if lq_dnn_pattern in log_file:
-        prefix = 'lq_dnn'
+        _method = 'lq_dnn'
     if hq_dnn_pattern in log_file:
         if 'cache' in log_file:
-            prefix = 'hq_dnn_cache'
+            _method = 'hq_dnn_cache'
         else:
-            prefix = 'hq_dnn'
+            _method = 'hq_dnn'
 
-    if prefix is not None:
+    if _method is not None:
         if 'quality' in log_file:
-            log_file_dict[prefix]['quality'] = os.path.join(dst_log_dir, log_file)
+            log_file_dict[_method]['quality'] = os.path.join(dst_log_dir, log_file)
         if 'latency' in log_file:
-            log_file_dict[prefix]['latency'] = os.path.join(dst_log_dir, log_file)
+            log_file_dict[_method]['latency'] = os.path.join(dst_log_dir, log_file)
         if 'metadata' in log_file:
-            log_file_dict[prefix]['metadata'] = os.path.join(dst_log_dir, log_file)
+            log_file_dict[_method]['metadata'] = os.path.join(dst_log_dir, log_file)
 
 #load values
 metrics = ['quality', 'latency', 'super_frame', 'block', 'intra_block', 'inter_block', 'inter_block_skip']
@@ -107,13 +110,13 @@ for method in methods:
     for metric in metrics:
         log_dict[method][metric] = []
 
-    print(log_file_dict[method]['quality'])
-    with open(log_file_dict[method]['quality'], 'r') as f:
-        while True:
-            line = f.readline()
-            if not line: break
-            line = line.split('\t')
-            log_dict[method]['quality'].append(float(line[1]))
+    if method != 'lr':
+        with open(log_file_dict[method]['quality'], 'r') as f:
+            while True:
+                line = f.readline()
+                if not line: break
+                line = line.split('\t')
+                log_dict[method]['quality'].append(float(line[1]))
 
     with open(log_file_dict[method]['latency'], 'r') as f:
         while True:
@@ -137,6 +140,9 @@ for method in methods:
 length = 0
 for method in methods:
     for metric in metrics:
+        if method == 'lr'  and metric == 'quality':
+            continue
+
         if length == 0:
             length = len(log_dict[method][metric])
         else:
@@ -171,21 +177,41 @@ fig.savefig(os.path.join(result_dir, 'eval01_{}.png'.format(postfix)))
 #TODO 2: consider DNN latency by loading DNN measurement results
 #TODO 3: latency = max(270p decode, count(inference) * time(inference)) vs. max(270p decode + cache, count(inference) * time(inference))
 
-#lq_dnn_latency =
-#hq_dnn_latency =
-#lq_dnn_latency = max(np.average(log_dict['no_cache']['latency']), )
-#hq_dnn_latency = max(np.average(log_dict['no_cache']['latency']), )
+runtime_result_dir = os.path.join(args.data_dir, 'runtime', prefix, 'result')
+model_name_pattern = re.compile('EDSR\w*')
+
+lq_dnn_model_name = model_name_pattern.findall(video_list[4].rstrip('\r\n'))[0]
+hq_dnn_model_name = model_name_pattern.findall(video_list[3].rstrip('\r\n'))[0]
+
+lq_dnn_json_path = os.path.join(runtime_result_dir, lq_dnn_model_name, 'latest_results', 'benchmark_stats_{}.json'.format(lq_dnn_model_name))
+hq_dnn_json_path = os.path.join(runtime_result_dir, hq_dnn_model_name, 'latest_results', 'benchmark_stats_{}.json'.format(hq_dnn_model_name))
+print(lq_dnn_json_path)
+
+lq_dnn_result = json.loads(open(lq_dnn_json_path).read())
+hq_dnn_result = json.loads(open(hq_dnn_json_path).read())
+
+lq_dnn_latency = lq_dnn_result['Execution_Data']['GPU_FP16']['Forward Propagate']['Avg_Time'] / 1000.0
+hq_dnn_latency = hq_dnn_result['Execution_Data']['GPU_FP16']['Forward Propagate']['Avg_Time'] / 1000.0
+
+
+lq_dnn_decode_latency = max(np.average(log_dict['lr']['latency']), lq_dnn_latency)
+hq_dnn_decode_latency = max(np.average(log_dict['lr']['latency']), hq_dnn_latency)
+
+x_max = max(np.average(log_dict['bicubic']['latency']), np.average(log_dict['hq_dnn_cache']['latency']), lq_dnn_decode_latency, hq_dnn_decode_latency)
+x_min= min(np.average(log_dict['bicubic']['latency']), np.average(log_dict['hq_dnn_cache']['latency']), lq_dnn_decode_latency, hq_dnn_decode_latency)
+y_max = max(np.average(log_dict['bicubic']['quality']), np.average(log_dict['hq_dnn_cache']['quality']), np.average(log_dict['lq_dnn']['quality']), np.average(log_dict['hq_dnn']['quality']))
+y_min = min(np.average(log_dict['bicubic']['quality']), np.average(log_dict['hq_dnn_cache']['quality']), np.average(log_dict['lq_dnn']['quality']), np.average(log_dict['hq_dnn']['quality']))
 
 plt.rcParams['figure.figsize'] = (15, 15)
 fig, ax = plt.subplots()
 ax.plot([np.average(log_dict['bicubic']['latency'])], [np.average(log_dict['bicubic']['quality'])], label='bicubic', color='y', marker='o', markersize=12)
-ax.plot([np.average(log_dict['lq_dnn']['latency'])], [np.average(log_dict['lq_dnn']['quality'])], label='s-dnn', color='g', marker='o', markersize=12)
+ax.plot([lq_dnn_decode_latency], [np.average(log_dict['lq_dnn']['quality'])], label='s-dnn', color='g', marker='o', markersize=12)
 ax.yaxis.set_major_locator(MaxNLocator(integer=True))
-ax.plot([np.average(log_dict['hq_dnn']['latency'])], [np.average(log_dict['hq_dnn']['quality'])], label='h-dnn', color='b', marker='o', markersize=12)
+ax.plot([hq_dnn_decode_latency], [np.average(log_dict['hq_dnn']['quality'])], label='h-dnn', color='b', marker='o', markersize=12)
 ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 ax.plot([np.average(log_dict['hq_dnn_cache']['latency'])], [np.average(log_dict['hq_dnn_cache']['quality'])], label='h-dnn-cache', color='r', marker='o', markersize=12)
 ax.grid(True)
-ax.set(xlabel='Average Latency (msec)', ylabel='PSNR (dB)', xlim=(0,120))
+ax.set(xlabel='Average Latency (msec)', ylabel='PSNR (dB)', xlim=(x_min * 0.9, x_max * 1.1), ylim=(y_min * 0.9, y_max * 1.1))
 ax.legend(bbox_to_anchor=(0,1.02,1,0.2), loc="lower left",
                 mode="expand", ncol=2, prop={'size':24})
 fig.savefig(os.path.join(result_dir, 'eval02_{}.png'.format(postfix)))

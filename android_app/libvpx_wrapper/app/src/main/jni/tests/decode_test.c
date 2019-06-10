@@ -512,7 +512,7 @@ int decode_test(const char *video_dir, const char *log_dir, const char *frame_di
     PSNR_STATS psnr_compare;
 
     stop_after = decode_info.stop_after;
-    int save_quality = decode_info.save_quality;
+    int save_quality_result = decode_info.save_quality_result;
     int save_serialized_frame = decode_info.save_serialized_frame;
     int save_decoded_frame = decode_info.save_decoded_frame;
 
@@ -785,7 +785,7 @@ int decode_test(const char *video_dir, const char *log_dir, const char *frame_di
             }
         }
 
-        if (save_quality) {
+        if (save_quality_result) {
             memset(file_path, 0, sizeof(char) * PATH_MAX);
             sprintf(file_path, "%s/%dp_%d_y", decode_info.log_dir, decode_info.resolution * decode_info.scale, frame_out);
             if(vpx_deserialize_load(compare_frame, file_path, original_frame->y_crop_width * decode_info.scale, original_frame->y_crop_height * decode_info.scale,
