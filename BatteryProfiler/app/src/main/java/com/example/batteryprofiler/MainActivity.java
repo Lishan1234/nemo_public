@@ -68,7 +68,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         //Create directories for log files if non-existent
-        File logdir = new File("/sdcard","Logs");
+        File logdir = new File("/sdcard","ExoBattery");
         logdir.mkdirs();
 
         mBatteryManager = (BatteryManager) getApplicationContext().getSystemService(getApplicationContext().BATTERY_SERVICE);
@@ -88,7 +88,7 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 //Create Log csv and initialize fos
-                createLogFile();
+                createLogFile("270p",intended_play_duration);
 
                 //start timers
                 createTimers(intended_play_duration);
@@ -115,7 +115,7 @@ public class MainActivity extends AppCompatActivity {
                 iterate = (intended_play_duration*60)/video_length;
 
                 //Create Log csv and initialize fos
-                createLogFile();
+                createLogFile("360p",intended_play_duration);
 
                 //start timers
                 createTimers(intended_play_duration);
@@ -142,7 +142,7 @@ public class MainActivity extends AppCompatActivity {
                 iterate = (intended_play_duration*60)/video_length;
 
                 //Create Log csv and initialize fos
-                createLogFile();
+                createLogFile("540p",intended_play_duration);
 
                 //start timers
                 createTimers(intended_play_duration);
@@ -169,7 +169,7 @@ public class MainActivity extends AppCompatActivity {
                 iterate = (intended_play_duration*60)/video_length;
 
                 //Create Log csv and initialize fos
-                createLogFile();
+                createLogFile("1080p",intended_play_duration);
 
                 //start timers
                 createTimers(intended_play_duration);
@@ -295,11 +295,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     //Make new log file and assign global stream
-    public void createLogFile(){
-        SimpleDateFormat dateFormat = new SimpleDateFormat("EEE MMM dd hh mm ss");
-        Calendar cal = Calendar.getInstance();
-        String fileName = dateFormat.format(cal.getTime());
-        File file = new File("/sdcard/Logs/" + fileName + ".csv");
+    public void createLogFile(String video_quality,int mins){
+        String fileName = "exoplayer_vp9_"+video_quality+"_"+ mins +"_mins";
+
+        File file = new File("/sdcard/ExoBattery/" + fileName + ".csv");
 
         try {
             fos = new FileOutputStream(file,false);
@@ -307,7 +306,6 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
     }
-
 
     @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     public void test_code(){
