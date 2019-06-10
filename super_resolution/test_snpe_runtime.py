@@ -28,7 +28,7 @@ def prepare_fake_pb(model, model_name, checkpoint_dir):
     input_name = model.inputs[0].name.split(':')[0]
     output_name = model.outputs[0].name.split(':')[0]
 
-    pb_filename = 'final_{}_{}_{}.pb'.format(args.hwc[0], args.hwc[1], args.hwc[2])
+    pb_filename = '{}.pb'.format(model_name)
     init_op = tf.initialize_all_variables()
     sess = tf.keras.backend.get_session()
     sess.run(init_op)
@@ -55,7 +55,7 @@ def setup_local_asset(model, model_name, dlc_name, prefix):
     checkpoint_dir = os.path.join(root_dir, 'checkpoint')
     data_dir = os.path.join(root_dir, 'data', '{}p'.format(args.target_resolution // args.scale))
     result_dir = os.path.join(root_dir, prefix, 'result', model_name)
-    benchmark_dir = os.path.join(root_dir, prefix, 'benchmark')
+    benchmark_dir = os.path.join(root_dir, 'benchmark')
 
     os.makedirs(root_dir, exist_ok=True)
     os.makedirs(checkpoint_dir, exist_ok=True)
@@ -161,7 +161,7 @@ def measure_dnn_latency(model_name, prefix):
 
 #measure layer-wise runtime: a) measure, b) save a xls file
 def measure_layer_latency(model_name, prefix):
-    bench_json_path = os.path.abspath(os.path.join(args.data_dir, 'runtime', prefix, 'benchmark', '{}.json'.format(model_name)))
+    bench_json_path = os.path.abspath(os.path.join(args.data_dir, 'runtime', 'benchmark', '{}.json'.format(model_name)))
     cwd = os.getcwd()
     os.chdir("../third_party/snpe/benchmarks")
     os.system('/usr/bin/python2 snpe_bench.py -c {} -a -json'.format(bench_json_path))
@@ -180,7 +180,7 @@ if __name__ == '__main__':
     model_builder = model_module.make_model(args)
     model = model_builder.build()
     model_name = model_builder.get_name()
-    dlc_name = 'final_{}_{}_{}.dlc'.format(args.hwc[0], args.hwc[1], args.hwc[2])
+    dlc_name = '{}.dlc'.format(model_name)
 
     setup_local_asset(model, model_name, dlc_name, prefix)
     setup_remote_asset(model_name, dlc_name, prefix)
