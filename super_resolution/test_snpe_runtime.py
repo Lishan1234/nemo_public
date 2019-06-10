@@ -52,10 +52,10 @@ def prepare_fake_image(data_dir, prefix):
 
 def setup_assets(model, model_name, prefix):
     root_dir = os.path.join(args.data_dir, 'runtime')
-    checkpoint_dir = os.path.join(root_dir, prefix, 'checkpoint')
-    data_dir = os.path.join(root_dir, prefix, 'data', '{}p'.format(args.target_resolution // args.scale))
-    result_dir = os.path.join(root_dir, prefix, 'result')
-    benchmark_dir = os.path.join(root_dir, prefix, 'benchmark')
+    checkpoint_dir = os.path.join(root_dir, 'checkpoint')
+    data_dir = os.path.join(root_dir, 'data', '{}p'.format(args.target_resolution // args.scale))
+    result_dir = os.path.join(root_dir, prefix, model_name, 'result')
+    benchmark_dir = os.path.join(root_dir, prefix, model_name, 'benchmark')
 
     os.makedirs(root_dir, exist_ok=True)
     os.makedirs(checkpoint_dir, exist_ok=True)
@@ -126,10 +126,10 @@ def setup_dlc_data(model_name, prefix):
 
 #measure end-to-end runtime: a) measure, b) save a log file
 def measure_dnn_latency(model_name, prefix):
-    src_result_dir = os.path.join(args.data_dir, 'runtime', prefix, 'result')
+    src_result_dir = os.path.join(args.data_dir, 'runtime', prefix, model_name, 'result')
     dst_dlc_path = os.path.join(DEVICE_ROOT_DIR, 'checkpoint', '{}.dlc'.format(model_name))
     dst_data_list_path = os.path.join(DEVICE_ROOT_DIR, 'data', '{}p'.format(args.target_resolution // args.scale), TARGET_RAW_LIST_FILE)
-    dst_result_dir = os.path.join(DEVICE_ROOT_DIR, 'result')
+    dst_result_dir = os.path.join(DEVICE_ROOT_DIR, model_name, 'result')
 
     os.system(adb_cmd_prefix + 'shell rm -rf {}'.format(dst_result_dir))
 
@@ -152,7 +152,7 @@ def measure_dnn_latency(model_name, prefix):
             'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/lib',
             'export PATH=$PATH:/data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/bin',
             'cd {}'.format(os.path.join(DEVICE_ROOT_DIR, 'data')),
-            'snpe-sample -d {} {} -i {} -o ./{}'.format(dst_dlc_path, runtime_opt, dst_data_list_path, dst_result_dir),
+            'snpe-sample -d {} {} -i {} -o ./{} -n {}'.format(dst_dlc_path, runtime_opt, dst_data_list_path, dst_result_dir, args.benchmark_iter_num),
             'exit']
 
     print(dst_dlc_path, dst_data_list_path, dst_result_dir)
@@ -165,7 +165,7 @@ def measure_dnn_latency(model_name, prefix):
 
     os.system(adb_cmd_prefix + 'push {} {}'.format(cmd_script_path, DEVICE_ROOT_DIR))
     os.system(adb_cmd_prefix + 'shell sh {}'.format(os.path.join(DEVICE_ROOT_DIR, SNPE_BENCH_SCRIPT)))
-    os.system(adb_cmd_prefix + 'pull {} {}'.format(dst_result_dir, src_result_dir))
+    os.system(adb_cmd_prefix + 'pull {} {}'.format(os.path.join(dst_result_dir, 'latency.log'), src_result_dir))
 
 def measure_layer_latency(model_name, prefix):
     bench_json_path = os.path.abspath(os.path.join(args.data_dir, 'runtime', prefix, 'benchmark', '{}.json'.format(model_name)))

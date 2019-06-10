@@ -63,10 +63,11 @@ int main(int argc, char** argv)
     static zdl::DlSystem::Runtime_t runtime = zdl::DlSystem::Runtime_t::CPU;
     bool execStatus = false;
     bool usingInitCaching = false;
+    int numIter;
 
     // Process command line arguments
     int opt = 0;
-    while ((opt = getopt(argc, argv, "hi:d:o:b:s:r:z:c")) != -1)
+    while ((opt = getopt(argc, argv, "hi:d:o:b:s:r:z:c:n")) != -1)
     {
         switch (opt)
         {
@@ -82,6 +83,7 @@ int main(int argc, char** argv)
                         << "  -d  <FILE>   Path to the DL container containing the network.\n"
                         << "  -i  <FILE>   Path to a file listing the inputs for the network.\n"
                         << "  -o  <PATH>   Path to directory to store output results.\n"
+                        << "  -n  <NUMBER>  Number of iterations for measurement.\n"
                         << "\n"
                         << "OPTIONAL ARGUMENTS:\n"
                         << "-------------------\n"
@@ -114,6 +116,9 @@ int main(int argc, char** argv)
                 break;
             case 'z':
                 setResizableDim(atoi(optarg));
+                break;
+            case 'n':
+                numIter = atoi(optarg);
                 break;
             case 'r':
                 if (strcmp(optarg, "gpu") == 0)
@@ -302,7 +307,9 @@ int main(int argc, char** argv)
     // user buffer include cpu buffer and OpenGL buffer,
     // execute the network with the input and save each of the returned output to a file.
     if(useUserSuppliedBuffers)
-    {
+    {  
+       std::cerr << "UserBuffer is not implemented yet" << std::endl;
+       return FAILURE;
        // SNPE allows its input and output buffers that are fed to the network
        // to come from user-backed buffers. First, SNPE buffers are created from
        // user-backed storage. These SNPE buffers are then supplied to the network
@@ -413,34 +420,54 @@ int main(int argc, char** argv)
     }
     else if(bufferType == ITENSOR)
     {
+        // Create a log file
+        const std::string logName = "latency.log";
+        const std::string logPath = OutputDir + "/" + logName;
+
+        std::ofstream logFile(logPath);
+        if (!logFile.is_open()) {
+            std::cerr << "Log file open fail: " << logName;
+            return FAILURE;
+        }
+        else{
+            std::cout << "Log file open: " << logPath;
+            //logFile.setf(ios::fixed);
+            logFile.precision(2);
+        }
+
         // A tensor map for SNPE execution outputs
         zdl::DlSystem::TensorMap outputTensorMap;
 
-        for (size_t i = 0; i < inputs.size(); i++) {
-            // Load input/output buffers with ITensor
-            std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+        for (size_t j = 0; j < numIter; j++) {
+            for (size_t i = 0; i < inputs.size(); i++) {
+                // Load input/output buffers with ITensor
+                std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
-            if(batchSize > 1)
-                std::cout << "Batch " << i << ":" << std::endl;
-            std::unique_ptr<zdl::DlSystem::ITensor> inputTensor = loadInputTensor(snpe, inputs[i]);
-            // Execute the input tensor on the model with SNPE
-            std::chrono::steady_clock::time_point begin_ = std::chrono::steady_clock::now();
-            execStatus = snpe->execute(inputTensor.get(), outputTensorMap);
-            std::chrono::steady_clock::time_point end_= std::chrono::steady_clock::now();
+                if(batchSize > 1)
+                    std::cout << "Batch " << i << ":" << std::endl;
+                std::unique_ptr<zdl::DlSystem::ITensor> inputTensor = loadInputTensor(snpe, inputs[i]);
+                // Execute the input tensor on the model with SNPE
+                std::chrono::steady_clock::time_point begin_ = std::chrono::steady_clock::now();
+                execStatus = snpe->execute(inputTensor.get(), outputTensorMap);
+                std::chrono::steady_clock::time_point end_= std::chrono::steady_clock::now();
 
-            // Save the execution results if execution successful
-            if (execStatus == true)
-            {
-               saveOutput(outputTensorMap, OutputDir, i * batchSize, batchSize);
+                // Save the execution results if execution successful
+                if (execStatus == true)
+                {
+                   saveOutput(outputTensorMap, OutputDir, i * batchSize, batchSize);
+                }
+                else
+                {
+                   std::cerr << "Error while executing the network." << std::endl;
+                }
+                std::chrono::steady_clock::time_point end= std::chrono::steady_clock::now();
+
+                //std::cout << "Process elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin).count() << std::endl;
+                //std::cout << "Inference elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin_).count() << std::endl;
+
+                // Logging
+                logFile << j << "\t" << i << "\t" << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin).count() << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin_).count() << std::endl;
             }
-            else
-            {
-               std::cerr << "Error while executing the network." << std::endl;
-            }
-            std::chrono::steady_clock::time_point end= std::chrono::steady_clock::now();
-
-            std::cout << "Process elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin).count() << std::endl;
-            std::cout << "Inference elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin_).count() << std::endl;
         }
     }
     return SUCCESS;
