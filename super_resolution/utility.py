@@ -169,17 +169,17 @@ def optimize_for_inference(pb_filename, input_name, output_name, checkpoint_dir)
     return pb_filename
 
 #Caution: needs system python to install tensorflow
-def convert_to_dlc(pb_filename, input_name, output_name, model_name, checkpoint_dir, h, w, c):
-    dlc_filename = '{}.dlc'.format(model_name)
-
+def convert_to_dlc(pb_filename, input_name, output_name, dlc_filename, checkpoint_dir, h, w, c):
+    """
     if 'PYTHONPATH' in os.environ:
-        os.environ['PYTHONPATH'] = '{}:../snpe/lib/python'.format(os.environ['PYTHONPATH'])
+        os.environ['PYTHONPATH'] = '{}:../third_party/snpe/lib/python'.format(os.environ['PYTHONPATH'])
     else:
-        os.environ['PYTHONPATH'] = '../snpe/lib/python'
+        os.environ['PYTHONPATH'] = '../third_party/snpe/lib/python'
+    """
 
     print('INFO: Converting ' + pb_filename +' to SNPE DLC format')
     cmd = ['/usr/bin/python2',
-           '../snpe/bin/x86_64-linux-clang/snpe-tensorflow-to-dlc',
+           '../third_party/snpe/bin/x86_64-linux-clang/snpe-tensorflow-to-dlc',
            '--graph', os.path.join(checkpoint_dir, pb_filename),
            '--input_dim', input_name, '1,{},{},{}'.format(h, w, c),
            '--out_node', output_name,

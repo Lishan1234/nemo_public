@@ -67,7 +67,7 @@ int main(int argc, char** argv)
 
     // Process command line arguments
     int opt = 0;
-    while ((opt = getopt(argc, argv, "hi:d:o:b:s:r:z:c:n")) != -1)
+    while ((opt = getopt(argc, argv, "hi:d:o:b:s:r:z:c:n:")) != -1)
     {
         switch (opt)
         {
@@ -454,19 +454,15 @@ int main(int argc, char** argv)
                 // Save the execution results if execution successful
                 if (execStatus == true)
                 {
-                   saveOutput(outputTensorMap, OutputDir, i * batchSize, batchSize);
+                   //saveOutput(outputTensorMap, OutputDir, i * batchSize, batchSize);
+                    std::cout << "Progress [" << j << "," << i << "] " << "Processing elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin).count() << std::endl;
+                    logFile << j << "\t" << i << "\t" << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin).count() << "\t" << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin_).count() << std::endl;
                 }
                 else
                 {
                    std::cerr << "Error while executing the network." << std::endl;
                 }
                 std::chrono::steady_clock::time_point end= std::chrono::steady_clock::now();
-
-                //std::cout << "Process elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin).count() << std::endl;
-                //std::cout << "Inference elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin_).count() << std::endl;
-
-                // Logging
-                logFile << j << "\t" << i << "\t" << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin).count() << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin_).count() << std::endl;
             }
         }
     }

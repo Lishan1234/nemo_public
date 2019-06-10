@@ -50,12 +50,12 @@ def prepare_fake_image(data_dir, prefix):
     with open(os.path.join(data_dir,TARGET_RAW_LIST_FILE), 'w') as f:
         f.write(os.path.join(DEVICE_ROOT_DIR, 'data', '{}p'.format(args.target_resolution // args.scale), DATA_NAME))
 
-def setup_assets(model, model_name, prefix):
+def setup_local_asset(model, model_name, dlc_name, prefix):
     root_dir = os.path.join(args.data_dir, 'runtime')
     checkpoint_dir = os.path.join(root_dir, 'checkpoint')
     data_dir = os.path.join(root_dir, 'data', '{}p'.format(args.target_resolution // args.scale))
-    result_dir = os.path.join(root_dir, prefix, model_name, 'result')
-    benchmark_dir = os.path.join(root_dir, prefix, model_name, 'benchmark')
+    result_dir = os.path.join(root_dir, prefix, 'result', model_name)
+    benchmark_dir = os.path.join(root_dir, prefix, 'benchmark')
 
     os.makedirs(root_dir, exist_ok=True)
     os.makedirs(checkpoint_dir, exist_ok=True)
@@ -68,7 +68,7 @@ def setup_assets(model, model_name, prefix):
     pb_filename = util.optimize_for_inference(pb_filename, input_name, output_name, checkpoint_dir)
 
     #convert to dlc file
-    util.convert_to_dlc(pb_filename, input_name, output_name, model_name, checkpoint_dir, args.hwc[0], args.hwc[1], args.hwc[2])
+    util.convert_to_dlc(pb_filename, input_name, output_name, dlc_name, checkpoint_dir, args.hwc[0], args.hwc[1], args.hwc[2])
 
     #setup dataset: a) check, b) save a randomly intialized frame
     prepare_fake_image(data_dir, prefix)
@@ -77,7 +77,7 @@ def setup_assets(model, model_name, prefix):
     name = model_name
     benchmark = collections.OrderedDict()
     benchmark['Name'] = name
-    benchmark['HostRootPath'] = name
+    benchmark['HostRootPath'] = os.path.abspath(result_dir)
     benchmark['HostResultsDir'] = os.path.abspath(result_dir)
     benchmark['DevicePath'] = '/data/local/tmp/snpebm'
     if args.benchmark_device_id == None:
@@ -88,7 +88,7 @@ def setup_assets(model, model_name, prefix):
     benchmark['Runs'] = args.benchmark_iter_num
     benchmark['Model'] = collections.OrderedDict()
     benchmark['Model']['Name'] = name
-    benchmark['Model']['Dlc'] = os.path.abspath(os.path.join(checkpoint_dir, '{}.dlc'.format(model_name)))
+    benchmark['Model']['Dlc'] = os.path.abspath(os.path.join(checkpoint_dir, dlc_name))
     benchmark['Model']['InputList'] = os.path.abspath(os.path.join(data_dir, TARGET_RAW_LIST_FILE))
     benchmark['Model']['Data'] = [os.path.abspath(data_dir)]
     benchmark['Runtimes'] = ['GPU_FP16']
@@ -97,27 +97,25 @@ def setup_assets(model, model_name, prefix):
     with open(os.path.join(benchmark_dir, '{}.json'.format(name)),'w') as outfile:
             json.dump(benchmark, outfile, indent=4)
 
-def setup_prerequisites():
+def setup_remote_asset(model_name, dlc_name, prefix):
+    #setup library
     os.environ['SNPE_TARGET_ARCH']='aarch64-android-clang6.0'
     os.environ['SNPE_TARGET_ARCH_OBJ_DIR']='arm64-v8a'
-    os.environ['SNPE_ROOT']= os.path.abspath('../snpe')
+    os.environ['SNPE_ROOT']= os.path.abspath('../third_party/snpe')
     os.system(adb_cmd_prefix + 'shell "mkdir -p /data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/bin"')
     os.system(adb_cmd_prefix + 'shell "mkdir -p /data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/lib"')
     os.system(adb_cmd_prefix + 'shell "mkdir -p /data/local/tmp/snpeexample/dsp/lib"')
     os.system(adb_cmd_prefix + 'push $SNPE_ROOT/lib/$SNPE_TARGET_ARCH/* /data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/lib')
     os.system(adb_cmd_prefix + 'push $SNPE_ROOT/lib/dsp/* /data/local/tmp/snpeexample/dsp/lib')
-    os.system('echo $SNPE_TARGET_ARCH')
-    os.system(adb_cmd_prefix + 'push $SNPE_ROOT/sample_cpp/obj/local/$SNPE_TARGET_ARCH_OBJ_DIR/snpe-sample /data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/bin')
+    os.system(adb_cmd_prefix + 'push $SNPE_ROOT/../../android_dnn_sdk/snpe/latency_profiler/libs/arm64-v8a/* /data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/lib')
+    os.system(adb_cmd_prefix + 'push $SNPE_ROOT/../../android_dnn_sdk/snpe/latency_profiler/obj/local/$SNPE_TARGET_ARCH_OBJ_DIR/snpe-sample /data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/bin')
 
-#Copy dlc and data
-def setup_dlc_data(model_name, prefix):
+    #setup dlc, data
     root_dir = os.path.join(args.data_dir, 'runtime')
-    checkpoint_dir = os.path.join(root_dir, prefix, 'checkpoint')
-
-    src_data_dir = os.path.join(root_dir, prefix, 'data', '{}p'.format(args.target_resolution // args.scale))
-    src_dlc_path = os.path.join(checkpoint_dir, '{}.dlc'.format(model_name))
-    dst_dlc_path = os.path.join(DEVICE_ROOT_DIR, 'checkpoint',  '{}.dlc'.format(model_name))
+    src_data_dir = os.path.join(root_dir, 'data', '{}p'.format(args.target_resolution // args.scale))
     dst_data_dir = os.path.join(DEVICE_ROOT_DIR, 'data', '{}p'.format(args.target_resolution // args.scale))
+    src_dlc_path = os.path.join(root_dir, 'checkpoint', dlc_name)
+    dst_dlc_path = os.path.join(DEVICE_ROOT_DIR, 'checkpoint', dlc_name)
 
     os.system(adb_cmd_prefix + 'shell "mkdir -p {}"'.format(os.path.join(DEVICE_ROOT_DIR, 'data', '{}p'.format(args.target_resolution // args.scale))))
     os.system(adb_cmd_prefix + 'shell "mkdir -p {}"'.format(os.path.join(DEVICE_ROOT_DIR, 'checkpoint')))
@@ -126,24 +124,20 @@ def setup_dlc_data(model_name, prefix):
 
 #measure end-to-end runtime: a) measure, b) save a log file
 def measure_dnn_latency(model_name, prefix):
-    src_result_dir = os.path.join(args.data_dir, 'runtime', prefix, model_name, 'result')
+    src_result_dir = os.path.join(args.data_dir, 'runtime', prefix, 'result', model_name)
     dst_dlc_path = os.path.join(DEVICE_ROOT_DIR, 'checkpoint', '{}.dlc'.format(model_name))
     dst_data_list_path = os.path.join(DEVICE_ROOT_DIR, 'data', '{}p'.format(args.target_resolution // args.scale), TARGET_RAW_LIST_FILE)
-    dst_result_dir = os.path.join(DEVICE_ROOT_DIR, model_name, 'result')
+    dst_result_dir = os.path.join(DEVICE_ROOT_DIR, 'result', model_name)
 
-    os.system(adb_cmd_prefix + 'shell rm -rf {}'.format(dst_result_dir))
+    #os.system(adb_cmd_prefix + 'shell rm -rf {}'.format(dst_result_dir))
 
     if args.benchmark_runtime == 'CPU':
-        dlc_name = '{}.dlc'.format(model_name)
         runtime_opt = '-r cpu'
     #elif args.benchmark_runtime == 'CPU_IP8':
-    #    dlc_name = 'quantized_{}.dlc'.format(model_name)
     #    runtime_opt = '-r cpu_ip8'
     elif args.benchmark_runtime == 'GPU':
-        dlc_name = '{}.dlc'.format(model_name)
         runtime_opt = '-r gpu'
     elif args.benchmark_runtime == 'GPU_FP16':
-        dlc_name = '{}.dlc'.format(model_name)
         runtime_opt = '-r gpu_fp16'
     else:
         raise NotImplementedError
@@ -152,10 +146,8 @@ def measure_dnn_latency(model_name, prefix):
             'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/lib',
             'export PATH=$PATH:/data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/bin',
             'cd {}'.format(os.path.join(DEVICE_ROOT_DIR, 'data')),
-            'snpe-sample -d {} {} -i {} -o ./{} -n {}'.format(dst_dlc_path, runtime_opt, dst_data_list_path, dst_result_dir, args.benchmark_iter_num),
+            'snpe-sample -d {} {} -n {} -i {} -o {} '.format(dst_dlc_path, runtime_opt, args.benchmark_iter_num, dst_data_list_path, dst_result_dir),
             'exit']
-
-    print(dst_dlc_path, dst_data_list_path, dst_result_dir)
 
     cmd_script_path = os.path.join(SNPE_BENCH_SCRIPT)
     with open(cmd_script_path, 'w') as cmd_script:
@@ -167,12 +159,13 @@ def measure_dnn_latency(model_name, prefix):
     os.system(adb_cmd_prefix + 'shell sh {}'.format(os.path.join(DEVICE_ROOT_DIR, SNPE_BENCH_SCRIPT)))
     os.system(adb_cmd_prefix + 'pull {} {}'.format(os.path.join(dst_result_dir, 'latency.log'), src_result_dir))
 
+#measure layer-wise runtime: a) measure, b) save a xls file
 def measure_layer_latency(model_name, prefix):
     bench_json_path = os.path.abspath(os.path.join(args.data_dir, 'runtime', prefix, 'benchmark', '{}.json'.format(model_name)))
-    os.chdir("../snpe/benchmarks")
-    #print(os.getcwd())
-    os.system('/usr/bin/python2 snpe_bench.py -c {} -a'.format(bench_json_path))
-#measure layer-wise runtime: a) measure, b) save a xls file
+    cwd = os.getcwd()
+    os.chdir("../third_party/snpe/benchmarks")
+    os.system('/usr/bin/python2 snpe_bench.py -c {} -a -json'.format(bench_json_path))
+    os.chdir(cwd)
 
 if __name__ == '__main__':
     cmd_board = adb_cmd_prefix + 'shell getprop ro.product.board'
@@ -187,9 +180,9 @@ if __name__ == '__main__':
     model_builder = model_module.make_model(args)
     model = model_builder.build()
     model_name = model_builder.get_name()
-    setup_assets(model, model_name, prefix)
+    dlc_name = 'final_{}_{}_{}.dlc'.format(args.hwc[0], args.hwc[1], args.hwc[2])
 
-    setup_prerequisites()
-    setup_dlc_data(model_name, prefix)
-    measure_dnn_latency(model_name, prefix)
+    setup_local_asset(model, model_name, dlc_name, prefix)
+    setup_remote_asset(model_name, dlc_name, prefix)
+    #measure_dnn_latency(model_name, prefix)
     measure_layer_latency(model_name, prefix)
