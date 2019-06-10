@@ -7,6 +7,8 @@ import android.content.IntentFilter;
 import android.net.Uri;
 import android.os.BatteryManager;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Message;
 import android.support.annotation.RequiresApi;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -32,13 +34,31 @@ import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory;
 import com.google.android.exoplayer2.util.Util;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 
 public class MainActivity extends AppCompatActivity {
+
+    FileOutputStream fos = null;
+
+    BatteryManager mBatteryManager;
 
     Button button1;
     Button button2;
     Button button3;
+    Button button4;
+
+    int video_length = 128; //given in seconds
+    int intended_play_duration; //given in minutes(user input)
+
+    int iterate;    //how many times video should be repeated
+
+    boolean timers_started = false; //set to true after timers started
 
     @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     @SuppressLint("PrivateApi")
@@ -47,10 +67,36 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        //Create directories for log files if non-existent
+        File logdir = new File("/sdcard","Logs");
+        logdir.mkdirs();
+
+        mBatteryManager = (BatteryManager) getApplicationContext().getSystemService(getApplicationContext().BATTERY_SERVICE);
+
         button1 = findViewById(R.id.button1);
         button1.setOnClickListener(new Button.OnClickListener(){
             @Override
             public void onClick(View v) {
+                //Get input
+                EditText text = findViewById(R.id.duration);
+                intended_play_duration = Integer.parseInt(text.getText().toString());
+
+                //calculate number of iterations & last iteration's duration
+                iterate = (intended_play_duration*60)/video_length;
+                if((intended_play_duration*60)%video_length != 0){
+                    iterate++;
+                }
+
+                //Create Log csv and initialize fos
+                createLogFile();
+
+                //start timers
+                createTimers(intended_play_duration);
+
+                //update iteration values
+                iterate--;
+
+                //Launch player activity
                 Intent intent = new Intent(getApplicationContext(), ExoPlayer.class);
                 intent.putExtra("requestcode",1);
                 startActivityForResult(intent, 1);
@@ -61,6 +107,23 @@ public class MainActivity extends AppCompatActivity {
         button2.setOnClickListener(new Button.OnClickListener(){
             @Override
             public void onClick(View v) {
+                //Get input
+                EditText text = findViewById(R.id.duration);
+                intended_play_duration = Integer.parseInt(text.getText().toString());
+
+                //calculate number of iterations & last iteration's duration
+                iterate = (intended_play_duration*60)/video_length;
+
+                //Create Log csv and initialize fos
+                createLogFile();
+
+                //start timers
+                createTimers(intended_play_duration);
+
+                //update iteration values
+                iterate--;
+
+                //Launch player activity
                 Intent intent = new Intent(getApplicationContext(), ExoPlayer.class);
                 intent.putExtra("requestcode",2);
                 startActivityForResult(intent, 2);
@@ -71,9 +134,53 @@ public class MainActivity extends AppCompatActivity {
         button3.setOnClickListener(new Button.OnClickListener(){
             @Override
             public void onClick(View v) {
+                //Get input
+                EditText text = findViewById(R.id.duration);
+                intended_play_duration = Integer.parseInt(text.getText().toString());
+
+                //calculate number of iterations & last iteration's duration
+                iterate = (intended_play_duration*60)/video_length;
+
+                //Create Log csv and initialize fos
+                createLogFile();
+
+                //start timers
+                createTimers(intended_play_duration);
+
+                //update iteration values
+                iterate--;
+
+                //Launch player activity
                 Intent intent = new Intent(getApplicationContext(), ExoPlayer.class);
                 intent.putExtra("requestcode",3);
                 startActivityForResult(intent, 3);
+            }
+        });
+
+        button4 = findViewById(R.id.button4);
+        button4.setOnClickListener(new Button.OnClickListener(){
+            @Override
+            public void onClick(View v){
+                //Get input
+                EditText text = findViewById(R.id.duration);
+                intended_play_duration = Integer.parseInt(text.getText().toString());
+
+                //calculate number of iterations & last iteration's duration
+                iterate = (intended_play_duration*60)/video_length;
+
+                //Create Log csv and initialize fos
+                createLogFile();
+
+                //start timers
+                createTimers(intended_play_duration);
+
+                //update iteration values
+                iterate--;
+
+                //Launch player activity
+                Intent intent = new Intent(getApplicationContext(), ExoPlayer.class);
+                intent.putExtra("requestcode",4);
+                startActivityForResult(intent, 4);
             }
         });
     }
@@ -81,39 +188,123 @@ public class MainActivity extends AppCompatActivity {
     public void onActivityResult(int requestCode, int resultCode, Intent data){
         if(requestCode == 1){
             if(resultCode == RESULT_OK) {
-                Long start_battery = (Long) data.getLongExtra("start bat",0);
-                Long end_battery = (Long) data.getLongExtra("end bat",0);
-                int start_percent = data.getIntExtra("start percentage", 0);
-                int end_percent = data.getIntExtra("end percentage", 0);
 
-                EditText text = findViewById(R.id.text1);
-                String result = "Start = " + start_battery +"(" +start_percent+"%)\n" + "End = " + end_battery + "(" +end_percent+"%)";
-                text.setText(result);
+                //If intended play duration not done yet, repeat
+                if(iterate!= 0){
+                    iterate--;
+
+                    //relaunch video
+                    Intent intent = new Intent(getApplicationContext(), ExoPlayer.class);
+                    intent.putExtra("requestcode",1);
+                    startActivityForResult(intent, 1);
+                }
             }
         }
         else if(requestCode == 2){
             if(resultCode == RESULT_OK) {
-                Long start_battery = (Long) data.getLongExtra("start bat",0);
-                Long end_battery = (Long) data.getLongExtra("end bat",0);
-                int start_percent = data.getIntExtra("start percentage", 0);
-                int end_percent = data.getIntExtra("end percentage", 0);
 
-                EditText text = findViewById(R.id.text2);
-                String result = "Start = " + start_battery +"(" +start_percent+"%)\n" + "End = " + end_battery + "(" +end_percent+"%)";
-                text.setText(result);
+                //If intended play duration not done yet, repeat
+                if(iterate!= 0){
+                    iterate--;
+
+                    //relaunch video
+                    Intent intent = new Intent(getApplicationContext(), ExoPlayer.class);
+                    intent.putExtra("requestcode",2);
+                    startActivityForResult(intent, 2);
+                }
+
+
             }
         }
         else if(requestCode == 3){
             if(resultCode == RESULT_OK) {
-                Long start_battery = (Long) data.getLongExtra("start bat",0);
-                Long end_battery = (Long) data.getLongExtra("end bat",0);
-                int start_percent = data.getIntExtra("start percentage", 0);
-                int end_percent = data.getIntExtra("end percentage", 0);
 
-                EditText text = findViewById(R.id.text3);
-                String result = "Start = " + start_battery +"(" +start_percent+"%)\n" + "End = " + end_battery + "(" +end_percent+"%)";
-                text.setText(result);
+                //If intended play duration not done yet, repeat
+                if(iterate!= 0){
+                    iterate--;
+
+                    //relaunch video
+                    Intent intent = new Intent(getApplicationContext(), ExoPlayer.class);
+                    intent.putExtra("requestcode",3);
+                    startActivityForResult(intent, 3);
+                }
+
             }
+        }
+        else if(requestCode == 4){
+            if(resultCode == RESULT_OK) {
+
+                //If intended play duration not done yet, repeat
+                if(iterate!= 0){
+                    iterate--;
+
+                    //relaunch video
+                    Intent intent = new Intent(getApplicationContext(), ExoPlayer.class);
+                    intent.putExtra("requestcode",4);
+                    startActivityForResult(intent, 4);
+                }
+
+
+//                Long start_battery = (Long) data.getLongExtra("start bat",0);
+//                Long end_battery = (Long) data.getLongExtra("end bat",0);
+//                int start_percent = data.getIntExtra("start percentage", 0);
+//                int end_percent = data.getIntExtra("end percentage", 0);
+//
+//                EditText text = findViewById(R.id.text4);
+//                String result = "Start = " + start_battery +"(" +start_percent+"%)\n" + "End = " + end_battery + "(" +end_percent+"%)";
+//                text.setText(result);
+//                text.setVisibility(EditText.VISIBLE);
+            }
+        }
+    }
+
+    //Creates a timer for every minute that logs battery information
+    public void createTimers(int minutes){
+        //Create all the handler points
+        Handler handler= new Handler(new Handler.Callback(){
+            @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+            @Override
+            public boolean handleMessage(Message msg) {
+                //Record values
+                Calendar cal = Calendar.getInstance();
+                SimpleDateFormat dateFormat2 = new SimpleDateFormat("hh:mm:ss:SS");
+                String time = dateFormat2.format(cal.getTime());
+
+                Long battery = mBatteryManager.getLongProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)/1000;
+                int battery_percent = mBatteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
+
+                String entry = time + "," + Long.toString(battery) + "," + Integer.toString(battery_percent) + "%" + "\n";
+
+                Log.e("TAG",entry);
+
+                try {
+                    fos.write(entry.getBytes());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                return false;
+            }
+        });
+
+        Message message;
+        for(int i = 0; i <= minutes;i++){
+            message = handler.obtainMessage();
+            handler.sendMessageDelayed(message, i*60000);
+        }
+    }
+
+    //Make new log file and assign global stream
+    public void createLogFile(){
+        SimpleDateFormat dateFormat = new SimpleDateFormat("EEE MMM dd hh mm ss");
+        Calendar cal = Calendar.getInstance();
+        String fileName = dateFormat.format(cal.getTime());
+        File file = new File("/sdcard/Logs/" + fileName + ".csv");
+
+        try {
+            fos = new FileOutputStream(file,false);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
         }
     }
 
