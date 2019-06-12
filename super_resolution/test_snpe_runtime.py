@@ -91,6 +91,7 @@ def setup_local_asset(model, model_name, dlc_name, prefix):
     benchmark['Model']['Data'] = [os.path.abspath(data_dir)]
     benchmark['Runtimes'] = ['GPU_FP16']
     benchmark['Measurements'] = ['timing']
+    benchmark['BufferTypes'] = ['ub_float']
 
     with open(os.path.join(benchmark_dir, '{}.json'.format(name)),'w') as outfile:
             json.dump(benchmark, outfile, indent=4)
