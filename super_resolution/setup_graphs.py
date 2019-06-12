@@ -275,6 +275,10 @@ def eval_07(log_dict, result_dir, start_idx, end_idx, frame_idx):
     ax.grid(True)
     fig.savefig(os.path.join(result_dir, 'eval07_{}.png'.format(task_info)))
 
+#y-axis: SSIM, x-axis: index
+def eval_08():
+    print('hello world')
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Video dataset")
 
