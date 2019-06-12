@@ -108,37 +108,40 @@ class Trainer():
     #TODO: measure PSNR in uint8 precision (slight difference)
     def validate(self):
         with self.writer.as_default(), tf.contrib.summary.always_record_summaries(), tf.device('gpu:{}'.format(self.args.gpu_idx)):
+            count = 0
             for input_image, target_image, baseline_image in self.valid_dataset:
-            #.take(self.args.num_sample):
-                output_image = self.model(input_image)
-                output_image = tf.clip_by_value(output_image, 0.0, 1.0)
+                if count % args.valid_interval == 0:
+                    output_image = self.model(input_image)
+                    output_image = tf.clip_by_value(output_image, 0.0, 1.0)
 
-                output_loss_value = self.loss(output_image, target_image)
-                output_psnr_value = tf.image.psnr(output_image, target_image, max_val=1.0)
+                    output_loss_value = self.loss(output_image, target_image)
+                    output_psnr_value = tf.image.psnr(output_image, target_image, max_val=1.0)
 
-                baseline_loss_value = self.loss(baseline_image, target_image)
-                baseline_psnr_value = tf.image.psnr(baseline_image, target_image, max_val=1.0)
+                    baseline_loss_value = self.loss(baseline_image, target_image)
+                    baseline_psnr_value = tf.image.psnr(baseline_image, target_image, max_val=1.0)
 
-                self.validation_loss(output_loss_value)
-                self.validation_psnr(output_psnr_value)
-                self.validation_baseline_loss(baseline_loss_value)
-                self.validation_baseline_psnr(baseline_psnr_value)
+                    self.validation_loss(output_loss_value)
+                    self.validation_psnr(output_psnr_value)
+                    self.validation_baseline_loss(baseline_loss_value)
+                    self.validation_baseline_psnr(baseline_psnr_value)
 
-            tf.contrib.summary.scalar('Average Validation Loss', self.validation_loss.result())
-            tf.contrib.summary.scalar('Average Validation PSNR', self.validation_psnr.result())
-            tf.contrib.summary.scalar('Average Baseline Validation Loss', self.validation_baseline_loss.result())
-            tf.contrib.summary.scalar('Average Baseline Validation PSNR', self.validation_baseline_psnr.result())
-            tf.contrib.summary.flush(self.writer)
+                tf.contrib.summary.scalar('Average Validation Loss', self.validation_loss.result())
+                tf.contrib.summary.scalar('Average Validation PSNR', self.validation_psnr.result())
+                tf.contrib.summary.scalar('Average Baseline Validation Loss', self.validation_baseline_loss.result())
+                tf.contrib.summary.scalar('Average Baseline Validation PSNR', self.validation_baseline_psnr.result())
+                tf.contrib.summary.flush(self.writer)
 
-            self.validation_loss.init_variables()
-            self.validation_baseline_loss.init_variables()
-            self.validation_psnr.init_variables()
-            self.validation_baseline_psnr.init_variables()
+                self.validation_loss.init_variables()
+                self.validation_baseline_loss.init_variables()
+                self.validation_psnr.init_variables()
+                self.validation_baseline_psnr.init_variables()
+            count += 1
 
     def visualize(self):
         with self.writer.as_default(), tf.contrib.summary.always_record_summaries(), tf.device('gpu:{}'.format(self.args.gpu_idx)):
             count = 0
-            for input_image, target_image, baseline_image in self.valid_dataset.take(self.args.num_sample):
+            #for input_image, target_image, baseline_image in self.valid_dataset.take(self.args.num_sample):
+            for input_image, target_image, baseline_image in self.valid_dataset.take(1):
                 output_image = self.model(input_image)
                 output_image = tf.clip_by_value(output_image, 0.0, 1.0)
 
@@ -168,19 +171,23 @@ if __name__ == '__main__':
         print('[Train-{}epoch] Start'.format(epoch))
         trainer.train()
         print('[Train-{}epoch] End (take {} seconds)'.format(epoch, time.time()-start_time))
+
         #validate
-        start_time = time.time()
-        print('[Validation-{}epoch] Start'.format(epoch))
-        trainer.validate()
-        print('[Validation-{}epoch] End (take {} seconds)'.format(epoch, time.time()-start_time))
-        #visualize
-        start_time = time.time()
-        print('[Visualization-{}epoch] Start'.format(epoch))
-        trainer.visualize()
-        print('[Visualization-{}epoch] End (take {} seconds)'.format(epoch, time.time()-start_time))
+        if epoch % args.valid_interval == 0:
+            start_time = time.time()
+            print('[Validation-{}epoch] Start'.format(epoch))
+            trainer.validate()
+            print('[Validation-{}epoch] End (take {} seconds)'.format(epoch, time.time()-start_time))
+            #visualize
+            start_time = time.time()
+            print('[Visualization-{}epoch] Start'.format(epoch))
+            trainer.visualize()
+            print('[Visualization-{}epoch] End (take {} seconds)'.format(epoch, time.time()-start_time))
+
         #checkpoint
-        if (epoch == args.num_epoch - 1) or (epoch % 20 == 0):
+        if (epoch == args.num_epoch - 1) or (epoch % args.valid_interval == 0):
             trainer.save_model()
+
         #lr decaying
         if epoch != 0 and epoch % args.lr_decay_epoch == 0:
             trainer.apply_lr_decay(args.lr_decay_rate)

@@ -63,7 +63,7 @@ parser.add_argument('--gpu_idx', type=int, default=0)
 
 #Custom configuration (Debugging)
 parser.add_argument('--custom_name', type=str, default=None, help='additional model name')
-parser.add_argument('--num_sample', type=int, default=5)
+parser.add_argument('--valid_interval', type=int, default=5)
 
 #SDK (Huawei HiAI, Qualcomm SNPE)
 parser.add_argument('--hiai_project_root', type=str, default='../hiai')
