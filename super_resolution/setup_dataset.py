@@ -25,9 +25,8 @@ parser.add_argument('--num_patch', type=int, default=10000)
 
 args = parser.parse_args()
 #scale = [2, 3, 4]
-scales = [1, 4]
+scales = [2, 3]
 
-BITRATE = {240: 512, 270: 512, 1080: 4400} #WOWZA recommendation
 RESOLUTION={240: (240, 426), 360: (360, 480), 480: (480, 858), 720: (720, 1280), 1080: (1080, 1920)}
 VP9_DASH_PARAMS="-tile-columns 4 -frame-parallel 1"
 
@@ -64,14 +63,14 @@ def setup_video():
 
         if not os.path.exists(resized_video_path):
             """ Temporally use GOP size as 30 """
-            #cmd = "ffmpeg -i {} -ss {}:{}:{} -t {}:{}:{} -c:v libvpx-vp9 -vf scale=-1:{} -b:v {}k -keyint_min 120 -g 120 -threads 4 -speed 4 {} -an -f webm -dash 1 {}".format(original_video_path, start_hour, start_min, start_sec, len_hour, len_min, len_sec, resized_resolution, resize_bitrate, VP9_DASH_PARAMS, resized_video_path)
-            cmd = "ffmpeg -i {} -ss {}:{}:{} -t {}:{}:{} -c:v libvpx-vp9 -vf scale=-1:{} -b:v {}k -keyint_min {} -g {} -threads 4 -speed 4 {} -an -f webm -dash 1 {}".format(original_video_path, start_hour, start_min, start_sec, len_hour, len_min, len_sec, resized_resolution, resize_bitrate, KEY_INTERVAL, KEY_INTERVAL, VP9_DASH_PARAMS, resized_video_path)
+            #cmd = "/usr/bin/ffmpeg -i {} -ss {}:{}:{} -t {}:{}:{} -c:v libvpx-vp9 -vf scale=-1:{} -b:v {}k -keyint_min 120 -g 120 -threads 4 -speed 4 {} -an -f webm -dash 1 {}".format(original_video_path, start_hour, start_min, start_sec, len_hour, len_min, len_sec, resized_resolution, resize_bitrate, VP9_DASH_PARAMS, resized_video_path)
+            cmd = "/usr/bin/ffmpeg -i {} -ss {}:{}:{} -t {}:{}:{} -c:v libvpx-vp9 -vf scale=-1:{} -b:v {}k -keyint_min {} -g {} -threads 4 -speed 4 {} -an -f webm -dash 1 {}".format(original_video_path, start_hour, start_min, start_sec, len_hour, len_min, len_sec, resized_resolution, resize_bitrate, KEY_INTERVAL, KEY_INTERVAL, VP9_DASH_PARAMS, resized_video_path)
             os.system(cmd)
 
         #Generate images by sampling
         sampled_frame_dir = os.path.join(frame_dir, "{}p".format(resized_resolution))
         os.makedirs(sampled_frame_dir, exist_ok=True)
-        cmd = "ffmpeg -i {} -vf fps={} {}/%04d.png".format(resized_video_path, args.fps, sampled_frame_dir)
+        cmd = "/usr/bin/ffmpeg -i {} -vf fps={} {}/%04d.png".format(resized_video_path, args.fps, sampled_frame_dir)
         os.system(cmd)
 
         if scale != 1:
@@ -80,26 +79,26 @@ def setup_video():
             upsample_video_path = os.path.join(video_dir, "{}p_{}p_{}k_{}sec_{}st.{}".format(args.target_resolution, resized_resolution, upsample_bitrate, args.video_len, args.video_start, args.video_format))
             if not os.path.exists(upsample_video_path):
                 """ Temporally use GOP size as 30 """
-                #cmd = "ffmpeg -i {} -c:v libvpx-vp9 -vf scale=-1:{} -b:v {}k -keyint_min 120 -g 120 -threads 4 -speed 4 {} -an -f webm -dash 1 {}".format(resized_video_path, args.target_resolution, upsample_bitrate, VP9_DASH_PARAMS, upsample_video_path)
-                cmd = "ffmpeg -i {} -c:v libvpx-vp9 -vf scale=-1:{} -b:v {}k -keyint_min {} -g {} -threads 4 -speed 4 {} -an -f webm -dash 1 {}".format(resized_video_path, args.target_resolution, upsample_bitrate, KEY_INTERVAL, KEY_INTERVAL, VP9_DASH_PARAMS, upsample_video_path)
+                #cmd = "/usr/bin/ffmpeg -i {} -c:v libvpx-vp9 -vf scale=-1:{} -b:v {}k -keyint_min 120 -g 120 -threads 4 -speed 4 {} -an -f webm -dash 1 {}".format(resized_video_path, args.target_resolution, upsample_bitrate, VP9_DASH_PARAMS, upsample_video_path)
+                cmd = "/usr/bin/ffmpeg -i {} -c:v libvpx-vp9 -vf scale=-1:{} -b:v {}k -keyint_min {} -g {} -threads 4 -speed 4 {} -an -f webm -dash 1 {}".format(resized_video_path, args.target_resolution, upsample_bitrate, KEY_INTERVAL, KEY_INTERVAL, VP9_DASH_PARAMS, upsample_video_path)
                 os.system(cmd)
 
             #Generate images by sampling
             sampled_frame_dir = os.path.join(frame_dir, "{}p_{}p_bicubic".format(args.target_resolution, resized_resolution))
             os.makedirs(sampled_frame_dir, exist_ok=True)
-            cmd = "ffmpeg -i {} -vf fps={} {}/%04d.png".format(upsample_video_path, args.fps, sampled_frame_dir)
+            cmd = "/usr/bin/ffmpeg -i {} -vf fps={} {}/%04d.png".format(upsample_video_path, args.fps, sampled_frame_dir)
             os.system(cmd)
 
     #Lossless encoding for target resolution (training data)
     resized_video_path =os.path.join(video_dir, "{}p_lossless_{}sec_{}st.{}".format(args.target_resolution, args.video_len, args.video_start, args.video_format))
     if not os.path.exists(resized_video_path):
-        cmd = "ffmpeg -i {} -ss {}:{}:{} -t {}:{}:{} -c:v libvpx-vp9 -vf scale=-1:{} -lossless 1 {}".format(original_video_path, start_hour, start_min, start_sec, len_hour, len_min, len_sec, args.target_resolution, resized_video_path)
+        cmd = "/usr/bin/ffmpeg -i {} -ss {}:{}:{} -t {}:{}:{} -c:v libvpx-vp9 -vf scale=-1:{} -lossless 1 {}".format(original_video_path, start_hour, start_min, start_sec, len_hour, len_min, len_sec, args.target_resolution, resized_video_path)
         os.system(cmd)
 
     #Generate images by sampling
     sampled_frame_dir = os.path.join(frame_dir, "{}p_lossless".format(args.target_resolution))
     os.makedirs(sampled_frame_dir, exist_ok=True)
-    cmd = "ffmpeg -i {} -vf fps={} {}/%04d.png".format(resized_video_path, args.fps, sampled_frame_dir)
+    cmd = "/usr/bin/ffmpeg -i {} -vf fps={} {}/%04d.png".format(resized_video_path, args.fps, sampled_frame_dir)
     os.system(cmd)
 
 def setup_sr():
@@ -113,7 +112,7 @@ def setup_sr():
         assert (os.path.exists(resized_video_path))
         input_dir = os.path.join(sr_dir, "{}p".format(resized_resolution))
         os.makedirs(input_dir, exist_ok=True)
-        cmd = "ffmpeg -i {} {}/%04d.png".format(resized_video_path, input_dir)
+        cmd = "/usr/bin/ffmpeg -i {} {}/%04d.png".format(resized_video_path, input_dir)
         os.system(cmd)
 
 def setup_tfrecord():
