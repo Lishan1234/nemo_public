@@ -56,6 +56,8 @@ public class MainActivity extends AppCompatActivity {
     int video_length = 128; //given in seconds
     int intended_play_duration; //given in minutes(user input)
 
+    long previous = 0;
+
     int iterate;    //how many times video should be repeated
 
     boolean timers_started = false; //set to true after timers started
@@ -273,7 +275,9 @@ public class MainActivity extends AppCompatActivity {
                 Long battery = mBatteryManager.getLongProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)/1000;
                 int battery_percent = mBatteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
 
-                String entry = time + "," + Long.toString(battery) + "," + Integer.toString(battery_percent) + "%" + "\n";
+                String entry = time + "," + Long.toString(battery) + "," + Integer.toString(battery_percent) + "%" + "," + Long.toString(previous-battery) + "\n";
+
+                previous = battery;
 
                 Log.e("TAG",entry);
 

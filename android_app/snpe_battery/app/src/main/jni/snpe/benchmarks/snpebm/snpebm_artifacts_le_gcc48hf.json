@@ -1,0 +1,19 @@
+{
+    "Artifacts": {
+        "arm-linux-gcc4.8hf": [
+            "snpe-net-run",
+            "libSNPE.so",
+            "libsnpe_dsp_domains_v2.so",
+            "libsymphony-cpu.so"
+        ],
+        "dsp": [
+            "libsnpe_dsp_skel.so",
+            "libsnpe_dsp_v65_domains_v2_skel.so",
+            "libsnpe_dsp_domains_skel.so"
+        ],
+        "x86_64-linux-clang": [
+            "snpe-dlc-info",
+            "snpe-diagview"
+        ]
+    }
+ }
