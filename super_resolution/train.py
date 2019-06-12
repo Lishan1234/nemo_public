@@ -110,32 +110,30 @@ class Trainer():
         with self.writer.as_default(), tf.contrib.summary.always_record_summaries(), tf.device('gpu:{}'.format(self.args.gpu_idx)):
             count = 0
             for input_image, target_image, baseline_image in self.valid_dataset:
-                if count % args.valid_interval == 0:
-                    output_image = self.model(input_image)
-                    output_image = tf.clip_by_value(output_image, 0.0, 1.0)
+                output_image = self.model(input_image)
+                output_image = tf.clip_by_value(output_image, 0.0, 1.0)
 
-                    output_loss_value = self.loss(output_image, target_image)
-                    output_psnr_value = tf.image.psnr(output_image, target_image, max_val=1.0)
+                output_loss_value = self.loss(output_image, target_image)
+                output_psnr_value = tf.image.psnr(output_image, target_image, max_val=1.0)
 
-                    baseline_loss_value = self.loss(baseline_image, target_image)
-                    baseline_psnr_value = tf.image.psnr(baseline_image, target_image, max_val=1.0)
+                baseline_loss_value = self.loss(baseline_image, target_image)
+                baseline_psnr_value = tf.image.psnr(baseline_image, target_image, max_val=1.0)
 
-                    self.validation_loss(output_loss_value)
-                    self.validation_psnr(output_psnr_value)
-                    self.validation_baseline_loss(baseline_loss_value)
-                    self.validation_baseline_psnr(baseline_psnr_value)
+                self.validation_loss(output_loss_value)
+                self.validation_psnr(output_psnr_value)
+                self.validation_baseline_loss(baseline_loss_value)
+                self.validation_baseline_psnr(baseline_psnr_value)
 
-                tf.contrib.summary.scalar('Average Validation Loss', self.validation_loss.result())
-                tf.contrib.summary.scalar('Average Validation PSNR', self.validation_psnr.result())
-                tf.contrib.summary.scalar('Average Baseline Validation Loss', self.validation_baseline_loss.result())
-                tf.contrib.summary.scalar('Average Baseline Validation PSNR', self.validation_baseline_psnr.result())
-                tf.contrib.summary.flush(self.writer)
+            tf.contrib.summary.scalar('Average Validation Loss', self.validation_loss.result())
+            tf.contrib.summary.scalar('Average Validation PSNR', self.validation_psnr.result())
+            tf.contrib.summary.scalar('Average Baseline Validation Loss', self.validation_baseline_loss.result())
+            tf.contrib.summary.scalar('Average Baseline Validation PSNR', self.validation_baseline_psnr.result())
+            tf.contrib.summary.flush(self.writer)
 
-                self.validation_loss.init_variables()
-                self.validation_baseline_loss.init_variables()
-                self.validation_psnr.init_variables()
-                self.validation_baseline_psnr.init_variables()
-            count += 1
+            self.validation_loss.init_variables()
+            self.validation_baseline_loss.init_variables()
+            self.validation_psnr.init_variables()
+            self.validation_baseline_psnr.init_variables()
 
     def visualize(self):
         with self.writer.as_default(), tf.contrib.summary.always_record_summaries(), tf.device('gpu:{}'.format(self.args.gpu_idx)):
