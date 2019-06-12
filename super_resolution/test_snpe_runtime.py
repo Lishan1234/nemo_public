@@ -54,13 +54,11 @@ def setup_local_asset(model, model_name, dlc_name, prefix):
     root_dir = os.path.join(args.data_dir, 'runtime')
     checkpoint_dir = os.path.join(root_dir, 'checkpoint')
     data_dir = os.path.join(root_dir, 'data', '{}p'.format(args.target_resolution // args.scale))
-    result_dir = os.path.join(root_dir, prefix, 'result', model_name)
-    benchmark_dir = os.path.join(root_dir, 'benchmark')
+    benchmark_dir = os.path.join(root_dir, 'benchmark', prefix, model_name)
 
     os.makedirs(root_dir, exist_ok=True)
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(data_dir, exist_ok=True)
-    os.makedirs(result_dir, exist_ok=True)
     os.makedirs(benchmark_dir, exist_ok=True)
 
     #convert to frozen graph (.pb) file
@@ -77,8 +75,8 @@ def setup_local_asset(model, model_name, dlc_name, prefix):
     name = model_name
     benchmark = collections.OrderedDict()
     benchmark['Name'] = name
-    benchmark['HostRootPath'] = os.path.abspath(result_dir)
-    benchmark['HostResultsDir'] = os.path.abspath(result_dir)
+    benchmark['HostRootPath'] = os.path.abspath(benchmark_dir)
+    benchmark['HostResultsDir'] = os.path.abspath(benchmark_dir)
     benchmark['DevicePath'] = '/data/local/tmp/snpebm'
     if args.benchmark_device_id == None:
         benchmark['Devices'] = []
@@ -126,12 +124,14 @@ def setup_remote_asset(model_name, dlc_name, prefix):
 
 #measure end-to-end runtime: a) measure, b) save a log file
 def measure_dnn_latency(model_name, prefix):
-    src_result_dir = os.path.join(args.data_dir, 'runtime', prefix, 'result', model_name)
+    src_log_dir = os.path.join(args.data_dir, 'runtime', 'log', prefix)
+    os.makedirs(src_log_dir, exist_ok=True)
     dst_dlc_path = os.path.join(DEVICE_ROOT_DIR, 'checkpoint', '{}.dlc'.format(model_name))
     dst_data_list_path = os.path.join(DEVICE_ROOT_DIR, 'data', '{}p'.format(args.target_resolution // args.scale), TARGET_RAW_LIST_FILE)
-    dst_result_dir = os.path.join(DEVICE_ROOT_DIR, 'result', model_name)
+    dst_log_dir = os.path.join(DEVICE_ROOT_DIR, 'log')
+    log_filename = 'latency_{}p_{}p_{}.log'.format(args.target_resolution, args.target_resolution // args.scale, model_name)
 
-    #os.system(adb_cmd_prefix + 'shell rm -rf {}'.format(dst_result_dir))
+    #os.system(adb_cmd_prefix + 'shell rm -rf {}'.format(dst_log_dir))
 
     if args.benchmark_runtime == 'CPU':
         runtime_opt = '-r cpu'
@@ -149,7 +149,7 @@ def measure_dnn_latency(model_name, prefix):
             'export PATH=$PATH:/data/local/tmp/snpeexample/$SNPE_TARGET_ARCH/bin',
             'cd {}'.format(os.path.join(DEVICE_ROOT_DIR, 'data')),
             #'snpe-sample -d {} {} -i {}'.format(dst_dlc_path, runtime_opt, dst_data_list_path),
-            'snpe-sample -d {} {} -n {} -i {} -o {} '.format(dst_dlc_path, runtime_opt, args.benchmark_iter_num, dst_data_list_path, dst_result_dir),
+            'snpe-sample -d {} {} -n {} -i {} -o {} -l {}'.format(dst_dlc_path, runtime_opt, args.benchmark_iter_num, dst_data_list_path, dst_log_dir, log_filename),
             'exit']
 
     cmd_script_path = os.path.join(SNPE_BENCH_SCRIPT)
@@ -160,11 +160,11 @@ def measure_dnn_latency(model_name, prefix):
 
     os.system(adb_cmd_prefix + 'push {} {}'.format(cmd_script_path, DEVICE_ROOT_DIR))
     os.system(adb_cmd_prefix + 'shell sh {}'.format(os.path.join(DEVICE_ROOT_DIR, SNPE_BENCH_SCRIPT)))
-    os.system(adb_cmd_prefix + 'pull {} {}'.format(os.path.join(dst_result_dir, 'latency.log'), src_result_dir))
+    os.system(adb_cmd_prefix + 'pull {} {}'.format(os.path.join(dst_log_dir, log_filename), src_log_dir))
 
 #measure layer-wise runtime: a) measure, b) save a xls file
 def measure_layer_latency(model_name, prefix):
-    bench_json_path = os.path.abspath(os.path.join(args.data_dir, 'runtime', 'benchmark', '{}.json'.format(model_name)))
+    bench_json_path = os.path.abspath(os.path.join(args.data_dir, 'runtime', 'benchmark', prefix, model_name, '{}.json'.format(model_name)))
     cwd = os.getcwd()
     os.chdir("../third_party/snpe/benchmarks")
     os.system('/usr/bin/python2 snpe_bench.py -c {} -a -json'.format(bench_json_path))
