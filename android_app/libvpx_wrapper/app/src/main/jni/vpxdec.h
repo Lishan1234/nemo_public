@@ -29,7 +29,8 @@ typedef struct DecodeInfo{
     int save_serialized_frame;
     int save_serialized_key_frame;
     int save_decoded_frame;
-    int save_quality;
+    int save_quality_result;
+    int save_decode_result;
     int stop_after;
     int save_intermediate;
     DECODE_MODE mode;

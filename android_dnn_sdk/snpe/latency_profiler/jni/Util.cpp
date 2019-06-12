@@ -1,6 +1,6 @@
 //==============================================================================
 //
-//  Copyright (c) 2017-2018 Qualcomm Technologies, Inc.
+//  Copyright (c) 2017-2019 Qualcomm Technologies, Inc.
 //  All Rights Reserved.
 //  Confidential and Proprietary - Qualcomm Technologies, Inc.
 //
@@ -95,10 +95,16 @@ void loadByteDataFile(const std::string& inputFile, std::vector<T>& loadVector)
    size_t length = in.tellg();
    in.seekg(0, in.beg);
 
+   if (length % sizeof(T) != 0) {
+      std::cerr << "Size of input file should be divisible by sizeof(dtype).\n";
+      std::exit(EXIT_FAILURE);
+   }
+
    if (loadVector.size() == 0) {
       loadVector.resize(length / sizeof(T));
-   } else if (loadVector.size() < length) {
+   } else if (loadVector.size() < length / sizeof(T)) {
       std::cerr << "Vector is not large enough to hold data of input file: " << inputFile << "\n";
+      loadVector.resize(length / sizeof(T));
    }
 
    if (!in.read(reinterpret_cast<char*>(&loadVector[0]), length))
@@ -128,9 +134,14 @@ void loadByteDataFileBatched(const std::string& inputFile, std::vector<T>& loadV
     size_t length = in.tellg();
     in.seekg(0, in.beg);
 
+    if (length % sizeof(T) != 0) {
+        std::cerr << "Size of input file should be divisible by sizeof(dtype).\n";
+        std::exit(EXIT_FAILURE);
+    }
+
     if (loadVector.size() == 0) {
         loadVector.resize(length / sizeof(T));
-    } else if (loadVector.size() < length) {
+    } else if (loadVector.size() < length / sizeof(T)) {
         std::cerr << "Vector is not large enough to hold data of input file: " << inputFile << "\n";
     }
 

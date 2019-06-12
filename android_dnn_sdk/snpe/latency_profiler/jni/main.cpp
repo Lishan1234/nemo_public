@@ -20,7 +20,6 @@
 #include <string>
 #include <iterator>
 #include <unordered_map>
-//#include <ctime>
 #include <chrono>
 
 #include "CheckRuntime.hpp"
@@ -47,8 +46,6 @@
 const int FAILURE = 1;
 const int SUCCESS = 0;
 
-//TODO: check whehter ITENSOR, CPUBUFFER can be improved
-
 int main(int argc, char** argv)
 {
     enum {UNKNOWN, USERBUFFER_FLOAT, USERBUFFER_TF8, ITENSOR};
@@ -67,7 +64,7 @@ int main(int argc, char** argv)
 
     // Process command line arguments
     int opt = 0;
-    while ((opt = getopt(argc, argv, "hi:d:o:b:s:r:z:c:n")) != -1)
+    while ((opt = getopt(argc, argv, "hi:d:o:b:s:r:z:c:n:")) != -1)
     {
         switch (opt)
         {
@@ -100,6 +97,7 @@ int main(int argc, char** argv)
 
                 std::exit(SUCCESS);
             case 'i':
+                std::cout << "Input: " << optarg << std::endl;
                 inputFile = optarg;
                 break;
             case 'd':
@@ -131,7 +129,7 @@ int main(int argc, char** argv)
                 }
                 else if (strcmp(optarg, "cpu") == 0)
                 {
-                   runtime = zdl::DlSystem::Runtime_t::CPU_FLOAT32;
+                   runtime = zdl::DlSystem::Runtime_t::CPU;
                 }
                 else if (strcmp(optarg, "cpu_ip8") == 0)
                 {
@@ -159,6 +157,7 @@ int main(int argc, char** argv)
     // Check if given arguments represent valid files
     std::ifstream dlcFile(dlc);
     std::ifstream inputList(inputFile);
+    std::cout << "dlc: " << dlc << " " << std:: endl << "input: " << inputFile << std::endl;
     if (!dlcFile || !inputList) {
         std::cout << "Input list or dlc file not valid. Please ensure that you have provided a valid input list and dlc for processing. Run snpe-sample with the -h flag for more details" << std::endl;
         std::exit(FAILURE);
@@ -245,9 +244,7 @@ int main(int argc, char** argv)
     }
 #endif
 
-    zdl::DlSystem::PerformanceProfile_t performanceProfile = zdl::DlSystem::PerformanceProfile_t::HIGH_PERFORMANCE;
-
-    snpe = setBuilderOptions(container, runtime, udlBundle, useUserSuppliedBuffers, platformConfig, usingInitCaching, performanceProfile);
+    snpe = setBuilderOptions(container, runtime, udlBundle, useUserSuppliedBuffers, platformConfig, usingInitCaching);
     if (snpe == nullptr)
     {
        std::cerr << "Error while building SNPE object." << std::endl;
@@ -307,7 +304,7 @@ int main(int argc, char** argv)
     // user buffer include cpu buffer and OpenGL buffer,
     // execute the network with the input and save each of the returned output to a file.
     if(useUserSuppliedBuffers)
-    {  
+    {
        std::cerr << "UserBuffer is not implemented yet" << std::endl;
        return FAILURE;
        // SNPE allows its input and output buffers that are fed to the network
@@ -329,14 +326,11 @@ int main(int argc, char** argv)
           for( size_t i = 0; i < inputs.size(); i++ )
           {
              // Load input user buffer(s) with values from file(s)
-             std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
              if( batchSize > 1 )
                 std::cout << "Batch " << i << ":" << std::endl;
              loadInputUserBufferTf8(applicationInputBuffers, snpe, inputs[i], inputMap);
              // Execute the input buffer map on the model with SNPE
-             std::chrono::steady_clock::time_point begin_ = std::chrono::steady_clock::now();
              execStatus = snpe->execute(inputMap, outputMap);
-             std::chrono::steady_clock::time_point end_ = std::chrono::steady_clock::now();
              // Save the execution results only if successful
              if (execStatus == true)
              {
@@ -346,9 +340,6 @@ int main(int argc, char** argv)
              {
                 std::cerr << "Error while executing the network." << std::endl;
              }
-
-            std::cout << "Process elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin).count() << std::endl;
-            std::cout << "Inference elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin_).count() << std::endl;
           }
        }
        else if( bufferType == USERBUFFER_FLOAT )
@@ -362,16 +353,12 @@ int main(int argc, char** argv)
 
              for( size_t i = 0; i < inputs.size(); i++ )
              {
-
-                std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
                 // Load input user buffer(s) with values from file(s)
                 if( batchSize > 1 )
                    std::cout << "Batch " << i << ":" << std::endl;
                 loadInputUserBufferFloat(applicationInputBuffers, snpe, inputs[i]);
                 // Execute the input buffer map on the model with SNPE
-                std::chrono::steady_clock::time_point begin_ = std::chrono::steady_clock::now();
                 execStatus = snpe->execute(inputMap, outputMap);
-                std::chrono::steady_clock::time_point end_ = std::chrono::steady_clock::now();
                 // Save the execution results only if successful
                 if (execStatus == true)
                 {
@@ -381,9 +368,6 @@ int main(int argc, char** argv)
                 {
                    std::cerr << "Error while executing the network." << std::endl;
                 }
-
-                std::cout << "Process elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin).count() << std::endl;
-                std::cout << "Inference elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin_).count() << std::endl;
              }
           }
 #ifdef ANDROID
@@ -393,13 +377,10 @@ int main(int argc, char** argv)
                 GLuint glBuffers = 0;
                 for(size_t i = 0; i < inputs.size(); i++) {
                     // Load input GL buffer(s) with values from file(s)
-                    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
                     glBuffers = glBuffer->convertImage2GLBuffer(inputs[i], bufSize);
                     loadInputUserBuffer(applicationInputBuffers, snpe, glBuffers);
                     // Execute the input buffer map on the model with SNPE
-                    std::chrono::steady_clock::time_point begin_ = std::chrono::steady_clock::now();
                     execStatus =  snpe->execute(inputMap, outputMap);
-                    std::chrono::steady_clock::time_point end_ = std::chrono::steady_clock::now();
                     // Save the execution results only if successful
                     if (execStatus == true) {
                         saveOutput(outputMap, applicationOutputBuffers, OutputDir, i*batchSize, batchSize, false);
@@ -410,9 +391,6 @@ int main(int argc, char** argv)
                     }
                     // Release the GL buffer(s)
                     glDeleteBuffers(1, &glBuffers);
-
-                    std::cout << "Process elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin).count() << std::endl;
-                    std::cout << "Inference elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin_).count() << std::endl;
                 }
             }
 #endif
@@ -454,19 +432,15 @@ int main(int argc, char** argv)
                 // Save the execution results if execution successful
                 if (execStatus == true)
                 {
-                   saveOutput(outputTensorMap, OutputDir, i * batchSize, batchSize);
+                   //saveOutput(outputTensorMap, OutputDir, i * batchSize, batchSize);
+                    std::cout << "Progress [" << j << "," << i << "] " << "Processing elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin).count() << std::endl;
+                    logFile << j << "\t" << i << "\t" << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin).count() << "\t" << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin_).count() << std::endl;
                 }
                 else
                 {
                    std::cerr << "Error while executing the network." << std::endl;
                 }
                 std::chrono::steady_clock::time_point end= std::chrono::steady_clock::now();
-
-                //std::cout << "Process elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin).count() << std::endl;
-                //std::cout << "Inference elapsed time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin_).count() << std::endl;
-
-                // Logging
-                logFile << j << "\t" << i << "\t" << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin).count() << std::chrono::duration_cast<std::chrono::milliseconds>(end_ - begin_).count() << std::endl;
             }
         }
     }

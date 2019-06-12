@@ -11,7 +11,7 @@ parser = argparse.ArgumentParser(description="Video dataset")
 parser.add_argument('--data_dir', type=str, default="./data")
 parser.add_argument('--dataset', type=str, required=True)
 parser.add_argument('--video_len', type=int, default=60)
-parser.add_argument('--video_start', type=int, default=0)
+parser.add_argument('--video_start', type=int, default=True)
 parser.add_argument('--target_resolution', type=int, default=1080) #target HR resolution
 parser.add_argument('--original_resolution', default=2160) #original HR resolution - raw source
 parser.add_argument('--video_format', type=str, default="webm")

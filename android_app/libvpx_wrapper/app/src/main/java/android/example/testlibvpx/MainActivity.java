@@ -30,7 +30,7 @@ public class MainActivity extends AppCompatActivity {
 //        RawExtractor.execute(this, name, content, "video", resourceId); //TODO: use this as a content name
 
         //Get video path
-        File videoDir = getExternalFilesDir(name + File.separator + content + File.separator);
+        File videoDir = getExternalFilesDir(name + File.separator + content + File.separator + "video");
         File logDir = getExternalFilesDir(name + File.separator + content + File.separator + "log");
         File frameDir = getExternalFilesDir(name + File.separator + content + File.separator + "frame");
         File serializeDir = getExternalFilesDir(name + File.separator + content + File.separator + "serialize");
@@ -44,7 +44,6 @@ public class MainActivity extends AppCompatActivity {
         {
             Log.e(TAG, e.getMessage(), e);
         }
-
 
         String videoPath = videoDir.getAbsolutePath();
         String logPath = logDir.getAbsolutePath();
