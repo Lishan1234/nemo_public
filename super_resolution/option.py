@@ -30,7 +30,7 @@ parser.add_argument('--lr_init', type=float, default=1e-04)
 parser.add_argument('--lr_decay_rate', type=float, default=0.5)
 parser.add_argument('--lr_decay_epoch', type=int, default=200)
 parser.add_argument('--num_batch', type=int, default=64)
-parser.add_argument('--num_epoch', type=int, default=100)
+parser.add_argument('--num_epoch', type=int, default=30)
 parser.add_argument('--num_batch_per_epoch', type=int, default=1000)
 parser.add_argument('--loss_type', type=str, default='l1',
                     choices=('l1', 'l2'))

@@ -25,7 +25,7 @@ parser.add_argument('--num_patch', type=int, default=10000)
 
 args = parser.parse_args()
 #scale = [2, 3, 4]
-scales = [2, 3]
+scales = [2, 3, 4]
 
 RESOLUTION={240: (240, 426), 360: (360, 480), 480: (480, 858), 720: (720, 1280), 1080: (1080, 1920)}
 VP9_DASH_PARAMS="-tile-columns 4 -frame-parallel 1"
@@ -224,6 +224,7 @@ if __name__ == "__main__":
         setup_sr()
     elif args.mode == "all":
         setup_video()
+        setup_sr()
         setup_tfrecord()
     else:
         raise NotImplementedError
