@@ -9,7 +9,9 @@ import java.io.File;
 import java.io.IOException;
 
 public class MainActivity extends AppCompatActivity {
-    public native void vpxDecodeVideo(String videoSavedPath, String logPath, String framePath, String serializePath, int target_resolution, int scale);
+    public static native void vpxDecodeVideo(String videoSavedPath, String logPath, String framePath, String serializePath, int target_resolution, int scale);
+    public static native void helloworld();
+
     private static final String TAG = MainActivity.class.getSimpleName();
 
     static{
@@ -52,6 +54,7 @@ public class MainActivity extends AppCompatActivity {
 
         //Execute a libvpx unit test
         vpxDecodeVideo(videoPath, logPath, framePath, serializePath, target_resolution, scale);
+        //helloworld();
 
         Log.i(TAG, "MainActivity ends");
     }
@@ -65,5 +68,4 @@ public class MainActivity extends AppCompatActivity {
     private static boolean modelExists(File modelRoot) {
         return modelRoot.listFiles().length > 0;
     }
-
 }

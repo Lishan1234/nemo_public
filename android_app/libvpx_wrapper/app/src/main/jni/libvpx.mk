@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
@@ -52,5 +51,3 @@ LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/libvpx \
 LOCAL_LDFLAGS := -Wl,--version-script=$(CONFIG_DIR)/libvpx.ver
 LOCAL_LDLIBS := -llog -lz -lm -landroid
 include $(BUILD_SHARED_LIBRARY)
-
-

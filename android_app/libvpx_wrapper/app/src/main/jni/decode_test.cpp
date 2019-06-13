@@ -14,6 +14,8 @@
 #include <errno.h>
 
 #include "./vpx_config.h"
+#include <iostream>
+#include <map>
 
 #if CONFIG_LIBYUV
 #include "third_party/libyuv/include/libyuv/scale.h"
@@ -415,7 +417,8 @@ static int img_shifted_realloc_required(const vpx_image_t *img,
 }
 #endif
 
-int 2decode_test(decode_info_t decode_info) {
+int decode_test(decode_info_t decode_info) {
+    LOGD("decode_info.log_dir: %s", decode_info.log_dir);
     vpx_codec_ctx_t decoder;
     int i;
     int ret = EXIT_FAILURE;
@@ -476,16 +479,29 @@ int 2decode_test(decode_info_t decode_info) {
 #endif
     input.vpx_input_ctx = &vpx_input_ctx;
 
-    /*******************Hyunho************************/ //TODO (hyunho): allocate memory, free memory, quality measurement, ...
+    /*******************Hyunho************************/
     interface = get_vpx_decoder_by_name("vp9");
     if (!interface)
         die("Error: Unrecognized argument (%s) to --codec\n", arg.val);
     outfile_pattern = "test.y4m";
     cfg.threads = 1;
     num_external_frame_buffers = 1000;
+    LOGD("log_dir: %s", decode_info.log_dir);
     framestats_file = open_logfile("framestats", decode_info.log_dir);
     progress = 1;
     summary = 1;
+
+    //create a cache config
+    std::map <int, int> cache_config;
+    if (decode_info.mode == DECODE_CACHE) {
+        cache_config.insert(std::pair<int, int>(0, 0));
+        cache_config.insert(std::pair<int, int>(30, 0));
+        cache_config.insert(std::pair<int, int>(60, 0));
+        cache_config.insert(std::pair<int, int>(90, 0));
+        cache_config.insert(std::pair<int, int>(120, 0));
+    }
+
+    //TODO: modify prefix to record cache policy
     /*******************Hyunho************************/
 
     if (!decode_info.video_dir) {
@@ -494,14 +510,10 @@ int 2decode_test(decode_info_t decode_info) {
     }
 
     /* Open file */
-    //TODO (hyunho): refactor
     char video_path[PATH_MAX];
     memset(video_path, 0, PATH_MAX);
     sprintf(video_path, "%s/%s.webm", decode_info.video_dir, decode_info.target_file);
     LOGD("video_path: %s", video_path);
-//    if (decode_info.upsample) {sprintf(video_path, "%s/%dp_%d_bicubic.webm", video_dir, decode_info.resolution, decode_info.duration);}
-//    else {sprintf(video_path, "%s/%dp_%d.webm", video_dir, decode_info.resolution, decode_info.duration);}
-    //sprintf(video_path, "%s/test.%s", video_dir, decode_info.format);
     infile = strcmp(video_path, "-") ? fopen(video_path, "rb") : set_binary_mode(stdin);
 
     if (!infile) {
@@ -653,6 +665,13 @@ int 2decode_test(decode_info_t decode_info) {
                 dx_time_ = dx_time;
                 vpx_usec_timer_start(&timer);
 
+                /*******************Hyunho************************/
+                if (decode_info.mode == DECODE_CACHE )
+                {
+                    if (cache_config.find(frame_out) != cache_config.end()) decode_info.apply_sr = 1;
+                    else decode_info.apply_sr = 0;
+                }
+                /*******************Hyunho************************/
                 if (vpx_codec_decode(&decoder, buf, (unsigned int)bytes_in_buffer, (void *) &decode_info, //TODO (hyunho): pass user_priv about log directory
                                      0)) {
                     const char *detail = vpx_codec_error_detail(&decoder);
@@ -911,14 +930,6 @@ int 2decode_test(decode_info_t decode_info) {
     free(argv);
 
     LOGI("main_loop success");
-
-    /*******************Hyunho************************/
-    /*
-    free(original_frame);
-    free(reference_frame);
-    free(compare_frame);
-    */
-    /*******************Hyunho************************/
 
     return ret;
 }

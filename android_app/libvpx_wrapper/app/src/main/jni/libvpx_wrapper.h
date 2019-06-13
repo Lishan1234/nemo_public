@@ -5,10 +5,4 @@
 #ifndef LIBVPX_WRAPPER_LIBVPX_WRAPPER_H
 #define LIBVPX_WRAPPER_LIBVPX_WRAPPER_H
 
-
-class libvpx_wrapper {
-
-};
-
-
 #endif //LIBVPX_WRAPPER_LIBVPX_WRAPPER_H

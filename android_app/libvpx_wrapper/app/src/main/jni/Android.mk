@@ -13,6 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+#
+# Copyright (C) 2016 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 WORKING_DIR := $(call my-dir)
 
 # build libyuv.so
@@ -33,17 +48,20 @@ include $(LIBVPX_ROOT)/third_party/libwebm/Android.mk
 
 # build libvpxJNI.so
 include $(CLEAR_VARS)
-libvpx_test_codes := tests/decode_test.c
+$(warning $(CONFIG_DIR))
 LOCAL_PATH := $(WORKING_DIR)
 LOCAL_MODULE := libvpxtestJNI
 LOCAL_ARM_MODE := arm
-LOCAL_CPP_EXTENSION := .cc
-LOCAL_SRC_FILES := vpxdec.c
+LOCAL_CPP_EXTENSION := .cc .cpp
+CONFIG_DIR := $(LOCAL_PATH)/libvpx_android_configs/$(TARGET_ARCH_ABI)
+LOCAL_C_INCLUDES := $(CONFIG_DIR)
+LOCAL_SRC_FILES := libvpx_wrapper.cpp
+LOCAL_SRC_FILES += decode_test.cpp
 LOCAL_SRC_FILES += libvpx/md5_utils.c
-LOCAL_SRC_FILES += libvpx/args.c 
-LOCAL_SRC_FILES += libvpx/ivfdec.c 
+LOCAL_SRC_FILES += libvpx/args.c
+LOCAL_SRC_FILES += libvpx/ivfdec.c
 LOCAL_SRC_FILES += libvpx/tools_common.c
-LOCAL_SRC_FILES += libvpx/y4menc.c 
+LOCAL_SRC_FILES += libvpx/y4menc.c
 LOCAL_SRC_FILES += libvpx/webmdec.cc
 LOCAL_SRC_FILES += $(libvpx_test_codes)
 #LOCAL_LDFLAGS := -L$(MOBINAS_LIB_PATH)

@@ -47,7 +47,13 @@ typedef struct DecodeInfo{
     /*** belows are used for test ***/
     //cache
     DECODE_MODE mode;
+    int apply_sr;
 } decode_info_t;
+
+typedef struct frameInfo{
+    int current_video_frame;
+    int current_super_frame;
+} frame_info_t;
 
 extern int decode_test(decode_info_t decode_info);
 
