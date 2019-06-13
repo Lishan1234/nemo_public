@@ -14,12 +14,21 @@ import ntpath
 
 parser = argparse.ArgumentParser(description="Video dataset")
 
+#data
 parser.add_argument('--dataset', type=str, required=True)
 parser.add_argument('--data_dir', type=str, default="./data")
+parser.add_argument('--target_resolution', type=int, default=1080)
+parser.add_argument('--scale', type=int, required=True)
+parser.add_argument('--video_len', type=int, default=60)
+parser.add_argument('--video_start', type=int, required=True)
+parser.add_argument('--lq_dnn', type=str, required=True)
+parser.add_argument('--hq_dnn', type=str, required=True)
 parser.add_argument('--device_id', type=str, default=None)
+
+#eval
 parser.add_argument('--start_idx', type=int, default=None)
-parser.add_argument('--cache_only', action='store_true')
 parser.add_argument('--end_idx', type=int, default=None)
+parser.add_argument('--cache_only', action='store_true')
 
 args = parser.parse_args()
 
@@ -29,7 +38,8 @@ assert (args.start_idx is None and args.end_idx is None) or (args.start_idx is n
 dst_debug_dir = os.path.join(args.data_dir, args.dataset, 'debug')
 os.makedirs(dst_debug_dir, exist_ok=True)
 video_dir = os.path.join(args.data_dir, args.dataset, 'video')
-video_list_path = os.path.join(video_dir, 'video_list')
+video_list_path = os.path.join(video_dir, '{}p_{}p_{}sec_{}st'.format(args.target_resolution, args.target_resolution // args.scale, args.video_len, args.video_start), args.hq_dnn, args.lq_dnn, 'video_list')
+#video_list_path = os.path.join(video_dir, 'video_list')
 
 assert os.path.isfile(video_list_path)
 with open(video_list_path, 'r') as f:

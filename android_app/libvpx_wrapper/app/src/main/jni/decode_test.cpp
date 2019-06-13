@@ -1,23 +1,19 @@
 //
 // Created by hyunho on 4/15/19.
 //
-#include <jni.h>
-#include <android/log.h>
+#include "./decode_test.h"
 
-#include <linux/limits.h>
+#include <time.h>
 #include <assert.h>
 #include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-//#include <vpx/internal/vpx_codec_internal.h>
-//#include <vp9/vp9_dx_iface.h>
+#include <android/log.h>
+#include <errno.h>
 
-#include "android_example_testlibvpx_MainActivity.h"
 #include "./vpx_config.h"
-#include "./decode_test.h"
-//#include "vpx_config.h"
 
 #if CONFIG_LIBYUV
 #include "third_party/libyuv/include/libyuv/scale.h"
@@ -42,7 +38,7 @@
 #endif
 #include "./y4menc.h"
 
-#define TAG "vpxdec.c JNI"
+#define TAG "decode_test.c JNI"
 #define _UNKNOWN   0
 #define _DEFAULT   1
 #define _VERBOSE   2
@@ -132,7 +128,7 @@ static int raw_read_frame(FILE *infile, uint8_t **buffer, size_t *bytes_read,
         }
 
         if (frame_size > *buffer_size) {
-            uint8_t *new_buf = realloc(*buffer, 2 * frame_size);
+            uint8_t *new_buf = (uint8_t *) realloc(*buffer, 2 * frame_size);
             if (new_buf) {
                 *buffer = new_buf;
                 *buffer_size = 2 * frame_size;
@@ -244,10 +240,10 @@ static int file_is_raw(struct VpxInputContext *input) {
     return is_raw;
 }
 
-static void show_progress(int frame_in, int frame_out, uint64_t dx_time) {
-    LOGI("%d decoded frames/%d showed frames in %" PRId64 " us (%.2f fps)\r",
+static void show_progress(int frame_in, int frame_out, uint64_t dx_time, uint64_t dx_time_) {
+    LOGI("%d decoded frames/%d showed frames in %" PRId64 " us (%.2f fps, %.2f msec)\r",
          frame_in, frame_out, dx_time,
-         (double)frame_out * 1000000.0 / (double)dx_time);
+         (double)frame_out * 1000000.0 / (double)dx_time, (dx_time - dx_time_)/1000.0);
 }
 
 struct ExternalFrameBuffer {
@@ -419,22 +415,22 @@ static int img_shifted_realloc_required(const vpx_image_t *img,
 }
 #endif
 
-int serialize_test(const char *fn, const char *log_dir) {
+int 2decode_test(decode_info_t decode_info) {
     vpx_codec_ctx_t decoder;
     int i;
     int ret = EXIT_FAILURE;
     uint8_t *buf = NULL;
     size_t bytes_in_buffer = 0, buffer_size = 0;
     FILE *infile;
-    int frame_in = 0, frame_out = 0, flipuv = 0, noblit = 0;
+    int stop_after = decode_info.stop_after, frame_in = 0, frame_out = 0, flipuv = 0, noblit = 0;
     int do_md5 = 0, progress = 0;
-    int stop_after = 0, postproc = 0, summary = 0, quiet = 1;
+    int postproc = 0, summary = 0, quiet = 1; //TODO (hyunho): set stop_after by configuration ...
     int arg_skip = 0;
     int ec_enabled = 0;
     int keep_going = 0;
     const VpxInterface *interface = NULL;
     const VpxInterface *fourcc_interface = NULL;
-    uint64_t dx_time = 0;
+    uint64_t dx_time = 0, dx_time_ =0;
     struct arg arg;
     char **argv, **argi, **argj;
 
@@ -480,27 +476,36 @@ int serialize_test(const char *fn, const char *log_dir) {
 #endif
     input.vpx_input_ctx = &vpx_input_ctx;
 
-    /* Setup (Hyunho) */
+    /*******************Hyunho************************/ //TODO (hyunho): allocate memory, free memory, quality measurement, ...
     interface = get_vpx_decoder_by_name("vp9");
     if (!interface)
         die("Error: Unrecognized argument (%s) to --codec\n", arg.val);
-    outfile_pattern = "test.yuv";
+    outfile_pattern = "test.y4m";
     cfg.threads = 1;
-    num_external_frame_buffers = 10;
-    framestats_file = open_logfile("framestats", log_dir);
+    num_external_frame_buffers = 1000;
+    framestats_file = open_logfile("framestats", decode_info.log_dir);
     progress = 1;
     summary = 1;
+    /*******************Hyunho************************/
 
-    if (!fn) {
+    if (!decode_info.video_dir) {
         LOGE("No input file specified!\n");
         exit(EXIT_FAILURE);
     }
 
     /* Open file */
-    infile = strcmp(fn, "-") ? fopen(fn, "rb") : set_binary_mode(stdin);
+    //TODO (hyunho): refactor
+    char video_path[PATH_MAX];
+    memset(video_path, 0, PATH_MAX);
+    sprintf(video_path, "%s/%s.webm", decode_info.video_dir, decode_info.target_file);
+    LOGD("video_path: %s", video_path);
+//    if (decode_info.upsample) {sprintf(video_path, "%s/%dp_%d_bicubic.webm", video_dir, decode_info.resolution, decode_info.duration);}
+//    else {sprintf(video_path, "%s/%dp_%d.webm", video_dir, decode_info.resolution, decode_info.duration);}
+    //sprintf(video_path, "%s/test.%s", video_dir, decode_info.format);
+    infile = strcmp(video_path, "-") ? fopen(video_path, "rb") : set_binary_mode(stdin);
 
     if (!infile) {
-        LOGE("Failed to open input file '%s'", strcmp(fn, "-") ? fn : "stdin");
+        LOGE("Failed to open input file '%s'", strcmp(video_path, "-") ? video_path : "stdin");
         exit(EXIT_FAILURE);
     }
 
@@ -538,7 +543,7 @@ int serialize_test(const char *fn, const char *log_dir) {
         if (do_md5)
             MD5Init(&md5_ctx);
         else
-            outfile = open_outfile(outfile_name, log_dir);
+            outfile = open_outfile(outfile_name, decode_info.log_dir);
     }
 
     if (use_y4m && !noblit) {
@@ -585,6 +590,16 @@ int serialize_test(const char *fn, const char *log_dir) {
             goto fail;
         }
     }
+    //TODO (hyunho): enable multi-thread decoding
+    /*
+    int enable_row_mt = 1;
+    if (interface->fourcc == VP9_FOURCC &&
+        vpx_codec_control(&decoder, VP9D_SET_ROW_MT, enable_row_mt)) {
+        fprintf(stderr, "Failed to set decoder in row multi-thread mode: %s\n",
+                vpx_codec_error(&decoder));
+        goto fail;
+    }
+    */
     if (!quiet) LOGE( "%s\n", decoder.name);
 
 #if CONFIG_VP8_DECODER
@@ -620,7 +635,9 @@ int serialize_test(const char *fn, const char *log_dir) {
 
     if (framestats_file) fprintf(framestats_file, "bytes,qp\n");
 
-    /* Decode file */
+    clock_t start, end;
+    double cpu_time_used;
+    start = clock();
     while (frame_avail || got_data) {
         vpx_codec_iter_t iter = NULL;
         vpx_image_t *img;
@@ -633,9 +650,10 @@ int serialize_test(const char *fn, const char *log_dir) {
                 frame_avail = 1;
                 frame_in++;
 
+                dx_time_ = dx_time;
                 vpx_usec_timer_start(&timer);
 
-                if (vpx_codec_decode(&decoder, buf, (unsigned int)bytes_in_buffer, log_dir,
+                if (vpx_codec_decode(&decoder, buf, (unsigned int)bytes_in_buffer, (void *) &decode_info, //TODO (hyunho): pass user_priv about log directory
                                      0)) {
                     const char *detail = vpx_codec_error_detail(&decoder);
                     LOGW("Failed to decode frame %d: %s", frame_in,
@@ -691,7 +709,7 @@ int serialize_test(const char *fn, const char *log_dir) {
         }
         frames_corrupted += corrupted;
 
-        if (progress) show_progress(frame_in, frame_out, dx_time);
+        if (progress) show_progress(frame_in, frame_out, dx_time, dx_time_);
 
         if (!noblit && img) {
             const int PLANES_YUV[] = { VPX_PLANE_Y, VPX_PLANE_U, VPX_PLANE_V };
@@ -832,16 +850,18 @@ int serialize_test(const char *fn, const char *log_dir) {
                     MD5Final(md5_digest, &md5_ctx);
                     print_md5(md5_digest, outfile_name);
                 } else {
-                    outfile = open_outfile(outfile_name, log_dir);
+                    outfile = open_outfile(outfile_name, decode_info.log_dir);
                     write_image_file(img, planes, outfile);
                     fclose(outfile);
                 }
             }
         }
     }
+    end = clock();
+    LOGD("elapsed_time: %f", ((double) (end - start)) / CLOCKS_PER_SEC);
 
     if (summary || progress) {
-        show_progress(frame_in, frame_out, dx_time);
+        show_progress(frame_in, frame_out, dx_time, dx_time_);
     }
 
     if (frames_corrupted) {
@@ -891,6 +911,14 @@ int serialize_test(const char *fn, const char *log_dir) {
     free(argv);
 
     LOGI("main_loop success");
+
+    /*******************Hyunho************************/
+    /*
+    free(original_frame);
+    free(reference_frame);
+    free(compare_frame);
+    */
+    /*******************Hyunho************************/
 
     return ret;
 }
