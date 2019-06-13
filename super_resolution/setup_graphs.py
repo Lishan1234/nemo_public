@@ -29,9 +29,10 @@ def setup(args):
     model = proc_model.stdout.readlines()[0].decode().rstrip('\r\n').replace(' ', '')
     device_info = '{}_{}'.format(board, model)
 
-    result_dir = os.path.join(args.data_dir, args.dataset, 'result', device_info)
+    result_dir = os.path.join(args.data_dir, args.dataset, 'result', device_info, '{}p_{}p_{}sec_{}st'.format(args.target_resolution, args.target_resolution // args.scale, args.video_len, args.video_start), args.hq_dnn, args.lq_dnn)
     video_dir = os.path.join(args.data_dir, args.dataset, 'video')
-    video_list_path = os.path.join(video_dir, 'video_list')
+    video_list_path = os.path.join(video_dir, '{}p_{}p_{}sec_{}st'.format(args.target_resolution, args.target_resolution // args.scale, args.video_len, args.video_start), args.hq_dnn, args.lq_dnn, 'video_list')
+    #video_list_path = os.path.join(video_dir, 'video_list')
     os.makedirs(result_dir, exist_ok=True)
 
     assert os.path.isfile(video_list_path)
@@ -171,7 +172,7 @@ def eval_01(log_dict, result_dir, start_idx, end_idx, frame_idx):
     ax.set(xlabel='Frame Index', ylabel='PSNR (dB)')
     ax.legend(loc='upper center', ncol=4, prop={'size':24})
     ax.grid(True)
-    fig.savefig(os.path.join(result_dir, 'eval01_{}.png'.format(task_info)))
+    fig.savefig(os.path.join(result_dir, 'eval01.png'))
 
 #y-axis: quality, x-axis: latency
 def eval_02(log_dict, result_dir, video_list, benchmark_dir, lq_dnn_model_name, hq_dnn_model_name):
@@ -181,8 +182,8 @@ def eval_02(log_dict, result_dir, video_list, benchmark_dir, lq_dnn_model_name, 
     lq_dnn_result = json.loads(open(lq_dnn_json_path).read())
     hq_dnn_result = json.loads(open(hq_dnn_json_path).read())
 
-    lq_dnn_latency = lq_dnn_result['Execution_Data']['GPU_FP16']['Forward Propagate']['Avg_Time'] / 1000.0
-    hq_dnn_latency = hq_dnn_result['Execution_Data']['GPU_FP16']['Forward Propagate']['Avg_Time'] / 1000.0
+    lq_dnn_latency = lq_dnn_result['Execution_Data']['GPU_FP16_ub_float']['Forward Propagate']['Avg_Time'] / 1000.0
+    hq_dnn_latency = hq_dnn_result['Execution_Data']['GPU_FP16_ub_float']['Forward Propagate']['Avg_Time'] / 1000.0
 
     lq_dnn_decode_latency = max(np.average(log_dict['lr']['latency']), lq_dnn_latency)
     hq_dnn_decode_latency = max(np.average(log_dict['lr']['latency']), hq_dnn_latency)
@@ -204,7 +205,7 @@ def eval_02(log_dict, result_dir, video_list, benchmark_dir, lq_dnn_model_name, 
     ax.set(xlabel='Average Latency (msec)', ylabel='PSNR (dB)', xlim=(x_min * 0.9, x_max * 1.1), ylim=(y_min * 0.9, y_max * 1.1))
     ax.legend(bbox_to_anchor=(0,1.02,1,0.2), loc="lower left",
                     mode="expand", ncol=2, prop={'size':24})
-    fig.savefig(os.path.join(result_dir, 'eval02_{}.png'.format(task_info)))
+    fig.savefig(os.path.join(result_dir, 'eval02.png'))
 
 #y-axis: CDF, x-axis: latency
 def eval_03(log_dict, result_dir):
@@ -221,7 +222,7 @@ def eval_03(log_dict, result_dir):
     ax.set(xlabel='Latency (msec)', ylabel='CDF', ylim=(0,1))
     ax.legend(bbox_to_anchor=(0,1.02,1,0.2), loc="lower left",
                     mode="expand", ncol=1, prop={'size':24})
-    fig.savefig(os.path.join(result_dir, 'eval03_{}.png'.format(task_info)))
+    fig.savefig(os.path.join(result_dir, 'eval03.png'))
 
 #y-axis: CDF, x-axis: #non-skipped inter-blocks
 def eval_04(log_dict, result_dir):
@@ -238,7 +239,7 @@ def eval_04(log_dict, result_dir):
     ax.set(xlabel='Number of Non-skipped Inter-blocks', ylabel='CDF', ylim=(0,1))
     ax.legend(bbox_to_anchor=(0,1.02,1,0.2), loc="lower left",
                     mode="expand", ncol=1, prop={'size':24})
-    fig.savefig(os.path.join(result_dir, 'eval04_{}.png'.format(task_info)))
+    fig.savefig(os.path.join(result_dir, 'eval04.png'))
 
 #y-axis: latency, x-axis: #non-skipped inter-blocks
 def eval_05(log_dict, result_dir):
@@ -250,7 +251,7 @@ def eval_05(log_dict, result_dir):
     ax.grid(True)
     ax.legend(bbox_to_anchor=(0,1.02,1,0.2), loc="lower left",
                     mode="expand", ncol=1, prop={'size':24})
-    fig.savefig(os.path.join(result_dir, 'eval05_{}.png'.format(task_info)))
+    fig.savefig(os.path.join(result_dir, 'eval05.png'))
 
 #y-axis: latency, x-axis: %non-skipped inter-blocks
 def eval_06(log_dict, result_dir):
@@ -262,7 +263,7 @@ def eval_06(log_dict, result_dir):
     ax.grid(True)
     ax.legend(bbox_to_anchor=(0,1.02,1,0.2), loc="lower left",
                     mode="expand", ncol=1, prop={'size':24})
-    fig.savefig(os.path.join(result_dir, 'eval06_{}.png'.format(task_info)))
+    fig.savefig(os.path.join(result_dir, 'eval06.png'))
 
 #y-axis: intra-inter block count, x-axis: frame index
 def eval_07(log_dict, result_dir, start_idx, end_idx, frame_idx):
@@ -273,7 +274,7 @@ def eval_07(log_dict, result_dir, start_idx, end_idx, frame_idx):
     ax.set(xlabel='Frame Index', ylabel='Count')
     ax.legend(loc='upper center', ncol=2, prop={'size':24})
     ax.grid(True)
-    fig.savefig(os.path.join(result_dir, 'eval07_{}.png'.format(task_info)))
+    fig.savefig(os.path.join(result_dir, 'eval07.png'))
 
 #y-axis: SSIM, x-axis: index
 def eval_08():
@@ -282,13 +283,21 @@ def eval_08():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Video dataset")
 
+    #data
     parser.add_argument('--dataset', type=str, required=True)
     parser.add_argument('--data_dir', type=str, default="./data")
+    parser.add_argument('--target_resolution', type=int, default=1080)
+    parser.add_argument('--scale', type=int, required=True)
+    parser.add_argument('--video_len', type=int, default=60)
+    parser.add_argument('--video_start', type=int, required=True)
+    parser.add_argument('--lq_dnn', type=str, required=True)
+    parser.add_argument('--hq_dnn', type=str, required=True)
+
+    #eval
+    parser.add_argument('--task', type=str, required=True)
     parser.add_argument('--device_id', type=str, default=None)
     parser.add_argument('--start_idx', type=int, default=None)
     parser.add_argument('--end_idx', type=int, default=None)
-    parser.add_argument('--task', type=str, required=True)
-
     args = parser.parse_args()
 
     #result_dir, video_list, device_info, task_info = setup(args)
