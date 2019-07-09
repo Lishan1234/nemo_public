@@ -10,7 +10,6 @@ import java.io.IOException;
 
 public class MainActivity extends AppCompatActivity {
     public static native void vpxDecodeVideo(String videoSavedPath, String logPath, String framePath, String serializePath, int target_resolution, int scale);
-    public static native void helloworld();
 
     private static final String TAG = MainActivity.class.getSimpleName();
 
@@ -23,7 +22,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         final String name = "mobinas";
-        final String content = "starcraft";
+        final String content = "movie";
         final int target_resolution = 1080;
         final int scale = 4;
 

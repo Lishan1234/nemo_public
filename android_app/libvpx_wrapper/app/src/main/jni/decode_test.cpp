@@ -485,7 +485,7 @@ int decode_test(decode_info_t decode_info) {
         die("Error: Unrecognized argument (%s) to --codec\n", arg.val);
     outfile_pattern = "test.y4m";
     cfg.threads = 1;
-    num_external_frame_buffers = 1000;
+    num_external_frame_buffers = 2000;
     LOGD("log_dir: %s", decode_info.log_dir);
     framestats_file = open_logfile("framestats", decode_info.log_dir);
     progress = 1;
@@ -495,10 +495,11 @@ int decode_test(decode_info_t decode_info) {
     std::map <int, int> cache_config;
     if (decode_info.mode == DECODE_CACHE) {
         cache_config.insert(std::pair<int, int>(0, 0));
-        cache_config.insert(std::pair<int, int>(30, 0));
-        cache_config.insert(std::pair<int, int>(60, 0));
-        cache_config.insert(std::pair<int, int>(90, 0));
-        cache_config.insert(std::pair<int, int>(120, 0));
+        cache_config.insert(std::pair<int, int>(1, 0));
+        //cache_config.insert(std::pair<int, int>(30, 0));
+        //cache_config.insert(std::pair<int, int>(60, 0));
+        //cache_config.insert(std::pair<int, int>(90, 0));
+        //cache_config.insert(std::pair<int, int>(120, 0));
     }
 
     //TODO: modify prefix to record cache policy
@@ -668,8 +669,8 @@ int decode_test(decode_info_t decode_info) {
                 /*******************Hyunho************************/
                 if (decode_info.mode == DECODE_CACHE )
                 {
-                    if (cache_config.find(frame_out) != cache_config.end()) decode_info.apply_sr = 1;
-                    else decode_info.apply_sr = 0;
+                    if (cache_config.find(frame_out) != cache_config.end()) decode_info.apply_sr = cache_config[frame_out];
+                    else decode_info.apply_sr = -1;
                 }
                 /*******************Hyunho************************/
                 if (vpx_codec_decode(&decoder, buf, (unsigned int)bytes_in_buffer, (void *) &decode_info, //TODO (hyunho): pass user_priv about log directory

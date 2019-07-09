@@ -720,12 +720,12 @@ void vpx_scaled_add_2d_c(const int16_t *src, ptrdiff_t src_stride, uint8_t *dst,
 
 void vpx_bilinear_interp_add(const int16_t *src, ptrdiff_t src_stride, uint8_t *dst,
                          ptrdiff_t dst_stride, const InterpKernel *filter,
-                         int x0_q4, int x_step_q4, int y0_q4, int y_step_q4,
+                         int x0_q4, int x_scale, int y0_q4, int y_scale,
                          int w, int h);
 #define vpx_bilinear_interp_add vpx_bilinear_interp_add
 void vpx_bilinear_interp(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst,
                              ptrdiff_t dst_stride, const InterpKernel *filter,
-                             int x0_q4, int x_step_q4, int y0_q4, int y_step_q4,
+                             int x0_q4, int x_scale, int y0_q4, int y_scale,
                              int w, int h);
 #define vpx_bilinear_interp vpx_bilinear_interp
 

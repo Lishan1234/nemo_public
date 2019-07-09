@@ -76,7 +76,7 @@ int static setup(decode_info_t decode_info, const char *path) {
                 decode_info.save_serialized_frame = 1;
                 decode_info.save_intermediate = 1;
                 decode_info.save_quality_result = 0;
-                decode_info.save_decode_result = 0;
+                decode_info.save_decode_result = 1;
                 decode_info.mode = DECODE;
 
                 sprintf(hr_video_file, "%s", line);
@@ -122,7 +122,7 @@ int static setup(decode_info_t decode_info, const char *path) {
                 decode_info.save_serialized_frame = 1;
                 decode_info.save_intermediate = 1;
                 decode_info.save_quality_result = 1;
-                decode_info.save_decode_result = 0;
+                decode_info.save_decode_result = 1;
                 decode_info.mode = DECODE;
 
                 sprintf(sr_hq_video_file, "%s", line);
@@ -247,7 +247,7 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
 
     int target_resolution = (int) jint1;
     int scale = (int) jint2;
-    int stop_after = 30;
+    int stop_after = 60;
 
     decode_info_t decode_info;
 
@@ -264,18 +264,18 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
     sprintf(path, "%s/video_list", video_dir);
 
     //setup
-    if (setup(decode_info, path))
-    {
-        LOGD("setup failed");
-        return;
-    };
-
-    //run cache
-//    if (run_cache(decode_info, path))
+//    if (setup(decode_info, path))
 //    {
-//        LOGD("run cache failed");
+//        LOGD("setup failed");
 //        return;
 //    };
+
+    //run cache
+    if (run_cache(decode_info, path))
+    {
+        LOGD("run cache failed");
+        return;
+    };
 
     env->ReleaseStringUTFChars(jstr1, video_dir);
     env->ReleaseStringUTFChars(jstr2, log_dir);
