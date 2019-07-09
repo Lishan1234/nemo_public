@@ -35,6 +35,7 @@ def setup(args):
     #video_list_path = os.path.join(video_dir, 'video_list')
     os.makedirs(result_dir, exist_ok=True)
 
+    print(video_list_path)
     assert os.path.isfile(video_list_path)
     with open(video_list_path, 'r') as f:
         video_list = f.readlines()
@@ -134,6 +135,7 @@ def load_logs(args, log_dir):
                 log_dict[method]['inter_block'].append(int(line[4]))
                 log_dict[method]['inter_block_skip'].append(int(line[5]))
 
+
     #validate values
     length = 0
     for method in methods:
@@ -144,6 +146,7 @@ def load_logs(args, log_dir):
             if length == 0:
                 length = len(log_dict[method][metric])
             else:
+                print(method, metric, length, len(log_dict[method][metric]))
                 assert length == len(log_dict[method][metric])
 
     #setup frame index
@@ -163,7 +166,7 @@ def load_logs(args, log_dir):
 
 #y-axis: quality, x-axis: frame index
 def eval_01(log_dict, result_dir, start_idx, end_idx, frame_idx):
-    plt.rcParams['figure.figsize'] = (20, 10)
+    plt.rcParams['figure.figsize'] = (15, 12)
     fig, ax = plt.subplots()
     ax.plot(frame_idx, log_dict['bicubic']['quality'][start_idx:end_idx], label='bicubic', color='y', marker='o')
     ax.plot(frame_idx, log_dict['lq_dnn']['quality'][start_idx:end_idx], label='s-dnn', color='g', marker='o')
@@ -193,7 +196,7 @@ def eval_02(log_dict, result_dir, video_list, benchmark_dir, lq_dnn_model_name, 
     y_max = max(np.average(log_dict['bicubic']['quality']), np.average(log_dict['hq_dnn_cache']['quality']), np.average(log_dict['lq_dnn']['quality']), np.average(log_dict['hq_dnn']['quality']))
     y_min = min(np.average(log_dict['bicubic']['quality']), np.average(log_dict['hq_dnn_cache']['quality']), np.average(log_dict['lq_dnn']['quality']), np.average(log_dict['hq_dnn']['quality']))
 
-    plt.rcParams['figure.figsize'] = (15, 15)
+    plt.rcParams['figure.figsize'] = (15, 12)
     fig, ax = plt.subplots()
     ax.plot([np.average(log_dict['bicubic']['latency'])], [np.average(log_dict['bicubic']['quality'])], label='bicubic', color='y', marker='o', markersize=12)
     ax.plot([lq_dnn_decode_latency], [np.average(log_dict['lq_dnn']['quality'])], label='s-dnn', color='g', marker='o', markersize=12)
@@ -204,7 +207,7 @@ def eval_02(log_dict, result_dir, video_list, benchmark_dir, lq_dnn_model_name, 
     ax.grid(True)
     ax.set(xlabel='Average Latency (msec)', ylabel='PSNR (dB)', xlim=(x_min * 0.9, x_max * 1.1), ylim=(y_min * 0.9, y_max * 1.1))
     ax.legend(bbox_to_anchor=(0,1.02,1,0.2), loc="lower left",
-                    mode="expand", ncol=2, prop={'size':24})
+                    mode="expand", ncol=4, prop={'size':24})
     fig.savefig(os.path.join(result_dir, 'eval02.png'))
 
 #y-axis: CDF, x-axis: latency
@@ -294,7 +297,7 @@ if __name__ == '__main__':
     parser.add_argument('--hq_dnn', type=str, required=True)
 
     #eval
-    parser.add_argument('--task', type=str, required=True)
+    parser.add_argument('--task', type=str, default='basic')
     parser.add_argument('--device_id', type=str, default=None)
     parser.add_argument('--start_idx', type=int, default=None)
     parser.add_argument('--end_idx', type=int, default=None)

@@ -45,6 +45,8 @@ def load_logs(args, quality_log_dir, latency_log_dir):
         lq_dnn[scale]['num_block'] = 0
         lq_dnn[scale]['num_filter'] = 0
         lq_dnn[scale]['latency'] = 0
+
+        count = 0
         for num_block in num_blocks:
             for num_filter in num_filters:
                 model_name = 'EDSR_transpose_B{}_F{}_S{}'.format(num_block, num_filter, scale)
@@ -69,21 +71,24 @@ def load_logs(args, quality_log_dir, latency_log_dir):
                     lq_dnn[scale]['num_block'] = num_block
                     lq_dnn[scale]['num_filter'] = num_filter
                     lq_dnn[scale]['latency'] = latency
+                    lq_dnn[scale]['index'] = count
+
+                count += 1
 
         assert lq_dnn[scale]['latency'] != 0
 
-        print('scale: {}, num_block: {}, num_filter: {}, latency: {:.2f}msec'.format(scale, lq_dnn[scale]['num_block'], lq_dnn[scale]['num_filter'], lq_dnn[scale]['latency']))
+        print('scale: {}, num_block: {}, num_filter: {}, latency: {:.2f}msec, quality gap: {:.2f}dB'.format(scale, lq_dnn[scale]['num_block'], lq_dnn[scale]['num_filter'], lq_dnn[scale]['latency'], log_dict[scale]['quality'][-1] - log_dict[scale]['quality'][lq_dnn[scale]['index']]))
 
     return log_dict, _quality, _latency
 
 def plot_graph(result_dir, log_dict, _quality, _latency):
-    x_max = max(_latency)
-    #x_max = 240
+    #x_max = max(_latency)
+    x_max = 240
     x_min = min(_latency)
     y_max = max(_quality)
     y_min = min(_quality)
 
-    plt.rcParams['figure.figsize'] = (15, 15)
+    plt.rcParams['figure.figsize'] = (15, 10)
     fig, ax = plt.subplots()
     ax.scatter(log_dict[2]['latency'], log_dict[2]['quality'], label='x2', color='r', marker='o')
     ax.scatter(log_dict[3]['latency'], log_dict[3]['quality'], label='x3', color='g', marker='o')
@@ -92,7 +97,7 @@ def plot_graph(result_dir, log_dict, _quality, _latency):
     ax.grid(True)
     ax.set(xlabel='Average Latency (msec)', ylabel='Average PSNR (dB)', xlim=(x_min * 0.9, x_max * 1.1), ylim=(y_min * 0.9, y_max * 1.1))
     ax.legend(bbox_to_anchor=(0,1.02,1,0.2), loc="lower left",
-                    mode="expand", ncol=2, prop={'size':24})
+                    mode="expand", ncol=3, prop={'size':24})
     fig.savefig(os.path.join(result_dir, 'quality_latency_multi.png'))
 
 if __name__ == '__main__':

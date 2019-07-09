@@ -78,18 +78,18 @@ os.system('rm -rf {}'.format(dst_frame_dir))
 os.makedirs(dst_frame_dir, exist_ok=True)
 
 if args.start_idx is None and args.end_idx is None:
-    #cmd = '{} pull {} {}'.format(adb_cmd, src_frame_dir, dst_debug_dir)
-    #os.system(cmd)
     if not args.cache_only:
-        cmd = '{} pull {} {}'.format(adb_cmd, os.path.join(src_frame_dir, lr_name), dst_frame_dir)
+        cmd = '{} shell find {}/ -name "*{}p_*k*" -print0 | xargs -0 -i {} pull {{}} {}'.format(adb_cmd, src_frame_dir, args.target_resolution // args.scale, adb_cmd, dst_frame_dir)
         os.system(cmd)
-        cmd = '{} pull {} {}'.format(adb_cmd, os.path.join(src_frame_dir, hr_name), dst_frame_dir)
+        cmd = '{} shell find {}/ -name "*{}p_lossless*" -print0 | xargs -0 -i {} pull {{}} {}'.format(adb_cmd, src_frame_dir, args.target_resolution, adb_cmd, dst_frame_dir)
         os.system(cmd)
-    cmd = '{} pull {} {}'.format(adb_cmd, os.path.join(src_frame_dir, lr_cache_name), dst_frame_dir)
+    cmd = '{} shell find {}/ -name "*lr_cache*" -print0 | xargs -0 -i {} pull {{}} {}'.format(adb_cmd, src_frame_dir, adb_cmd, dst_frame_dir)
     os.system(cmd)
-    cmd = '{} pull {} {}'.format(adb_cmd, os.path.join(src_frame_dir, hr_cache_name), dst_frame_dir)
+    cmd = '{} shell find {}/ -name "*hr_cache*" -print0 | xargs -0 -i {} pull {{}} {}'.format(adb_cmd, src_frame_dir, adb_cmd, dst_frame_dir)
     os.system(cmd)
 else:
+    raise NotImplementedError
+    #TODO: download intermediate frames
     lr_postfix = video_list[1].rstrip('\r\n')
     for idx in range(args.start_idx, args.end_idx + 1):
         if not args.cache_only:
@@ -106,6 +106,7 @@ lr_image_filenames = sorted(glob.glob('{}/*_{}.y'.format(dst_frame_dir, lr_name)
 lr_cache_image_filenames = sorted(glob.glob('{}/*_{}.y'.format(dst_frame_dir, lr_cache_name)))
 hr_cache_image_filenames = sorted(glob.glob('{}/*_{}.y'.format(dst_frame_dir, hr_cache_name)))
 hr_image_filenames = sorted(glob.glob('{}/*_{}.y'.format(dst_frame_dir, hr_name)))
+print(hr_cache_image_filenames)
 
 print("hr size: {}, hr_cache: {}, lr cache size: {} lr size: {}".format(len(hr_image_filenames), len(hr_cache_image_filenames), len(lr_cache_image_filenames), len(lr_image_filenames)))
 
@@ -130,6 +131,7 @@ for idx, image_filename in enumerate(lr_cache_image_filenames):
 
 for idx, image_filename in enumerate(hr_cache_image_filenames):
     image_raw = np.fromfile(image_filename, dtype=np.uint8)
+    print(image_filename)
     image_raw.shape = (hr_h, hr_w)
     image_reshape = Image.fromarray(image_raw)
     image_reshape.save("{}/{}.png".format(hr_cache_dir, ntpath.basename(image_filename).split('.')[0]))

@@ -36,7 +36,9 @@ assert video_fps != 0
 print('video fps: {}'.format(video_fps))
 
 #open a logfile
-log_path = os.path.join(args.data_dir, args.dataset, 'log', 'inter_ssim_{:.2f}_{}.log'.format(args.sample_fps, video_name))
+log_dir = os.path.join(args.data_dir, args.dataset, 'log')
+os.makedirs(log_dir, exist_ok=True)
+log_path = os.path.join(log_dir, 'inter_ssim_{:.2f}_{}.log'.format(args.sample_fps, video_name))
 log_file = open(log_path, 'w')
 assert log_file is not None
 
