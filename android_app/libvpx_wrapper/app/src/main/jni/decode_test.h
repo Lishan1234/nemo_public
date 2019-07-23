@@ -20,9 +20,9 @@ typedef struct DecodeInfo{
     const char *log_dir;
     const char *frame_dir;
     const char *serialize_dir;
-    const char *prefix;
 
     //name
+    const char *prefix;
     const char *target_file;
     const char *cache_file;
     const char *compare_file;
@@ -32,16 +32,20 @@ typedef struct DecodeInfo{
     int duration;
 
     //dnn
-    int upsample;
     int scale;
 
-    //debug
+    //log
     int save_serialized_frame;
-    int save_serialized_key_frame;
     int save_decoded_frame;
+    int save_intermediate;
+    int save_final;
     int save_quality_result;
     int save_decode_result;
-    int save_intermediate;
+
+    //debug
+    int debug_quality;
+
+    //codec
     int stop_after;
 
     /*** belows are used for test ***/

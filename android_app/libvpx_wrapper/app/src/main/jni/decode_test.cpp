@@ -491,18 +491,20 @@ int decode_test(decode_info_t decode_info) {
     progress = 1;
     summary = 1;
 
+    //TODO: move cache config to libvpx_wrapper.cpp
+    //TODO: enable cache config to set (video frame index, super frame index)
+    //TODO: modify prefix to record cache policy
+    //TODO: remove existing frames for all contents (using python)
     //create a cache config
     std::map <int, int> cache_config;
     if (decode_info.mode == DECODE_CACHE) {
         cache_config.insert(std::pair<int, int>(0, 0));
-        cache_config.insert(std::pair<int, int>(1, 0));
+//        cache_config.insert(std::pair<int, int>(1, 0));
         //cache_config.insert(std::pair<int, int>(30, 0));
         //cache_config.insert(std::pair<int, int>(60, 0));
         //cache_config.insert(std::pair<int, int>(90, 0));
         //cache_config.insert(std::pair<int, int>(120, 0));
     }
-
-    //TODO: modify prefix to record cache policy
     /*******************Hyunho************************/
 
     if (!decode_info.video_dir) {

@@ -71,81 +71,126 @@ int static setup(decode_info_t decode_info, const char *path) {
             //decode HR & save serialize data
             line[strlen(line) - 1] = 0;
             if (count == 0) {
-                decode_info.upsample = 0;
-                decode_info.save_decoded_frame = 1;
-                decode_info.save_serialized_frame = 1;
-                decode_info.save_intermediate = 1;
-                decode_info.save_quality_result = 0;
-                decode_info.save_decode_result = 1;
+                LOGD("HR decode start");
+                //mode
                 decode_info.mode = DECODE;
 
+                //log
+                decode_info.save_serialized_frame = 0;
+                decode_info.save_decoded_frame = 0;
+                decode_info.save_intermediate = 0;
+                decode_info.save_final = 0;
+                decode_info.save_quality_result = 0;
+                decode_info.save_decode_result = 0;
+
+                //debug
+                decode_info.debug_quality = 0;
+
+                //name
                 sprintf(hr_video_file, "%s", line);
                 decode_info.target_file = hr_video_file;
                 decode_info.prefix = hr_video_file;
                 decode_test(decode_info);
+                LOGD("HR decode end");
             }
                 //decode LR & save serialize data
             else if (count == 1) {
-                decode_info.upsample = 0;
-                decode_info.save_decoded_frame = 1;
-                decode_info.save_serialized_frame = 1;
-                decode_info.save_intermediate = 1;
-                decode_info.save_quality_result = 0;
-                decode_info.save_decode_result = 1;
+                LOGD("LR decode start");
+                //mode
                 decode_info.mode = DECODE;
 
+                //log
+                decode_info.save_serialized_frame = 1;
+                decode_info.save_decoded_frame = 1;
+                decode_info.save_intermediate = 1;
+                decode_info.save_final = 0;
+                decode_info.save_quality_result = 0;
+                decode_info.save_decode_result = 1;
+
+                //debug
+                decode_info.debug_quality = 0;
+
+                //name
                 sprintf(lr_video_file, "%s", line);
                 decode_info.target_file = lr_video_file;
                 decode_info.prefix = lr_video_file;
                 decode_test(decode_info);
+                LOGD("LR decode end");
             }
                 //decode LR bicubic & save quality
             else if (count == 2) {
-                decode_info.upsample = 1;
-                decode_info.save_decoded_frame = 0;
-                decode_info.save_serialized_frame = 0;
-                decode_info.save_intermediate = 0;
-                decode_info.save_quality_result = 1;
-                decode_info.save_decode_result = 1;
+                LOGD("LR bicubic decode start");
+                //mode
                 decode_info.mode = DECODE;
 
+                //log
+                decode_info.save_serialized_frame = 0;
+                decode_info.save_decoded_frame = 0;
+                decode_info.save_intermediate = 0;
+                decode_info.save_final = 0;
+                decode_info.save_quality_result = 1;
+                decode_info.save_decode_result = 1;
+
+                //debug
+                decode_info.debug_quality = 0;
+
+                //name
                 sprintf(lr_bicubic_video_file, "%s", line);
                 decode_info.target_file = lr_bicubic_video_file;
                 decode_info.compare_file = hr_video_file;
                 decode_info.prefix = lr_bicubic_video_file;
                 decode_test(decode_info);
+                LOGD("LR bicubic decode end");
             }
             //decode SR & save quality
             else if (count == 3) {
-                decode_info.upsample = 0;
-                decode_info.save_decoded_frame = 1;
-                decode_info.save_serialized_frame = 1;
-                decode_info.save_intermediate = 1;
-                decode_info.save_quality_result = 1;
-                decode_info.save_decode_result = 1;
+                LOGD("hqSR decode start");
+                //mode
                 decode_info.mode = DECODE;
 
+                //log
+                decode_info.save_serialized_frame = 1;
+                decode_info.save_decoded_frame = 1;
+                decode_info.save_intermediate = 1;
+                decode_info.save_final = 0;
+                decode_info.save_quality_result = 1;
+                decode_info.save_decode_result = 1;
+
+                //debug
+                decode_info.debug_quality = 0;
+
+                //name
                 sprintf(sr_hq_video_file, "%s", line);
                 decode_info.target_file = sr_hq_video_file;
                 decode_info.compare_file = hr_video_file;
                 decode_info.prefix = sr_hq_video_file;
                 decode_test(decode_info);
+                LOGD("hqSR decode end");
             }
                 //decode SR & save quality
             else if (count == 4) {
-                decode_info.upsample = 0;
-                decode_info.save_decoded_frame = 0;
-                decode_info.save_serialized_frame = 0;
-                decode_info.save_intermediate = 0;
-                decode_info.save_quality_result = 1;
-                decode_info.save_decode_result = 1;
+                LOGD("lqSR decode start");
+                //mode
                 decode_info.mode = DECODE;
 
+                //log
+                decode_info.save_serialized_frame = 0;
+                decode_info.save_decoded_frame = 0;
+                decode_info.save_intermediate = 0;
+                decode_info.save_final = 0;
+                decode_info.save_quality_result = 1;
+                decode_info.save_decode_result = 1;
+
+                //debug
+                decode_info.debug_quality = 0;
+
+                //name
                 sprintf(sr_lq_video_file, "%s", line);
                 decode_info.target_file = sr_lq_video_file;
                 decode_info.compare_file = hr_video_file;
                 decode_info.prefix = sr_lq_video_file;
                 decode_test(decode_info);
+                LOGD("lqSR decode end");
                 break;
             } else {
                 LOGE("unexpected video files");
@@ -198,20 +243,31 @@ int static run_cache(decode_info_t decode_info, const char *path) {
                 sprintf(lr_bicubic_video_file, "%s", line);
             }
             else if (count == 3) {
-                //LOGD("%s", "start_cache");
-                sprintf(sr_hq_video_file, "%s", line);
-                decode_info.mode = DECODE_CACHE; //hyunho: should be set at decode_test.cpp
+                LOGD("hqSR cache decode start");
+                //mode
+                decode_info.mode = DECODE_CACHE;
+
+                //log
+                decode_info.save_serialized_frame = 0;
                 decode_info.save_decoded_frame = 1;
                 decode_info.save_intermediate = 1;
-                decode_info.save_serialized_frame = 1;
+                decode_info.save_final = 0;
                 decode_info.save_quality_result = 1;
-                decode_info.save_decode_result = 1;
+                decode_info.save_decode_result = 0;
+
+                //debug
+                decode_info.debug_quality = 1;
+
+                //name
+                sprintf(sr_hq_video_file, "%s", line);
+                decode_info.debug_quality = 1; //debug
                 decode_info.target_file = lr_video_file;
                 decode_info.compare_file = hr_video_file;
                 decode_info.cache_file = sr_hq_video_file;
                 sprintf(sr_cache_hq_video_file, "cache_%s", sr_hq_video_file);
                 decode_info.prefix = sr_cache_hq_video_file;
                 decode_test(decode_info);
+                LOGD("hqSR cache decode end");
             }
             else if (count == 4) {
                 sprintf(sr_lq_video_file, "%s", line);
@@ -235,6 +291,15 @@ int static run_cache(decode_info_t decode_info, const char *path) {
     return 0;
 }
 
+inline bool exists_test3 (const std::string& name) {
+    if (FILE *file = fopen(name.c_str(), "r")) {
+        fclose(file);
+        return true;
+    } else {
+        return false;
+    }
+}
+
 JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVideo
         (JNIEnv *env, jclass jobj, jstring jstr1, jstring jstr2, jstring jstr3, jstring jstr4,
          jint jint1,
@@ -247,7 +312,7 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
 
     int target_resolution = (int) jint1;
     int scale = (int) jint2;
-    int stop_after = 60;
+    int stop_after = 10;
 
     decode_info_t decode_info;
 
@@ -268,14 +333,14 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
 //    {
 //        LOGD("setup failed");
 //        return;
-//    };
+//    }
 
     //run cache
     if (run_cache(decode_info, path))
     {
         LOGD("run cache failed");
         return;
-    };
+    }
 
     env->ReleaseStringUTFChars(jstr1, video_dir);
     env->ReleaseStringUTFChars(jstr2, log_dir);
