@@ -93,9 +93,4 @@
 #define CONFIG_SPATIAL_SVC 0
 #define CONFIG_FP_MB_STATS 0
 #define CONFIG_EMULATE_HARDWARE 0
-
-/* for saving */
-#define SAVE_IMAGE 0
-#define SAVE_SERIALIZE 0
-
 #endif /* VPX_CONFIG_H */

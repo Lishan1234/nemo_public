@@ -17,6 +17,17 @@ public class MainActivity extends AppCompatActivity {
         System.loadLibrary("vpxtestJNI");
     }
 
+    static void cleanDirectory(File directory) {
+        File[] files = directory.listFiles();
+        for (File file: files)
+        {
+            if (!file.delete())
+            {
+                System.out.println("Failed to delete "+ file);
+            }
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -38,6 +49,7 @@ public class MainActivity extends AppCompatActivity {
 
         try{
             if(!logDir.exists() && logDir.isDirectory()) doCreateDirectory(logDir);
+            if(frameDir.exists() && logDir.isDirectory()) cleanDirectory(frameDir); //remove previous results
             if(!frameDir.exists() && frameDir.isDirectory()) doCreateDirectory(frameDir);
             if(!serializeDir.exists() && serializeDir.isDirectory()) doCreateDirectory(serializeDir);
         }

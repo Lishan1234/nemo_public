@@ -498,9 +498,11 @@ int decode_test(decode_info_t decode_info) {
     //create a cache config
     std::map <int, int> cache_config;
     if (decode_info.mode == DECODE_CACHE) {
-        cache_config.insert(std::pair<int, int>(0, 0));
+        cache_config.insert(std::pair<int, int>(0, 0)); // key frame
+        cache_config.insert(std::pair<int, int>(30, 0)); //key frame
+        cache_config.insert(std::pair<int, int>(60, 0)); //key frame
+//        cache_config.insert(std::pair<int, int>(5, 0));
 //        cache_config.insert(std::pair<int, int>(1, 0));
-        //cache_config.insert(std::pair<int, int>(30, 0));
         //cache_config.insert(std::pair<int, int>(60, 0));
         //cache_config.insert(std::pair<int, int>(90, 0));
         //cache_config.insert(std::pair<int, int>(120, 0));

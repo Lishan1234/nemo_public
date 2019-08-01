@@ -49,6 +49,7 @@
 #define LOGF(...) __android_log_print(_FATAL,TAG,__VA_ARGS__)
 #define LOGS(...) __android_log_print(_SILENT,TAG,__VA_ARGS__)
 
+//TODO: refactor reading video file names, setup, run_cache, ...
 int static setup(decode_info_t decode_info, const char *path) {
     FILE *file = fopen(path, "r");
 
@@ -83,9 +84,6 @@ int static setup(decode_info_t decode_info, const char *path) {
                 decode_info.save_quality_result = 0;
                 decode_info.save_decode_result = 0;
 
-                //debug
-                decode_info.debug_quality = 0;
-
                 //name
                 sprintf(hr_video_file, "%s", line);
                 decode_info.target_file = hr_video_file;
@@ -107,9 +105,6 @@ int static setup(decode_info_t decode_info, const char *path) {
                 decode_info.save_quality_result = 0;
                 decode_info.save_decode_result = 1;
 
-                //debug
-                decode_info.debug_quality = 0;
-
                 //name
                 sprintf(lr_video_file, "%s", line);
                 decode_info.target_file = lr_video_file;
@@ -130,9 +125,6 @@ int static setup(decode_info_t decode_info, const char *path) {
                 decode_info.save_final = 0;
                 decode_info.save_quality_result = 1;
                 decode_info.save_decode_result = 1;
-
-                //debug
-                decode_info.debug_quality = 0;
 
                 //name
                 sprintf(lr_bicubic_video_file, "%s", line);
@@ -156,9 +148,6 @@ int static setup(decode_info_t decode_info, const char *path) {
                 decode_info.save_quality_result = 1;
                 decode_info.save_decode_result = 1;
 
-                //debug
-                decode_info.debug_quality = 0;
-
                 //name
                 sprintf(sr_hq_video_file, "%s", line);
                 decode_info.target_file = sr_hq_video_file;
@@ -180,9 +169,6 @@ int static setup(decode_info_t decode_info, const char *path) {
                 decode_info.save_final = 0;
                 decode_info.save_quality_result = 1;
                 decode_info.save_decode_result = 1;
-
-                //debug
-                decode_info.debug_quality = 0;
 
                 //name
                 sprintf(sr_lq_video_file, "%s", line);
@@ -244,8 +230,9 @@ int static run_cache(decode_info_t decode_info, const char *path) {
             }
             else if (count == 3) {
                 LOGD("hqSR cache decode start");
-                //mode
+                //cache
                 decode_info.mode = DECODE_CACHE;
+                decode_info.apply_adaptive_cache = 1;
 
                 //log
                 decode_info.save_serialized_frame = 0;
@@ -255,12 +242,8 @@ int static run_cache(decode_info_t decode_info, const char *path) {
                 decode_info.save_quality_result = 1;
                 decode_info.save_decode_result = 0;
 
-                //debug
-                decode_info.debug_quality = 1;
-
                 //name
                 sprintf(sr_hq_video_file, "%s", line);
-                decode_info.debug_quality = 1; //debug
                 decode_info.target_file = lr_video_file;
                 decode_info.compare_file = hr_video_file;
                 decode_info.cache_file = sr_hq_video_file;
@@ -312,7 +295,7 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
 
     int target_resolution = (int) jint1;
     int scale = (int) jint2;
-    int stop_after = 10;
+    int stop_after = 60;
 
     decode_info_t decode_info;
 

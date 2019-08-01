@@ -237,8 +237,14 @@ vpx_dsp/sum_squares.c
 vpx_dsp/txfm_common.h
 vpx_dsp/variance.c
 vpx_dsp/variance.h
+vpx_dsp/vpx_bilinear.c
+vpx_dsp/vpx_bilinear.h
+vpx_dsp/vpx_constant.c
+vpx_dsp/vpx_constant.h
 vpx_dsp/vpx_convolve.c
 vpx_dsp/vpx_convolve.h
+vpx_dsp/vpx_copy.c
+vpx_dsp/vpx_copy.h
 vpx_dsp/vpx_dsp.mk
 vpx_dsp/vpx_dsp_common.h
 vpx_dsp/vpx_dsp_rtcd.c

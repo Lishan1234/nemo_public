@@ -51,6 +51,7 @@ typedef struct DecodeInfo{
     /*** belows are used for test ***/
     //cache
     DECODE_MODE mode;
+    int apply_adaptive_cache;
     int apply_sr;
 } decode_info_t;
 
