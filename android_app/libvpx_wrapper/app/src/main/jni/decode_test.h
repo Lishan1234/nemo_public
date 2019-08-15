@@ -11,6 +11,7 @@ typedef enum{
     DECODE_SR,
     LOAD_SR,
     DECODE_CACHE,
+    DECODE_BILINEAR,
 } DECODE_MODE;
 
 typedef struct DecodeInfo{
@@ -59,6 +60,15 @@ typedef struct frameInfo{
     int current_video_frame;
     int current_super_frame;
 } frame_info_t;
+
+typedef struct LatencyInfo{
+    double decode_frame;
+    double interp_intra_block;
+    double interp_inter_residual;
+    double decode_intra_block;
+    double decode_inter_block;
+    double decode_inter_residual;
+} latency_info_t;
 
 extern int decode_test(decode_info_t decode_info);
 
