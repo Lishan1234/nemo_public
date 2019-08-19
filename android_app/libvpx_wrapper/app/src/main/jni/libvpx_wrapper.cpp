@@ -241,12 +241,12 @@ int static run_cache(decode_info_t decode_info, const char *path) {
                 LOGD("hqSR cache decode start");
                 //cache
                 decode_info.mode = DECODE_CACHE;
-                decode_info.apply_adaptive_cache = 1;
+                decode_info.apply_adaptive_cache = 0;
 
                 //log
                 decode_info.save_serialized_frame = 0;
-                decode_info.save_decoded_frame = 1;
-                decode_info.save_intermediate = 1;
+                decode_info.save_decoded_frame = 0;
+                decode_info.save_intermediate = 0;
                 decode_info.save_final = 0;
                 decode_info.save_quality_result = 1;
                 decode_info.save_decode_result = 1;
@@ -364,7 +364,7 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
 
     int target_resolution = (int) jint1;
     int scale = (int) jint2;
-    int stop_after = 60;
+    int stop_after = 30;
 
     decode_info_t decode_info;
 
@@ -381,11 +381,11 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
     sprintf(path, "%s/video_list", video_dir);
 
     //setup
-    if (setup(decode_info, path))
-    {
-        LOGD("setup failed");
-        return;
-    }
+//    if (setup(decode_info, path))
+//    {
+//        LOGD("setup failed");
+//        return;
+//    }
 
     //run bilienar
 //    if (run_bilinear(decode_info, path))
