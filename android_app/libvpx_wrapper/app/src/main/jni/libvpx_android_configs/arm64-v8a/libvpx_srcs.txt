@@ -196,6 +196,8 @@ vpx_dsp/arm/subtract_neon.c
 vpx_dsp/arm/sum_neon.h
 vpx_dsp/arm/transpose_neon.h
 vpx_dsp/arm/variance_neon.c
+vpx_dsp/arm/vpx_bilinear_interp_neon.c
+vpx_dsp/arm/vpx_bilinear_interp_neon.h
 vpx_dsp/arm/vpx_convolve8_neon.c
 vpx_dsp/arm/vpx_convolve8_neon.h
 vpx_dsp/arm/vpx_convolve_avg_neon.c
