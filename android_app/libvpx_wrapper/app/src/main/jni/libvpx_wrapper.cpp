@@ -105,11 +105,11 @@ int static setup(decode_info_t decode_info, const char *path) {
 //                decode_info.save_decoded_frame = 1;
 //                decode_info.save_intermediate = 1;
 //                decode_info.save_final = 0;
-//                decode_info.save_quality_result = 0;
-//                decode_info.save_decode_result = 1;
-                decode_info.save_serialized_frame = 0;
+//                decode_info.save_sr_cache_quality_result = 0;
+//                decode_info.save_sr_cache_decode_result = 1;
+                decode_info.save_serialized_frame = 1;
                 decode_info.save_decoded_frame = 0;
-                decode_info.save_intermediate = 0;
+                decode_info.save_intermediate = 1;
                 decode_info.save_final = 0;
                 decode_info.save_quality_result = 0;
                 decode_info.save_decode_result = 0;
@@ -240,7 +240,7 @@ int static run_cache(decode_info_t decode_info, const char *path) {
             else if (count == 3) {
                 LOGD("hqSR cache decode start");
                 //cache
-                decode_info.mode = DECODE_CACHE;
+                decode_info.mode = DECODE_SR_CACHE;
                 decode_info.apply_adaptive_cache = 0;
 
                 //log

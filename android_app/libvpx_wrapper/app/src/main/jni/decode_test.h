@@ -10,7 +10,7 @@ typedef enum{
     DECODE,
     DECODE_SR,
     LOAD_SR,
-    DECODE_CACHE,
+    DECODE_SR_CACHE,
     DECODE_BILINEAR,
 } DECODE_MODE;
 
@@ -61,6 +61,15 @@ typedef struct frameInfo{
     int current_super_frame;
 } frame_info_t;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern int decode_test(decode_info_t decode_info);
+
+#ifdef __cplusplus
+}  // extern "C"
+#endif
+
 
 #endif //LIBVPX_WRAPPER_DECODE_TEST_H

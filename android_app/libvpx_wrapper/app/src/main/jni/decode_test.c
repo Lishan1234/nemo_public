@@ -14,8 +14,8 @@
 #include <errno.h>
 
 #include "./vpx_config.h"
-#include <iostream>
-#include <map>
+//#include <iostream>
+//#include <map>
 
 #if CONFIG_LIBYUV
 #include "third_party/libyuv/include/libyuv/scale.h"
@@ -243,7 +243,7 @@ static int file_is_raw(struct VpxInputContext *input) {
 }
 
 static void show_progress(int frame_in, int frame_out, uint64_t dx_time, uint64_t dx_time_) {
-    LOGI("%d decoded frames/%d showed frames in %" PRId64 " us (%.2f fps, %.2f msec)\r",
+    LOGD("%d decoded frames/%d showed frames in %" PRId64 " us (%.2f fps, %.2f msec)\r",
          frame_in, frame_out, dx_time,
          (double)frame_out * 1000000.0 / (double)dx_time, (dx_time - dx_time_)/1000.0);
 }
@@ -261,8 +261,7 @@ struct ExternalFrameBufferList {
 
 // Callback used by libvpx to request an external frame buffer. |cb_priv|
 // Application private data passed into the set function. |min_size| is the
-// minimum size in bytes needed to decode the next frame. |fb| pointer to the
-// frame buffer.
+// minimum size in byte// frame buffer.s needed to decode the next frame. |fb| pointer to the
 static int get_vp9_frame_buffer(void *cb_priv, size_t min_size,
                                 vpx_codec_frame_buffer_t *fb) {
     int i;
@@ -313,7 +312,7 @@ static void generate_filename(const char *pattern, char *out, size_t q_len,
     char *q = out;
 
     do {
-        char *next_pat = strchr(p, '%');
+        const char *next_pat = strchr(p, '%');
 
         if (p == next_pat) {
             size_t pat_len;
@@ -433,7 +432,7 @@ int decode_test(decode_info_t decode_info) {
     int keep_going = 0;
     const VpxInterface *interface = NULL;
     const VpxInterface *fourcc_interface = NULL;
-    uint64_t dx_time = 0, dx_time_ =0;
+    uint64_t dx_time = 0, dx_time_ = 0;
     struct arg arg;
     char **argv, **argi, **argj;
 
@@ -441,7 +440,7 @@ int decode_test(decode_info_t decode_info) {
     int use_y4m = 1;
     int opt_yv12 = 0;
     int opt_i420 = 0;
-    vpx_codec_dec_cfg_t cfg = { 0, 0, 0 };
+    vpx_codec_dec_cfg_t cfg = {0, 0, 0};
 #if CONFIG_VP9_HIGHBITDEPTH
     unsigned int output_bit_depth = 0;
 #endif
@@ -459,10 +458,10 @@ int decode_test(decode_info_t decode_info) {
 #endif
     int frame_avail, got_data, flush_decoder = 0;
     int num_external_frame_buffers = 0;
-    struct ExternalFrameBufferList ext_fb_list = { 0, NULL };
+    struct ExternalFrameBufferList ext_fb_list = {0, NULL};
 
     const char *outfile_pattern = NULL;
-    char outfile_name[PATH_MAX] = { 0 };
+    char outfile_name[PATH_MAX] = {0};
     FILE *outfile = NULL;
 
     FILE *framestats_file = NULL;
@@ -470,7 +469,7 @@ int decode_test(decode_info_t decode_info) {
     MD5Context md5_ctx;
     unsigned char md5_digest[16];
 
-    struct VpxDecInputContext input = { NULL, NULL };
+    struct VpxDecInputContext input = {NULL, NULL};
     struct VpxInputContext vpx_input_ctx;
 #if CONFIG_WEBM_IO
     struct WebmInputContext webm_ctx;
@@ -485,7 +484,7 @@ int decode_test(decode_info_t decode_info) {
         die("Error: Unrecognized argument (%s) to --codec\n", arg.val);
     outfile_pattern = "test.y4m";
     cfg.threads = 1;
-    num_external_frame_buffers = 2000;
+    num_external_frame_buffers = 50;
     LOGD("log_dir: %s", decode_info.log_dir);
     framestats_file = open_logfile("framestats", decode_info.log_dir);
     progress = 1;
@@ -496,17 +495,17 @@ int decode_test(decode_info_t decode_info) {
     //TODO: modify prefix to record cache policy
     //TODO: remove existing frames for all contents (using python)
     //create a cache config
-    std::map <int, int> cache_config;
-    if (decode_info.mode == DECODE_CACHE) {
-        cache_config.insert(std::pair<int, int>(0, 0)); // key frame
-        cache_config.insert(std::pair<int, int>(30, 0)); //key frame
-        cache_config.insert(std::pair<int, int>(60, 0)); //key frame
+//    std::map<int, int> cache_config;
+//    if (decode_info.mode == DECODE_SR_CACHE) {
+//        cache_config.insert(std::pair<int, int>(0, 0)); // key frame
+//        cache_config.insert(std::pair<int, int>(30, 0)); //key frame
+//        cache_config.insert(std::pair<int, int>(60, 0)); //key frame
 //        cache_config.insert(std::pair<int, int>(5, 0));
 //        cache_config.insert(std::pair<int, int>(1, 0));
-        //cache_config.insert(std::pair<int, int>(60, 0));
-        //cache_config.insert(std::pair<int, int>(90, 0));
-        //cache_config.insert(std::pair<int, int>(120, 0));
-    }
+//        cache_config.insert(std::pair<int, int>(60, 0));
+//        cache_config.insert(std::pair<int, int>(90, 0));
+//        cache_config.insert(std::pair<int, int>(120, 0));
+//    }
     /*******************Hyunho************************/
 
     if (!decode_info.video_dir) {
@@ -544,7 +543,7 @@ int decode_test(decode_info_t decode_info) {
     else if (file_is_raw(input.vpx_input_ctx))
         input.vpx_input_ctx->file_type = FILE_TYPE_RAW;
     else {
-        LOGE( "Unrecognized input file type.\n");
+        LOGE("Unrecognized input file type.\n");
 #if !CONFIG_WEBM_IO
         fprintf(stderr, "vpxdec was built without WebM container support.\n");
 #endif
@@ -595,29 +594,27 @@ int decode_test(decode_info_t decode_info) {
                 (ec_enabled ? VPX_CODEC_USE_ERROR_CONCEALMENT : 0);
     if (vpx_codec_dec_init(&decoder, interface->codec_interface(), &cfg,
                            dec_flags)) {
-        LOGE( "Failed to initialize decoder: %s\n",
-              vpx_codec_error(&decoder));
+        LOGE("Failed to initialize decoder: %s\n",
+             vpx_codec_error(&decoder));
         goto fail2;
     }
     if (svc_decoding) {
         if (vpx_codec_control(&decoder, VP9_DECODE_SVC_SPATIAL_LAYER,
                               svc_spatial_layer)) {
-            LOGE( "Failed to set spatial layer for svc decode: %s\n",
-                  vpx_codec_error(&decoder));
+            LOGE("Failed to set spatial layer for svc decode: %s\n",
+                 vpx_codec_error(&decoder));
             goto fail;
         }
     }
     //TODO (hyunho): enable multi-thread decoding
-    /*
-    int enable_row_mt = 1;
-    if (interface->fourcc == VP9_FOURCC &&
-        vpx_codec_control(&decoder, VP9D_SET_ROW_MT, enable_row_mt)) {
-        fprintf(stderr, "Failed to set decoder in row multi-thread mode: %s\n",
-                vpx_codec_error(&decoder));
-        goto fail;
-    }
-    */
-    if (!quiet) LOGE( "%s\n", decoder.name);
+//    int enable_row_mt = 1;
+//    if (interface->fourcc == VP9_FOURCC &&
+//        vpx_codec_control(&decoder, VP9D_SET_ROW_MT, enable_row_mt)) {
+//        fprintf(stderr, "Failed to set decoder in row multi-thread mode: %s\n",
+//                vpx_codec_error(&decoder));
+//        goto fail;
+//    }
+    if (!quiet) LOGE("%s\n", decoder.name);
 
 #if CONFIG_VP8_DECODER
     if (vp8_pp_cfg.post_proc_flag &&
@@ -628,7 +625,7 @@ int decode_test(decode_info_t decode_info) {
   }
 #endif
 
-    if (arg_skip) LOGE( "Skipping first %d frames.\n", arg_skip);
+    if (arg_skip) LOGE("Skipping first %d frames.\n", arg_skip);
     while (arg_skip) {
         if (read_frame(&input, &buf, &bytes_in_buffer, &buffer_size)) break;
         arg_skip--;
@@ -636,22 +633,20 @@ int decode_test(decode_info_t decode_info) {
 
     if (num_external_frame_buffers > 0) {
         ext_fb_list.num_external_frame_buffers = num_external_frame_buffers;
-        ext_fb_list.ext_fb = (struct ExternalFrameBuffer *)calloc(
+        ext_fb_list.ext_fb = (struct ExternalFrameBuffer *) calloc(
                 num_external_frame_buffers, sizeof(*ext_fb_list.ext_fb));
         if (vpx_codec_set_frame_buffer_functions(&decoder, get_vp9_frame_buffer,
                                                  release_vp9_frame_buffer,
                                                  &ext_fb_list)) {
-            LOGE( "Failed to configure external frame buffers: %s\n",
-                  vpx_codec_error(&decoder));
+            LOGE("Failed to configure external frame buffers: %s\n",
+                 vpx_codec_error(&decoder));
             goto fail;
         }
     }
-
     frame_avail = 1;
     got_data = 0;
 
     if (framestats_file) fprintf(framestats_file, "bytes,qp\n");
-
     clock_t start, end;
     double cpu_time_used;
     start = clock();
@@ -671,13 +666,13 @@ int decode_test(decode_info_t decode_info) {
                 vpx_usec_timer_start(&timer);
 
                 /*******************Hyunho************************/
-                if (decode_info.mode == DECODE_CACHE )
-                {
-                    if (cache_config.find(frame_out) != cache_config.end()) decode_info.apply_sr = cache_config[frame_out];
-                    else decode_info.apply_sr = -1;
-                }
+//                if (decode_info.mode == DECODE_SR_CACHE) {
+//                    if (cache_config.find(frame_out) != cache_config.end()) decode_info.apply_sr = cache_config[frame_out];
+//                    else decode_info.apply_sr = -1;
+//                }
                 /*******************Hyunho************************/
-                if (vpx_codec_decode(&decoder, buf, (unsigned int)bytes_in_buffer, (void *) &decode_info, //TODO (hyunho): pass user_priv about log directory
+                if (vpx_codec_decode(&decoder, buf, (unsigned int) bytes_in_buffer,
+                                     (void *) &decode_info, //TODO (hyunho): pass user_priv about log directory
                                      0)) {
                     const char *detail = vpx_codec_error_detail(&decoder);
                     LOGW("Failed to decode frame %d: %s", frame_in,
@@ -694,7 +689,7 @@ int decode_test(decode_info_t decode_info) {
                              vpx_codec_error(&decoder));
                         if (!keep_going) goto fail;
                     }
-                    fprintf(framestats_file, "%d,%d\n", (int)bytes_in_buffer, qp);
+                    fprintf(framestats_file, "%d,%d\n", (int) bytes_in_buffer, qp);
                 }
 
                 vpx_usec_timer_mark(&timer);
@@ -724,7 +719,7 @@ int decode_test(decode_info_t decode_info) {
         }
 
         vpx_usec_timer_mark(&timer);
-        dx_time += (unsigned int)vpx_usec_timer_elapsed(&timer);
+        dx_time += (unsigned int) vpx_usec_timer_elapsed(&timer);
 
         if (!corrupted &&
             vpx_codec_control(&decoder, VP8D_GET_FRAME_CORRUPTED, &corrupted)) {
@@ -736,8 +731,8 @@ int decode_test(decode_info_t decode_info) {
         if (progress) show_progress(frame_in, frame_out, dx_time, dx_time_);
 
         if (!noblit && img) {
-            const int PLANES_YUV[] = { VPX_PLANE_Y, VPX_PLANE_U, VPX_PLANE_V };
-            const int PLANES_YVU[] = { VPX_PLANE_Y, VPX_PLANE_V, VPX_PLANE_U };
+            const int PLANES_YUV[] = {VPX_PLANE_Y, VPX_PLANE_U, VPX_PLANE_V};
+            const int PLANES_YVU[] = {VPX_PLANE_Y, VPX_PLANE_V, VPX_PLANE_U};
             const int *planes = flipuv ? PLANES_YVU : PLANES_YUV;
 
             if (do_scale) {
@@ -813,10 +808,10 @@ int decode_test(decode_info_t decode_info) {
 
             if (single_file) {
                 if (use_y4m) {
-                    char buf[Y4M_BUFFER_SIZE] = { 0 };
+                    char buf[Y4M_BUFFER_SIZE] = {0};
                     size_t len = 0;
                     if (img->fmt == VPX_IMG_FMT_I440 || img->fmt == VPX_IMG_FMT_I44016) {
-                        LOGE( "Cannot produce y4m output for 440 sampling.\n");
+                        LOGE("Cannot produce y4m output for 440 sampling.\n");
                         goto fail;
                     }
                     if (frame_out == 1) {
@@ -825,7 +820,7 @@ int decode_test(decode_info_t decode_info) {
                                 buf, sizeof(buf), vpx_input_ctx.width, vpx_input_ctx.height,
                                 &vpx_input_ctx.framerate, img->fmt, img->bit_depth);
                         if (do_md5) {
-                            MD5Update(&md5_ctx, (md5byte *)buf, (unsigned int)len);
+                            MD5Update(&md5_ctx, (md5byte *) buf, (unsigned int) len);
                         } else {
                             fputs(buf, outfile);
                         }
@@ -834,7 +829,7 @@ int decode_test(decode_info_t decode_info) {
                     // Y4M frame header
                     len = y4m_write_frame_header(buf, sizeof(buf));
                     if (do_md5) {
-                        MD5Update(&md5_ctx, (md5byte *)buf, (unsigned int)len);
+                        MD5Update(&md5_ctx, (md5byte *) buf, (unsigned int) len);
                     } else {
                         fputs(buf, outfile);
                     }
@@ -845,7 +840,7 @@ int decode_test(decode_info_t decode_info) {
                         if (opt_i420) {
                             if (img->fmt != VPX_IMG_FMT_I420 &&
                                 img->fmt != VPX_IMG_FMT_I42016) {
-                                LOGE( "Cannot produce i420 output for bit-stream.\n");
+                                LOGE("Cannot produce i420 output for bit-stream.\n");
                                 goto fail;
                             }
                         }
@@ -853,7 +848,7 @@ int decode_test(decode_info_t decode_info) {
                             if ((img->fmt != VPX_IMG_FMT_I420 &&
                                  img->fmt != VPX_IMG_FMT_YV12) ||
                                 img->bit_depth != 8) {
-                                LOGE( "Cannot produce yv12 output for bit-stream.\n");
+                                LOGE("Cannot produce yv12 output for bit-stream.\n");
                                 goto fail;
                             }
                         }
@@ -882,14 +877,14 @@ int decode_test(decode_info_t decode_info) {
         }
     }
     end = clock();
-    LOGD("elapsed_time: %f", ((double) (end - start)) / CLOCKS_PER_SEC);
+//    LOGD("elapsed_time: %f", ((double) (end - start)) / CLOCKS_PER_SEC);
 
     if (summary || progress) {
         show_progress(frame_in, frame_out, dx_time, dx_time_);
     }
 
     if (frames_corrupted) {
-        LOGE( "WARNING: %d frames corrupted.\n", frames_corrupted);
+        LOGE("WARNING: %d frames corrupted.\n", frames_corrupted);
     } else {
         ret = EXIT_SUCCESS;
     }
