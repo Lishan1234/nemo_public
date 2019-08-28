@@ -416,15 +416,15 @@ static int img_shifted_realloc_required(const vpx_image_t *img,
 }
 #endif
 
-int decode_test(decode_info_t decode_info) {
-    LOGD("decode_info.log_dir: %s", decode_info.log_dir);
+#define STOP_AFTER 30
+int decode_test(vpx_mobinas_cfg_t *mobinas_cfg) {
     vpx_codec_ctx_t decoder;
     int i;
     int ret = EXIT_FAILURE;
     uint8_t *buf = NULL;
     size_t bytes_in_buffer = 0, buffer_size = 0;
     FILE *infile;
-    int stop_after = decode_info.stop_after, frame_in = 0, frame_out = 0, flipuv = 0, noblit = 0;
+    int stop_after = STOP_AFTER, frame_in = 0, frame_out = 0, flipuv = 0, noblit = 0;
     int do_md5 = 0, progress = 0;
     int postproc = 0, summary = 0, quiet = 1; //TODO (hyunho): set stop_after by configuration ...
     int arg_skip = 0;
@@ -485,8 +485,7 @@ int decode_test(decode_info_t decode_info) {
     outfile_pattern = "test.y4m";
     cfg.threads = 1;
     num_external_frame_buffers = 50;
-    LOGD("log_dir: %s", decode_info.log_dir);
-    framestats_file = open_logfile("framestats", decode_info.log_dir);
+    framestats_file = open_logfile("framestats", mobinas_cfg->log_dir);
     progress = 1;
     summary = 1;
 
@@ -496,7 +495,7 @@ int decode_test(decode_info_t decode_info) {
     //TODO: remove existing frames for all contents (using python)
     //create a cache config
 //    std::map<int, int> cache_config;
-//    if (decode_info.mode == DECODE_SR_CACHE) {
+//    if (mobinas_cfg.mode == DECODE_SR_CACHE) {
 //        cache_config.insert(std::pair<int, int>(0, 0)); // key frame
 //        cache_config.insert(std::pair<int, int>(30, 0)); //key frame
 //        cache_config.insert(std::pair<int, int>(60, 0)); //key frame
@@ -507,16 +506,10 @@ int decode_test(decode_info_t decode_info) {
 //        cache_config.insert(std::pair<int, int>(120, 0));
 //    }
     /*******************Hyunho************************/
-
-    if (!decode_info.video_dir) {
-        LOGE("No input file specified!\n");
-        exit(EXIT_FAILURE);
-    }
-
     /* Open file */
     char video_path[PATH_MAX];
     memset(video_path, 0, PATH_MAX);
-    sprintf(video_path, "%s/%s.webm", decode_info.video_dir, decode_info.target_file);
+    sprintf(video_path, "%s/%s.webm", mobinas_cfg->video_dir, mobinas_cfg->target_file);
     LOGD("video_path: %s", video_path);
     infile = strcmp(video_path, "-") ? fopen(video_path, "rb") : set_binary_mode(stdin);
 
@@ -559,7 +552,7 @@ int decode_test(decode_info_t decode_info) {
         if (do_md5)
             MD5Init(&md5_ctx);
         else
-            outfile = open_outfile(outfile_name, decode_info.log_dir);
+            outfile = open_outfile(outfile_name, mobinas_cfg->log_dir);
     }
 
     if (use_y4m && !noblit) {
@@ -592,12 +585,14 @@ int decode_test(decode_info_t decode_info) {
 
     dec_flags = (postproc ? VPX_CODEC_USE_POSTPROC : 0) |
                 (ec_enabled ? VPX_CODEC_USE_ERROR_CONCEALMENT : 0);
+
     if (vpx_codec_dec_init(&decoder, interface->codec_interface(), &cfg,
                            dec_flags)) {
         LOGE("Failed to initialize decoder: %s\n",
              vpx_codec_error(&decoder));
         goto fail2;
     }
+
     if (svc_decoding) {
         if (vpx_codec_control(&decoder, VP9_DECODE_SVC_SPATIAL_LAYER,
                               svc_spatial_layer)) {
@@ -606,7 +601,9 @@ int decode_test(decode_info_t decode_info) {
             goto fail;
         }
     }
-    //TODO (hyunho): enable multi-thread decoding
+
+    vpx_mobinas_cfg_init(&decoder, mobinas_cfg);
+
 //    int enable_row_mt = 1;
 //    if (interface->fourcc == VP9_FOURCC &&
 //        vpx_codec_control(&decoder, VP9D_SET_ROW_MT, enable_row_mt)) {
@@ -614,6 +611,7 @@ int decode_test(decode_info_t decode_info) {
 //                vpx_codec_error(&decoder));
 //        goto fail;
 //    }
+
     if (!quiet) LOGE("%s\n", decoder.name);
 
 #if CONFIG_VP8_DECODER
@@ -666,13 +664,13 @@ int decode_test(decode_info_t decode_info) {
                 vpx_usec_timer_start(&timer);
 
                 /*******************Hyunho************************/
-//                if (decode_info.mode == DECODE_SR_CACHE) {
-//                    if (cache_config.find(frame_out) != cache_config.end()) decode_info.apply_sr = cache_config[frame_out];
-//                    else decode_info.apply_sr = -1;
+//                if (mobinas_cfg.mode == DECODE_SR_CACHE) {
+//                    if (cache_config.find(frame_out) != cache_config.end()) mobinas_cfg.apply_sr = cache_config[frame_out];
+//                    else mobinas_cfg.apply_sr = -1;
 //                }
                 /*******************Hyunho************************/
                 if (vpx_codec_decode(&decoder, buf, (unsigned int) bytes_in_buffer,
-                                     (void *) &decode_info, //TODO (hyunho): pass user_priv about log directory
+                                     NULL,
                                      0)) {
                     const char *detail = vpx_codec_error_detail(&decoder);
                     LOGW("Failed to decode frame %d: %s", frame_in,
@@ -869,7 +867,7 @@ int decode_test(decode_info_t decode_info) {
                     MD5Final(md5_digest, &md5_ctx);
                     print_md5(md5_digest, outfile_name);
                 } else {
-                    outfile = open_outfile(outfile_name, decode_info.log_dir);
+                    outfile = open_outfile(outfile_name, mobinas_cfg->log_dir);
                     write_image_file(img, planes, outfile);
                     fclose(outfile);
                 }

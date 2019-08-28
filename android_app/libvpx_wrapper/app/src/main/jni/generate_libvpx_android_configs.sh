@@ -19,6 +19,13 @@
 # builds.
 
 set -e
+if [ $# -ne 1 ]; then
+  echo "Usage: ${0} <path_to_android_ndk>"
+    exit
+fi
+
+ndk="${1}"
+shift 1
 
 # configuration parameters common to all architectures
 #common_params="--disable-libyuv --disable-vp8 --enable-postproc --enable-vp9-postproc"
@@ -34,13 +41,13 @@ common_params="--disable-examples --disable-docs --enable-realtime-only"
 #common_params+=" --disable-vp8 --disable-vp9-encoder"
 common_params+=" --disable-vp8"
 common_params+=" --disable-libyuv --disable-runtime-cpu-detect"
-common_params+=" --enable-external-build"
+#common_params+=" --enable-external-build"
 #common_params+=" --disable-vp8 --disable-webm-io"
 #common_params+=" --disable-vp8"
 #common_params+=" --disable-runtime-cpu-detect"
 
 arch[0]="arm64-v8a"
-config[0]="--force-target=armv8-android-gcc --enable-neon --enable-internal-stats"
+config[0]="--force-target=armv8-android-gcc --sdk-path=$ndk --enable-neon --enable-internal-stats"
 #config[0]="--force-target=armv8-android-gcc --enable-neon --enable-webm-io --enable-internal-stats"
 #config[0]="--force-target=armv8-android-gcc --sdk-path=$ndk --enable-neon --enable-webm-io"
 
