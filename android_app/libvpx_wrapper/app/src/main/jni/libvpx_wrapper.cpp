@@ -139,7 +139,7 @@ static void decode_test_sr_cache(vpx_mobinas_cfg_t *mobinas_cfg, const char *hr_
     mobinas_cfg->save_decoded_frame = 0;
     mobinas_cfg->save_intermediate = 0;
     mobinas_cfg->save_final = 0;
-    mobinas_cfg->save_quality_result = 0;
+    mobinas_cfg->save_quality_result = 1;
     mobinas_cfg->save_decode_result = 1;
 
     //mode
