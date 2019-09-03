@@ -69,6 +69,10 @@ static void decode_test_hr(vpx_mobinas_cfg_t *mobinas_cfg, const char* hr_video_
     //mode
     mobinas_cfg->mode = DECODE;
 
+    //adaptive cache
+    mobinas_cfg->profile_cache_reset = 0;
+    mobinas_cfg->apply_cache_reset = 0;
+
     decode_test(mobinas_cfg);
 }
 
@@ -88,6 +92,10 @@ static void decode_test_lr(vpx_mobinas_cfg_t *mobinas_cfg, const char* lr_video_
 
     //mode
     mobinas_cfg->mode = DECODE;
+
+    //adaptive cache
+    mobinas_cfg->profile_cache_reset = 0;
+    mobinas_cfg->apply_cache_reset = 0;
 
     decode_test(mobinas_cfg);
 }
@@ -110,10 +118,15 @@ static void decode_test_sr(vpx_mobinas_cfg_t *mobinas_cfg, const char* hr_video_
     //mode
     mobinas_cfg->mode = DECODE;
 
+    //adaptive cache
+    mobinas_cfg->profile_cache_reset = 0;
+    mobinas_cfg->apply_cache_reset = 0;
+
     decode_test(mobinas_cfg);
 }
 
-static void decode_test_sr_cache(vpx_mobinas_cfg_t *mobinas_cfg, const char* hr_video_file, const char* lr_video_file, const char* sr_video_file)
+static void decode_test_sr_cache(vpx_mobinas_cfg_t *mobinas_cfg, const char *hr_video_file, const char *lr_video_file, const char *sr_video_file,
+                                 int profile_adaptive_cache, int apply_adaptive_cache)
 {
     //name
     strcpy(mobinas_cfg->target_file, lr_video_file);
@@ -127,16 +140,20 @@ static void decode_test_sr_cache(vpx_mobinas_cfg_t *mobinas_cfg, const char* hr_
     mobinas_cfg->save_intermediate = 0;
     mobinas_cfg->save_final = 0;
     mobinas_cfg->save_quality_result = 0;
-    mobinas_cfg->save_decode_result = 0;
+    mobinas_cfg->save_decode_result = 1;
 
     //mode
     mobinas_cfg->mode = DECODE_SR_CACHE;
+
+    //adaptive cache
+    mobinas_cfg->profile_cache_reset = profile_adaptive_cache;
+    mobinas_cfg->apply_cache_reset = apply_adaptive_cache;
 
     decode_test(mobinas_cfg);
 }
 
 JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVideo
-        (JNIEnv *env, jclass jobj, jstring jstr1, jstring jstr2, jstring jstr3, jstring jstr4,
+        (JNIEnv *env, jclass jobj, jstring jstr1, jstring jstr2, jstring jstr3, jstring jstr4, jstring jstr5,
          jint jint1,
          jint jint2)
 {
@@ -144,6 +161,7 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
     const char *log_dir = env->GetStringUTFChars(jstr2, NULL);
     const char *frame_dir = env->GetStringUTFChars(jstr3, NULL);
     const char *serialize_dir = env->GetStringUTFChars(jstr4, NULL);
+    const char *profile_dir = env->GetStringUTFChars(jstr5, NULL);
 
     int target_resolution = (int) jint1;
 
@@ -155,6 +173,7 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
     strcpy(mobinas_cfg.log_dir, log_dir);
     strcpy(mobinas_cfg.serialize_dir, serialize_dir);
     strcpy(mobinas_cfg.frame_dir, frame_dir);
+    strcpy(mobinas_cfg.profile_dir, profile_dir);
     mobinas_cfg.target_resolution = target_resolution;
     LOGD("video_dir: %s", mobinas_cfg.video_dir);
 
@@ -211,28 +230,9 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
 //    decode_test_hr(&mobinas_cfg, hr_video_file);
 //    decode_test_lr(&mobinas_cfg, lr_video_file);
 //    decode_test_sr(&mobinas_cfg, hr_video_file, sr_hq_video_file);
-    decode_test_sr_cache(&mobinas_cfg, hr_video_file, lr_video_file, sr_hq_video_file);
-
-    //setup
-//    if (setup(mobinas_cfg, path))
-//    {
-//        LOGD("setup failed");
-//        return;
-//    }
-
-    //run bilienar
-//    if (run_bilinear(mobinas_cfg, path))
-//    {
-//        LOGD("run cache failed");
-//        return;
-//    }
-
-    //run cache
-//    if (run_cache(mobinas_cfg, path))
-//    {
-//        LOGD("run cache failed");
-//        return;
-//    }
+//    decode_test_sr_cache(&mobinas_cfg, hr_video_file, lr_video_file, sr_hq_video_file, 1, 0); //profile adaptive cache
+    decode_test_sr_cache(&mobinas_cfg, hr_video_file, lr_video_file, sr_hq_video_file, 0, 1); //turn-on adaptive cache
+//    decode_test_sr_cache(&mobinas_cfg, hr_video_file, lr_video_file, sr_hq_video_file, 0, 0); //turn-off adaptive cache
 
     env->ReleaseStringUTFChars(jstr1, video_dir);
     env->ReleaseStringUTFChars(jstr2, log_dir);

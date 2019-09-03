@@ -483,7 +483,7 @@ int decode_test(vpx_mobinas_cfg_t *mobinas_cfg) {
     if (!interface)
         die("Error: Unrecognized argument (%s) to --codec\n", arg.val);
     outfile_pattern = "test.y4m";
-    cfg.threads = 2;
+    cfg.threads = 1;
     num_external_frame_buffers = 50;
     framestats_file = open_logfile("framestats", mobinas_cfg->log_dir);
     progress = 1;

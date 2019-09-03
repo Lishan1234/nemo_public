@@ -73,7 +73,7 @@ extern "C" {
  * Signature: (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;II)V
  */
 JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVideo
-  (JNIEnv *, jclass, jstring, jstring, jstring, jstring, jint, jint);
+  (JNIEnv *, jclass, jstring, jstring, jstring, jstring, jstring, jint, jint);
 
 #ifdef __cplusplus
 }
