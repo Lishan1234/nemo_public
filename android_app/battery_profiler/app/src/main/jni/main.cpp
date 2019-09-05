@@ -444,11 +444,11 @@ long fake_main(const char * name, const char * b, const char * d, const char * i
             // Execute the input tensor on the model with SNPE
             __android_log_print(ANDROID_LOG_ERROR,"JNITAG","Executing...");
 
-//            execStatus = snpe->execute(inputTensor.get(), outputTensorMap);
-//            if(execStatus ==false){
-//                __android_log_print(ANDROID_LOG_ERROR, "JNITAG", "Error while executing network");
-//                return -1;
-//            }
+            execStatus = snpe->execute(inputTensor.get(), outputTensorMap);
+            if(execStatus ==false){
+                __android_log_print(ANDROID_LOG_ERROR, "JNITAG", "Error while executing network");
+                return -1;
+            }
 
             //update time and count
             gettimeofday(&now, NULL);
