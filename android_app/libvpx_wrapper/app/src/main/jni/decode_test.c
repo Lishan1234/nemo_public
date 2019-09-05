@@ -417,14 +417,14 @@ static int img_shifted_realloc_required(const vpx_image_t *img,
 #endif
 
 #define STOP_AFTER 30
-int decode_test(vpx_mobinas_cfg_t *mobinas_cfg) {
+int decode_test(mobinas_cfg_t *mobinas_cfg) {
     vpx_codec_ctx_t decoder;
     int i;
     int ret = EXIT_FAILURE;
     uint8_t *buf = NULL;
     size_t bytes_in_buffer = 0, buffer_size = 0;
     FILE *infile;
-    int stop_after = STOP_AFTER, frame_in = 0, frame_out = 0, flipuv = 0, noblit = 0;
+    int stop_after = STOP_AFTER, frame_in = 0, frame_out = 0, flipuv = 0, noblit = 1;
     int do_md5 = 0, progress = 0;
     int postproc = 0, summary = 0, quiet = 1; //TODO (hyunho): set stop_after by configuration ...
     int arg_skip = 0;
@@ -602,7 +602,7 @@ int decode_test(vpx_mobinas_cfg_t *mobinas_cfg) {
         }
     }
 
-    vpx_mobinas_cfg_init(&decoder, mobinas_cfg);
+    init_mobinas_cfg(&decoder, mobinas_cfg);
 
 //    int enable_row_mt = 1;
 //    if (interface->fourcc == VP9_FOURCC &&

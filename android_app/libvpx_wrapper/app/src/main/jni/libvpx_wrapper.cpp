@@ -52,7 +52,7 @@
 #define LOGF(...) __android_log_print(_FATAL,TAG,__VA_ARGS__)
 #define LOGS(...) __android_log_print(_SILENT,TAG,__VA_ARGS__)
 
-static void decode_test_hr(vpx_mobinas_cfg_t *mobinas_cfg, const char* hr_video_file)
+static void decode_test_hr(mobinas_cfg_t *mobinas_cfg, const char* hr_video_file)
 {
     //name
     strcpy(mobinas_cfg->prefix, hr_video_file);
@@ -61,8 +61,8 @@ static void decode_test_hr(vpx_mobinas_cfg_t *mobinas_cfg, const char* hr_video_
     //log
     mobinas_cfg->save_serialized_frame = 1;
     mobinas_cfg->save_decoded_frame = 0;
-    mobinas_cfg->save_intermediate = 0;
-    mobinas_cfg->save_final = 1;
+    mobinas_cfg->save_intermediate = 1;
+    mobinas_cfg->save_final = 0;
     mobinas_cfg->save_quality_result = 0;
     mobinas_cfg->save_decode_result = 0;
 
@@ -76,7 +76,7 @@ static void decode_test_hr(vpx_mobinas_cfg_t *mobinas_cfg, const char* hr_video_
     decode_test(mobinas_cfg);
 }
 
-static void decode_test_lr(vpx_mobinas_cfg_t *mobinas_cfg, const char* lr_video_file)
+static void decode_test_lr(mobinas_cfg_t *mobinas_cfg, const char* lr_video_file)
 {
     //name
     strcpy(mobinas_cfg->prefix, lr_video_file);
@@ -100,7 +100,32 @@ static void decode_test_lr(vpx_mobinas_cfg_t *mobinas_cfg, const char* lr_video_
     decode_test(mobinas_cfg);
 }
 
-static void decode_test_sr(vpx_mobinas_cfg_t *mobinas_cfg, const char* hr_video_file, const char* sr_video_file)
+static void decode_test_bilinear(mobinas_cfg_t *mobinas_cfg, const char* lr_video_file, const char* hr_video_file)
+{
+    //name
+    strcpy(mobinas_cfg->target_file, lr_video_file);
+    strcpy(mobinas_cfg->compare_file, hr_video_file);
+    sprintf(mobinas_cfg->prefix, "bilinear_%s", lr_video_file);
+
+    //log
+    mobinas_cfg->save_serialized_frame = 0;
+    mobinas_cfg->save_decoded_frame = 0;
+    mobinas_cfg->save_intermediate = 0;
+    mobinas_cfg->save_final = 0;
+    mobinas_cfg->save_quality_result = 1;
+    mobinas_cfg->save_decode_result = 0;
+
+    //mode
+    mobinas_cfg->mode = DECODE_BILINEAR;
+
+    //adaptive cache
+    mobinas_cfg->profile_cache_reset = 0;
+    mobinas_cfg->apply_cache_reset = 0;
+
+    decode_test(mobinas_cfg);
+}
+
+static void decode_test_sr(mobinas_cfg_t *mobinas_cfg, const char* hr_video_file, const char* sr_video_file)
 {
     //name
     strcpy(mobinas_cfg->prefix, sr_video_file);
@@ -113,10 +138,10 @@ static void decode_test_sr(vpx_mobinas_cfg_t *mobinas_cfg, const char* hr_video_
     mobinas_cfg->save_intermediate = 1;
     mobinas_cfg->save_final = 0;
     mobinas_cfg->save_quality_result = 0;
-    mobinas_cfg->save_decode_result = 0;
+    mobinas_cfg->save_decode_result = 1;
 
     //mode
-    mobinas_cfg->mode = DECODE;
+    mobinas_cfg->mode = DECODE_SR;
 
     //adaptive cache
     mobinas_cfg->profile_cache_reset = 0;
@@ -125,7 +150,7 @@ static void decode_test_sr(vpx_mobinas_cfg_t *mobinas_cfg, const char* hr_video_
     decode_test(mobinas_cfg);
 }
 
-static void decode_test_sr_cache(vpx_mobinas_cfg_t *mobinas_cfg, const char *hr_video_file, const char *lr_video_file, const char *sr_video_file,
+static void decode_test_sr_cache(mobinas_cfg_t *mobinas_cfg, const char *hr_video_file, const char *lr_video_file, const char *sr_video_file,
                                  int profile_adaptive_cache, int apply_adaptive_cache)
 {
     //name
@@ -136,10 +161,10 @@ static void decode_test_sr_cache(vpx_mobinas_cfg_t *mobinas_cfg, const char *hr_
 
     //log
     mobinas_cfg->save_serialized_frame = 0;
-    mobinas_cfg->save_decoded_frame = 0;
-    mobinas_cfg->save_intermediate = 0;
+    mobinas_cfg->save_decoded_frame = 1;
+    mobinas_cfg->save_intermediate = 1;
     mobinas_cfg->save_final = 0;
-    mobinas_cfg->save_quality_result = 1;
+    mobinas_cfg->save_quality_result = 0;
     mobinas_cfg->save_decode_result = 1;
 
     //mode
@@ -166,7 +191,7 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
     int target_resolution = (int) jint1;
 
     //initialize mobinas cfg
-    vpx_mobinas_cfg_t mobinas_cfg;
+    mobinas_cfg_t mobinas_cfg;
     memset(&mobinas_cfg, 0, sizeof(mobinas_cfg));
 
     strcpy(mobinas_cfg.video_dir, video_dir);
@@ -229,10 +254,16 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
 
 //    decode_test_hr(&mobinas_cfg, hr_video_file);
 //    decode_test_lr(&mobinas_cfg, lr_video_file);
+    decode_test_bilinear(&mobinas_cfg, lr_video_file, hr_video_file);
 //    decode_test_sr(&mobinas_cfg, hr_video_file, sr_hq_video_file);
+//    decode_test_sr(&mobinas_cfg, hr_video_file, sr_lq_video_file);
 //    decode_test_sr_cache(&mobinas_cfg, hr_video_file, lr_video_file, sr_hq_video_file, 1, 0); //profile adaptive cache
-    decode_test_sr_cache(&mobinas_cfg, hr_video_file, lr_video_file, sr_hq_video_file, 0, 1); //turn-on adaptive cache
+//    decode_test_sr_cache(&mobinas_cfg, hr_video_file, lr_video_file, sr_hq_video_file, 0, 1); //turn-/on adaptive cache
 //    decode_test_sr_cache(&mobinas_cfg, hr_video_file, lr_video_file, sr_hq_video_file, 0, 0); //turn-off adaptive cache
+
+//    decode_test_sr_cache(&mobinas_cfg, hr_video_file, lr_video_file, sr_lq_video_file, 1, 0); //profile adaptive cache
+//    decode_test_sr_cache(&mobinas_cfg, hr_video_file, lr_video_file, sr_lq_video_file, 0, 1); //turn-on adaptive cache
+//    decode_test_sr_cache(&mobinas_cfg, hr_video_file, lr_video_file, sr_lq_video_file, 0, 0); //turn-off adaptive cache
 
     env->ReleaseStringUTFChars(jstr1, video_dir);
     env->ReleaseStringUTFChars(jstr2, log_dir);

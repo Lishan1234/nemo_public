@@ -36,5 +36,5 @@ vpx_codec_peek_stream_info;
 vpx_codec_register_put_frame_cb;
 vpx_codec_register_put_slice_cb;
 vpx_codec_set_frame_buffer_functions;
-vpx_mobinas_cfg_init;
+init_mobinas_cfg;
 local: *; };

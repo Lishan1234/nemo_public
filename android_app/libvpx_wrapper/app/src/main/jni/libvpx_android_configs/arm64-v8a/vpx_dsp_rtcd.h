@@ -15,6 +15,7 @@
 #include "vpx/vpx_integer.h"
 #include "vpx_dsp/vpx_dsp_common.h"
 #include "vpx_dsp/vpx_filter.h"
+#include "vpx/vpx_mobinas.h"
 
 
 #ifdef __cplusplus
@@ -30,15 +31,15 @@ unsigned int vpx_avg_8x8_neon(const uint8_t *, int p);
 #define vpx_avg_8x8 vpx_avg_8x8_neon
 
 void vpx_bilinear_interp_int16_c(const int16_t *src, ptrdiff_t src_stride, uint8_t *dst, ptrdiff_t dst_stride, int x_offset, int y_offset, int width,
-                                                                                int height, int scale, const bilinear_config_t *config);
+                                                                                int height, int scale, const mobinas_bilinear_config_t *config);
 void vpx_bilinear_interp_int16_neon(const int16_t *src, ptrdiff_t src_stride, uint8_t *dst, ptrdiff_t dst_stride, int x_offset, int y_offset, int width,
-                                                                                int height, int scale, const bilinear_config_t *config);
+                                                                                int height, int scale, const mobinas_bilinear_config_t *config);
 #define vpx_bilinear_interp_int16 vpx_bilinear_interp_int16_neon
 
 void vpx_bilinear_interp_uint8_c(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst, ptrdiff_t dst_stride, int x_offset, int y_offset, int width,
-                                                                                int height, int scale, const bilinear_config_t *config);
+                                                                                int height, int scale, const mobinas_bilinear_config_t *config);
 void vpx_bilinear_interp_uint8_neon(const uint8_t *src, ptrdiff_t src_stride, uint8_t *dst, ptrdiff_t dst_stride, int x_offset, int y_offset, int width,
-                                                                                int height, int scale, const bilinear_config_t *config);
+                                                                                int height, int scale, const mobinas_bilinear_config_t *config);
 #define vpx_bilinear_interp_uint8 vpx_bilinear_interp_uint8_neon
 
 void vpx_comp_avg_pred_c(uint8_t *comp_pred, const uint8_t *pred, int width, int height, const uint8_t *ref, int ref_stride);

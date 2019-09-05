@@ -149,15 +149,14 @@ vp9/vp9_iface_common.h
 vp9/vp9cx.mk
 vp9/vp9dx.mk
 vpx/internal/vpx_codec_internal.h
-vpx/src/vpx_cache.c
 vpx/src/vpx_codec.c
 vpx/src/vpx_decoder.c
 vpx/src/vpx_encoder.c
 vpx/src/vpx_image.c
+vpx/src/vpx_mobinas.c
 vpx/vp8.h
 vpx/vp8cx.h
 vpx/vp8dx.h
-vpx/vpx_cache.h
 vpx/vpx_codec.h
 vpx/vpx_codec.mk
 vpx/vpx_decoder.h
@@ -165,6 +164,7 @@ vpx/vpx_encoder.h
 vpx/vpx_frame_buffer.h
 vpx/vpx_image.h
 vpx/vpx_integer.h
+vpx/vpx_mobinas.h
 vpx_config.c
 vpx_dsp/add_noise.c
 vpx_dsp/arm/avg_neon.c

@@ -6,12 +6,13 @@
 #define LIBVPX_WRAPPER_DECODE_TEST_H
 
 #include <vpx/vpx_decoder.h>
+#include <vpx/vpx_mobinas.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern int decode_test(vpx_mobinas_cfg_t *mobinas_cfg);
+extern int decode_test(mobinas_cfg_t *mobinas_cfg);
 
 #ifdef __cplusplus
 }  // extern "C"
