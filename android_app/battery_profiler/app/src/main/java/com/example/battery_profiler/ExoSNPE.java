@@ -218,7 +218,7 @@ public class ExoSNPE extends AppCompatActivity{
         nativeFunctionThread.start();
 
         //make landscape and hide navigation button
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+//        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
 
         //prepare player
