@@ -416,7 +416,7 @@ static int img_shifted_realloc_required(const vpx_image_t *img,
 }
 #endif
 
-#define STOP_AFTER 30
+#define STOP_AFTER 120
 int decode_test(mobinas_cfg_t *mobinas_cfg) {
     vpx_codec_ctx_t decoder;
     int i;

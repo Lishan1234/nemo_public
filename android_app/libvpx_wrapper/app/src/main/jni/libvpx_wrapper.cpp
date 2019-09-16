@@ -112,8 +112,8 @@ static void decode_test_bilinear(mobinas_cfg_t *mobinas_cfg, const char* lr_vide
     mobinas_cfg->save_decoded_frame = 0;
     mobinas_cfg->save_intermediate = 0;
     mobinas_cfg->save_final = 0;
-    mobinas_cfg->save_quality_result = 1;
-    mobinas_cfg->save_decode_result = 0;
+    mobinas_cfg->save_quality_result = 0;
+    mobinas_cfg->save_decode_result = 1;
 
     //mode
     mobinas_cfg->mode = DECODE_BILINEAR;
@@ -133,11 +133,11 @@ static void decode_test_sr(mobinas_cfg_t *mobinas_cfg, const char* hr_video_file
     strcpy(mobinas_cfg->compare_file, hr_video_file);
 
     //log
-    mobinas_cfg->save_serialized_frame = 1;
+    mobinas_cfg->save_serialized_frame = 0;
     mobinas_cfg->save_decoded_frame = 0;
-    mobinas_cfg->save_intermediate = 1;
+    mobinas_cfg->save_intermediate = 0;
     mobinas_cfg->save_final = 0;
-    mobinas_cfg->save_quality_result = 0;
+    mobinas_cfg->save_quality_result = 1;
     mobinas_cfg->save_decode_result = 1;
 
     //mode
@@ -161,10 +161,10 @@ static void decode_test_sr_cache(mobinas_cfg_t *mobinas_cfg, const char *hr_vide
 
     //log
     mobinas_cfg->save_serialized_frame = 0;
-    mobinas_cfg->save_decoded_frame = 1;
-    mobinas_cfg->save_intermediate = 1;
+    mobinas_cfg->save_decoded_frame = 0;
+    mobinas_cfg->save_intermediate = 0;
     mobinas_cfg->save_final = 0;
-    mobinas_cfg->save_quality_result = 0;
+    mobinas_cfg->save_quality_result = 1;
     mobinas_cfg->save_decode_result = 1;
 
     //mode
@@ -254,12 +254,12 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
 
 //    decode_test_hr(&mobinas_cfg, hr_video_file);
 //    decode_test_lr(&mobinas_cfg, lr_video_file);
-    decode_test_bilinear(&mobinas_cfg, lr_video_file, hr_video_file);
+//    decode_test_bilinear(&mobinas_cfg, lr_video_file, hr_video_file);
 //    decode_test_sr(&mobinas_cfg, hr_video_file, sr_hq_video_file);
 //    decode_test_sr(&mobinas_cfg, hr_video_file, sr_lq_video_file);
 //    decode_test_sr_cache(&mobinas_cfg, hr_video_file, lr_video_file, sr_hq_video_file, 1, 0); //profile adaptive cache
 //    decode_test_sr_cache(&mobinas_cfg, hr_video_file, lr_video_file, sr_hq_video_file, 0, 1); //turn-/on adaptive cache
-//    decode_test_sr_cache(&mobinas_cfg, hr_video_file, lr_video_file, sr_hq_video_file, 0, 0); //turn-off adaptive cache
+    decode_test_sr_cache(&mobinas_cfg, hr_video_file, lr_video_file, sr_hq_video_file, 0, 0); //turn-off adaptive cache
 
 //    decode_test_sr_cache(&mobinas_cfg, hr_video_file, lr_video_file, sr_lq_video_file, 1, 0); //profile adaptive cache
 //    decode_test_sr_cache(&mobinas_cfg, hr_video_file, lr_video_file, sr_lq_video_file, 0, 1); //turn-on adaptive cache
