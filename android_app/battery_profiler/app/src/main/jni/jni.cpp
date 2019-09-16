@@ -42,12 +42,13 @@ JNIEXPORT jlong JNICALL Java_com_example_battery_1profiler_ExoSNPE_function1
 
     //b2 = lq
     if(model == 1){
-	    d = "/sdcard/SNPEData/EDSR_transpose_B2_F16_S4.dlc";
+        __android_log_print(ANDROID_LOG_ERROR, "JNITAG", "lq");
+        d = "/sdcard/SNPEData/EDSR_transpose_B2_F16_S4.dlc";
 	}
-
     //b8 = hq
 	else{
-	    d = "/sdcard/SNPEData/EDSR_transpose_B8_F48_S4.dlc";
+        __android_log_print(ANDROID_LOG_ERROR, "JNITAG", "hq");
+        d = "/sdcard/SNPEData/EDSR_transpose_B8_F48_S4.dlc";
 	}
 
     __android_log_print(ANDROID_LOG_ERROR, "JNITAG", "hi jni fine%d, %d fps",minutes, fps);

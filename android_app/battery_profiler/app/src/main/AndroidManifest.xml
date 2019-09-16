@@ -21,6 +21,7 @@
         </activity>
 
         <activity android:name=".ExoSNPE"
+            android:screenOrientation="landscape"
             android:label="@string/app_name"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar.FullScreen">
         </activity>

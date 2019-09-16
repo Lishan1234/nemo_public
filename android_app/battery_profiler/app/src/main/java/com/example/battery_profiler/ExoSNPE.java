@@ -49,7 +49,7 @@ public class ExoSNPE extends AppCompatActivity{
         System.loadLibrary("snpeJNI");
     }
 
-    private class LaunchMainFunction extends Thread{
+    private class LaunchMainFunction extends Thread {
         int minutes;
         int model;
         int fps;
@@ -80,6 +80,7 @@ public class ExoSNPE extends AppCompatActivity{
     PlayerView mPlayerView;
     SimpleExoPlayer mSimpleExoPlayer;
     BatteryManager mBatteryManager;
+    Handler handler;
 
     String video = "https://storage.googleapis.com/exoplayer-test-media-1/gen-3/screens/dash-vod-single-segment/video-vp9-360.webm";
 
@@ -92,7 +93,6 @@ public class ExoSNPE extends AppCompatActivity{
     FileOutputStream fos;
 
     LaunchMainFunction nativeFunctionThread;
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -185,7 +185,7 @@ public class ExoSNPE extends AppCompatActivity{
         setContentView(R.layout.exoplayer);
 
         //make landscape and hide navigation button
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+//        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
 
         //prepare player
@@ -213,12 +213,12 @@ public class ExoSNPE extends AppCompatActivity{
         //timer will probably call finish before SNPE breaks out of its time loop which may be problematic- use finish boolean.
         //timer can only finish if SNPE already done.
         //SNPE should also check if timer finished, and call finish by itself if timer done.
-
         nativeFunctionThread= new LaunchMainFunction(snpe_mode, minutes,fps);
         nativeFunctionThread.start();
 
+
         //make landscape and hide navigation button
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+//        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
 
         //prepare player
@@ -321,7 +321,6 @@ public class ExoSNPE extends AppCompatActivity{
                         e.printStackTrace();
                     }
                     finish();
-
                 }else{
                     minutes--;
                 }
@@ -335,6 +334,7 @@ public class ExoSNPE extends AppCompatActivity{
             message = handler.obtainMessage();
             handler.sendMessageDelayed(message, i*60000);
         }
+
     }
 
     //Make new log file and assign global stream
