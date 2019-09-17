@@ -33,7 +33,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         final String name = "mobinas";
-        final String content = "starcraft";
+        final String content = "movie";
         final int target_resolution = 1080;
         final int scale = 4;
 

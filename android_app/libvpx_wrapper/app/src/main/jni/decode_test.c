@@ -662,12 +662,6 @@ int decode_test(mobinas_cfg_t *mobinas_cfg) {
                 dx_time_ = dx_time;
                 vpx_usec_timer_start(&timer);
 
-                /*******************Hyunho************************/
-//                if (mobinas_cfg.mode == DECODE_CACHE) {
-//                    if (cache_config.find(frame_out) != cache_config.end()) mobinas_cfg.apply_sr = cache_config[frame_out];
-//                    else mobinas_cfg.apply_sr = -1;
-//                }
-                /*******************Hyunho************************/
                 if (vpx_codec_decode(&decoder, buf, (unsigned int) bytes_in_buffer,
                                      NULL,
                                      0)) {
