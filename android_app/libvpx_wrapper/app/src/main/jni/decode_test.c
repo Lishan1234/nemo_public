@@ -601,7 +601,10 @@ int decode_test(mobinas_cfg_t *mobinas_cfg) {
         }
     }
 
-    init_mobinas_cfg(&decoder, mobinas_cfg);
+    if (vpx_mobinas_init(&decoder, mobinas_cfg)){
+        LOGE("Failed to initialize mobinas cfg: %s\n", vpx_codec_error(&decoder));
+        goto fail;
+    };
 
 //    int enable_row_mt = 1;
 //    if (interface->fourcc == VP9_FOURCC &&
