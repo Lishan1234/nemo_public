@@ -70,6 +70,7 @@ static void decode_hr(mobinas_cfg_t *mobinas_cfg, const char *hr_video_file)
     mobinas_cfg->decode_mode = DECODE;
     mobinas_cfg->cache_mode = NO_CACHE_RESET;
     mobinas_cfg->dnn_mode = NO_DNN;
+    mobinas_cfg->cache_policy = NO_CACHE_POLICY;
 
     decode_test(mobinas_cfg);
 }
@@ -92,6 +93,7 @@ static void decode_lr(mobinas_cfg_t *mobinas_cfg, const char *lr_video_file)
     mobinas_cfg->decode_mode = DECODE;
     mobinas_cfg->cache_mode = NO_CACHE_RESET;
     mobinas_cfg->dnn_mode = NO_DNN;
+    mobinas_cfg->cache_policy = NO_CACHE_POLICY;
 
     decode_test(mobinas_cfg);
 }
@@ -114,6 +116,7 @@ static void decode_sr_lr(mobinas_cfg_t *mobinas_cfg, const char *lr_video_file)
     mobinas_cfg->decode_mode = DECODE_SR;
     mobinas_cfg->cache_mode = NO_CACHE_RESET;
     mobinas_cfg->dnn_mode = ONLINE_DNN;
+    mobinas_cfg->cache_policy = NO_CACHE_POLICY;
 
     decode_test(mobinas_cfg);
 }
@@ -137,6 +140,7 @@ static void decode_bilinear_lr(mobinas_cfg_t *mobinas_cfg, const char *lr_video_
     mobinas_cfg->decode_mode = DECODE_BILINEAR;
     mobinas_cfg->cache_mode = NO_CACHE_RESET;
     mobinas_cfg->dnn_mode = NO_DNN;
+    mobinas_cfg->cache_policy = NO_CACHE_POLICY;
 
     decode_test(mobinas_cfg);
 }
@@ -149,9 +153,9 @@ static void decode_sr(mobinas_cfg_t *mobinas_cfg, const char *hr_video_file, con
     strcpy(mobinas_cfg->compare_file, hr_video_file);
 
     //log
-    mobinas_cfg->save_serialized_frame = 0;
+    mobinas_cfg->save_serialized_frame = 1;
     mobinas_cfg->save_decoded_frame = 0;
-    mobinas_cfg->save_intermediate = 0;
+    mobinas_cfg->save_intermediate = 1;
     mobinas_cfg->save_final = 0;
     mobinas_cfg->save_quality_result = 1;
     mobinas_cfg->save_decode_result = 1;
@@ -160,11 +164,13 @@ static void decode_sr(mobinas_cfg_t *mobinas_cfg, const char *hr_video_file, con
     mobinas_cfg->decode_mode = DECODE;
     mobinas_cfg->cache_mode = NO_CACHE_RESET;
     mobinas_cfg->dnn_mode = NO_DNN;
+    mobinas_cfg->cache_policy = NO_CACHE_POLICY;
 
     decode_test(mobinas_cfg);
 }
 
-static void decode_cache_lr(mobinas_cfg_t *mobinas_cfg, const char *hr_video_file, const char *lr_video_file, const char *sr_video_file, mobinas_cache_mode cache_mode, mobinas_dnn_mode dnn_mode)
+static void decode_cache_lr(mobinas_cfg_t *mobinas_cfg, const char *hr_video_file, const char *lr_video_file, const char *sr_video_file,
+                            mobinas_cache_mode cache_mode, mobinas_dnn_mode dnn_mode, mobinas_cache_policy cache_policy)
 {
     //name
     strcpy(mobinas_cfg->target_file, lr_video_file);
@@ -184,6 +190,7 @@ static void decode_cache_lr(mobinas_cfg_t *mobinas_cfg, const char *hr_video_fil
     mobinas_cfg->decode_mode = DECODE_CACHE;
     mobinas_cfg->cache_mode = cache_mode;
     mobinas_cfg->dnn_mode = dnn_mode;
+    mobinas_cfg->cache_policy = cache_policy;
 
     decode_test(mobinas_cfg);
 }
@@ -263,12 +270,14 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVid
         return;
     }
 
+    LOGD("%s %s %s %s %s", hr_video_file, lr_video_file, lr_bicubic_video_file, sr_hq_video_file, sr_lq_video_file);
+
 //    decode_hr(&mobinas_cfg, hr_video_file);
 //    decode_lr(&mobinas_cfg, lr_video_file);
 //    decode_sr_lr(&mobinas_cfg, lr_video_file);
 //    decode_bilinear_lr(&mobinas_cfg, lr_video_file, hr_video_file);
 //    decode_sr(&mobinas_cfg, hr_video_file, sr_hq_video_file);
-    decode_cache_lr(&mobinas_cfg, hr_video_file, lr_video_file, sr_hq_video_file, NO_CACHE_RESET, OFFLINE_DNN);
+    decode_cache_lr(&mobinas_cfg, hr_video_file, lr_video_file, sr_hq_video_file, NO_CACHE_RESET, OFFLINE_DNN, KEY_FRAME_CACHE);
 
 
     env->ReleaseStringUTFChars(jstr1, video_dir);
