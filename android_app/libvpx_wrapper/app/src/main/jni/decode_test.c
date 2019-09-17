@@ -416,7 +416,6 @@ static int img_shifted_realloc_required(const vpx_image_t *img,
 }
 #endif
 
-#define STOP_AFTER 120
 int decode_test(mobinas_cfg_t *mobinas_cfg) {
     vpx_codec_ctx_t decoder;
     int i;
@@ -424,9 +423,9 @@ int decode_test(mobinas_cfg_t *mobinas_cfg) {
     uint8_t *buf = NULL;
     size_t bytes_in_buffer = 0, buffer_size = 0;
     FILE *infile;
-    int stop_after = STOP_AFTER, frame_in = 0, frame_out = 0, flipuv = 0, noblit = 1;
+    int stop_after = 30, frame_in = 0, frame_out = 0, flipuv = 0, noblit = 1;
     int do_md5 = 0, progress = 0;
-    int postproc = 0, summary = 0, quiet = 1; //TODO (hyunho): set stop_after by configuration ...
+    int postproc = 0, summary = 0, quiet = 1; //TODO (hyunho): set stop_after by configuration
     int arg_skip = 0;
     int ec_enabled = 0;
     int keep_going = 0;
@@ -495,7 +494,7 @@ int decode_test(mobinas_cfg_t *mobinas_cfg) {
     //TODO: remove existing frames for all contents (using python)
     //create a cache config
 //    std::map<int, int> cache_config;
-//    if (mobinas_cfg.mode == DECODE_SR_CACHE) {
+//    if (mobinas_cfg.mode == DECODE_CACHE) {
 //        cache_config.insert(std::pair<int, int>(0, 0)); // key frame
 //        cache_config.insert(std::pair<int, int>(30, 0)); //key frame
 //        cache_config.insert(std::pair<int, int>(60, 0)); //key frame
@@ -664,7 +663,7 @@ int decode_test(mobinas_cfg_t *mobinas_cfg) {
                 vpx_usec_timer_start(&timer);
 
                 /*******************Hyunho************************/
-//                if (mobinas_cfg.mode == DECODE_SR_CACHE) {
+//                if (mobinas_cfg.mode == DECODE_CACHE) {
 //                    if (cache_config.find(frame_out) != cache_config.end()) mobinas_cfg.apply_sr = cache_config[frame_out];
 //                    else mobinas_cfg.apply_sr = -1;
 //                }
