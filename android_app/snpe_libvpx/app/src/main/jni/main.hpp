@@ -1,0 +1,1 @@
+int fake_main(const char * name, const char * buffer_type, const char * dlc_path, const char * input_path, const char * output_path);
