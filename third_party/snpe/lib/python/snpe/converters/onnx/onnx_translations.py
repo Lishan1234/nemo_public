@@ -7,40 +7,14 @@
 # ==============================================================================
 
 from snpe.converters.common.converter_ir import translation, op_adapter
+from snpe.converters.common.converter_ir.axis_tracker import AxisTracker
+from snpe.converters.onnx.op_schema import OpSchemaBase, OpSchemaDict, OP_SCHEMA_REGISTRY
 from .util import *
-
-OP_VERSION_SUPPORTED = {
-    'argmax': [1],
-    'input': [1],
-    'batchnorm': [1, 6, 7],
-    'convolution': [1],
-    'concatenation': [1, 4],
-    'constant': [1],
-    'crop': [1],
-    'deconvolution': [1],
-    'elementwise_max': [1, 6, 8],
-    'elementwise_product': [1, 6, 7],
-    'elementwise_sum': [1, 6, 7],
-    'fully_connected': [1],  # Handles FC, GEMM and MatMul. Ignored GEMM op set until it's support is there.
-    'neuron': [1, 6],  # Handles Clip, Relu, Sigmoid, Tanh , and Elu operations for now.
-    'pad': [1, 2],
-    'pool': [1],
-    'permute': [1],
-    'prelu': [1, 6, 7],
-    'reshape': [1, 5],  # Handles Flatten {1} and Reshape {1, 5} operations. Used the larger set for now.
-    'rnorm': [1],
-    'roi_pooling': [1],
-    'resize': [1],  # TO_DO
-    'shape': [1],
-    'slice': [1],
-    'squeeze': [1],
-    'softmax': [1],
-    'unsqueeze': [1]
-}
 
 OnnxTranslations = translation.TranslationBank()
 
 # onnx specific translation method keys
+ADD_INPUT_OP = "ADD_INPUT_OP"
 SUPPORTED_VERSION = "SUPPORTED_VERSION"
 
 
@@ -48,6 +22,7 @@ class OnnxTranslationBase(translation.ConversionTranslationBase):
     def __init__(self):
         translation.ConversionTranslationBase.__init__(self)
         self.register_method(SUPPORTED_VERSION, self.get_supported_version)
+        self._op_schema = OpSchemaDict()  # dictionary-style class that maps {version:op_schema}
 
     def extract_parameters(self, src_op, graph):
         raise NotImplementedError("extract_parameters for {} not implemented ".format(str(self.__class__.__name__)))
@@ -58,21 +33,115 @@ class OnnxTranslationBase(translation.ConversionTranslationBase):
     def extract_output_names(self, src_op, graph):
         return list(map(str, src_op.output))
 
+    def populate_axes_format(self, node, graph):
+        output_buffers = graph.get_output_buffers(node)
+        for buf in output_buffers:
+            if node.op.type == op_adapter.InputOp.TRANSLATION_KEY:
+                if node.op.image_type == 'opaque':
+                    buf.axis_format = AxisTracker.AxisFormat.NONTRIVIAL
+                elif buf.rank() == 4:
+                    buf.axis_format = AxisTracker.AxisFormat.NCS
+                    node.op.shape = buf.shape
+                elif buf.rank() == 3:
+                    buf.axis_format = AxisTracker.AxisFormat.TBF
+                    node.op.shape = buf.shape
+                elif buf.rank() == 2:
+                    buf.axis_format = AxisTracker.AxisFormat.FEATURE
+                    node.op.shape = buf.shape
+                else:
+                    raise ValueError(code_to_message.get_error_message("ERROR_INPUT_UNEXPECTED_RANK")(node.op.name,
+                                                                                                      buf.rank()))
+            else:
+                if buf.rank() == 4:
+                    buf.axis_format = AxisTracker.AxisFormat.NCS
+                elif buf.rank() == 3:
+                    buf.axis_format = AxisTracker.AxisFormat.TBF
+                elif buf.rank() == 2:
+                    buf.axis_format = AxisTracker.AxisFormat.FEATURE
+                else:
+                    buf.axis_format = AxisTracker.AxisFormat.NONTRIVIAL
+
     def get_supported_version(self):
-        raise NotImplementedError("get_supported_version for {} not implemented ".format(str(self.__class__.__name__)))
+        try:
+            version = map(int, self._op_schema.get_schemas().keys())
+            return version
+        except Exception as e:
+            raise NotImplementedError("get_supported_version for {} not implemented ".format(str(self.__class__.__name__)))
+
+    def register_op_schema(self, name, versions, unsupported_attrs=None):
+        """
+               Wraps Onnx's internal schema definition into a condensed op_schema_dict internal object (OpSchemaDict)
+               which contains individual op_schema(s)(OpSchemaBase) that tie supported attributes,
+               number of inputs and outputs to the appropriate op version
+
+               :param name: The type of op to be registered
+               :param versions : list of versions of the op to be registered. Note the versions must be available in
+                                 the Onnx spec.
+               :param unsupported_attrs: A list of lists of unsupported attrs, which are in the Onnx spec
+                                        for an op version but are not supported by the translation
+
+               registers the resulting op_schema dictionary with the translation, as well as with a
+               global schema registry
+
+        """
+
+        if unsupported_attrs:
+            while len(unsupported_attrs) < len(versions):
+                unsupported_attrs.append(unsupported_attrs[0])
+        else:
+            unsupported_attrs = [[] for _ in range(len(versions))]
+
+        for i, version in enumerate(versions):
+            schema = defs.get_schema(name, version, '')
+            op_schema = OpSchemaBase()
+            op_schema.populate_op_schema(schema, unsupported_attrs[i])
+            self._op_schema.add_schema(op_schema, version)
+
+        OP_SCHEMA_REGISTRY[name.lower()] = self._op_schema
+
+    def op_schema(self, version=None):
+        if version is not None:
+            return self._op_schema.get_schemas(version)
+        return self._op_schema.get_schemas().values()[-1]
 
 
-# ---------------------------------------
+# -----------------------------------------------------------------
 # Converter translations
-# Note: ONNX doesn't have an input layer
-# ---------------------------------------
+# Note: ONNX doesn't have input op(s) but we create one for the IR
+# -----------------------------------------------------------------
+class OnnxInputTranslation(OnnxTranslationBase):
+    def __init__(self):
+        OnnxTranslationBase.__init__(self)
+        self.register_method(ADD_INPUT_OP, self.add_input_op)
+
+    def add_input_op(self, input_, graph):
+        name = str(input_.name)
+        tensor_shape = input_.type.tensor_type.shape
+        shape = [int(dim.dim_value) for dim in tensor_shape.dim]
+        neg_idx = [idx for idx in range(len(shape)) if shape[idx] < 0]
+        # TODO Handle proper image encoding conversions
+        if len(shape) == 4 and not neg_idx:
+            node = graph.add_input(name, shape, 'bgr', 'default')
+        elif neg_idx:
+            raise RuntimeError('SNPE does not support negative/placeholder dimensions.'
+                               'Expected shape: {} > 0'.format(shape))
+        else:
+            node = graph.add_input(name, shape, 'bgr', 'opaque')
+        self.populate_axes_format(node, graph)
+
+
+OnnxTranslations.register_translation(OnnxInputTranslation(),
+                                      converter_type('input', 'onnx'),
+                                      op_adapter.InputOp.TRANSLATION_KEY)
+
 
 # ------------------------------------------------------------------------------
-#   Dropout, and other Noops
+#   Dropout and other Noops
 # ------------------------------------------------------------------------------
 class OnnxNoopTranslation(OnnxTranslationBase):
     def __init__(self):
         OnnxTranslationBase.__init__(self)
+        self.register_op_schema('Dropout', [1])
 
     def extract_parameters(self, src_op, graph):
         return op_adapter.Noop(src_op.name)
@@ -80,12 +149,9 @@ class OnnxNoopTranslation(OnnxTranslationBase):
     def extract_output_names(self, src_op, graph):
         return [str(src_op.output[0])]
 
-    def get_supported_version(self):
-        return {}
-
 
 OnnxTranslations.register_translation(OnnxNoopTranslation(),
-                                      onnx_type('Dropout'),
+                                      converter_type('Dropout', 'onnx'),
                                       op_adapter.Noop.TRANSLATION_KEY)
 
 
@@ -116,23 +182,42 @@ OnnxTranslations.register_translation(OnnxStaticTranslation(), op_adapter.Static
 # ------------------------------------------------------------------------------
 # Returns name and version information about an op from a particular model
 class OpVersionInfo:
-    model_opset_version = 0
-
     def __init__(self):
-        self.op_version_dict = dict()
-        self.setup_op_version_dict()
+        self.model_opset_version = 0
 
-    def setup_op_version_dict(self):
-        for schema in defs.get_all_schemas_with_history():
-            # Splitting the operator name and storing the version in op_version_dict
-            self.op_version_dict[op_type(schema.name)] = schema.since_version
-
-    def get_op_ver_dict(self):
-        return self.op_version_dict
+    @staticmethod
+    def update_schema_registry(src_op_type, op_version):
+        """ Updates the schema registry so that get_op_schema(src_op_type) will always return the appropriate schema
+            for the global model opset version """
+        op_schema_dict = OP_SCHEMA_REGISTRY[src_op_type.lower()]
+        if op_schema_dict.get_schemas().keys()[-1] != str(op_version):
+            op_schema_dict.reorder_op_schemas(str(op_version))
 
     def validate_op_ver(self, src_op, supported_version):
-        if self.op_version_dict[op_type(src_op.op_type)] not in supported_version:
-            log_warning(code_to_message.get_warning_message("WARNING_OP_NOT_SUPPORTED")(src_op.op_type))
+        """
+
+        :param src_op: The op from the Onnx framework
+        :param supported_version: The version of the op supported by the Onnx Converter
+        :return: a warning if the opset_version for the source op does not match any version supported
+                 by the converter
+                 updates the schema registry if the src_op version is supported, so that any schema calls (self.op_schema()
+                 or get_op_schema) will return the src_op_version.
+        """
+
+        # This uses the model version to extract the associated opset version for a given op
+        # For example: The scenarios are described below
+        #              supported_version = [1, 6, 7]
+        #              Model_opset_version = 3,    Model_opset_version = 7,   Model_opset_version = 9
+        #              current_op_version = 1,     current_op_version = 7     current_op_version = 8
+        #                                                                     returns a warning
+        #
+
+        current_op_version = int(defs.C.get_schema(src_op.op_type, self.model_opset_version, '').since_version)
+        if current_op_version not in supported_version:
+            log_warning(code_to_message.get_warning_message("WARNING_OP_VERSION_NOT_SUPPORTED")
+                        (src_op.op_type, map(int, supported_version), [current_op_version]))
+        else:
+            self.update_schema_registry(src_op.op_type, current_op_version)
 
     def set_global_op_ver(self, model):
         """ Sets the highest global op version supported by the model"""
@@ -141,21 +226,5 @@ class OpVersionInfo:
             log_warning(code_to_message.get_warning_message("WARNING_OPSET_VERSION"))
 
         for opset in model.opset_import:
-            if opset.version > OpVersionInfo.model_opset_version:
-                OpVersionInfo.model_opset_version = opset.version
-
-    @staticmethod
-    def onnx_op_ver(src_op, supported_version):
-        """Return the actual op version. If embedded in the op name return that,
-           otherwise get the global op version and correlate to the highest op version
-           supported as per the onnx.proto specification"""
-        onnx_data = get_op_info(src_op.op_type)
-        # If op is missing version, use the version as the minimum of the supported
-        # model opset version and the largest supported op version in the converter
-        # TODO See if there is a way to lookup the current op version information for
-        # a given model_opset_version... this is really what we should be using instead
-        # of the actual model_opset_verison
-        if onnx_data[1] == 0:
-            min_supported_version = min(supported_version[-1], OpVersionInfo.model_opset_version)
-            return onnx_data[0], min_supported_version
-        return onnx_data[0], onnx_data[1]
+            if opset.version > self.model_opset_version:
+                self.model_opset_version = opset.version

@@ -22,8 +22,9 @@ from snpe.converters.tensorflow.util import GraphHelper
 
 class ConcatLayerResolver(LayerResolver, object):
     class Descriptor(LayerDescriptor):
-        def __init__(self, name, nodes, axis):
-            super(ConcatLayerResolver.Descriptor, self).__init__('Concatenation', name, nodes)
+        def __init__(self, name, nodes, axis, output_names=None):
+            super(ConcatLayerResolver.Descriptor, self).__init__('Concatenation', name, nodes,
+                                                                 output_names=output_names)
             self.axis = axis
 
     def __init__(self):
@@ -38,7 +39,8 @@ class ConcatLayerResolver(LayerResolver, object):
         for match in matches:
             concat_op = match['root']
             consumed_nodes = match.consumed_nodes
-            concat_descriptor = ConcatLayerResolver.Descriptor(str(concat_op.name), consumed_nodes, None)
+            concat_descriptor = ConcatLayerResolver.Descriptor(str(concat_op.name), consumed_nodes,
+                                                               None, [concat_op.outputs[0].name])
 
             non_const_inputs = [tensor for tensor in concat_op.inputs if tensor.op.type != 'Const']
             const_ops = [tensor.op for tensor in concat_op.inputs if tensor.op.type == 'Const']

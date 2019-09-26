@@ -38,7 +38,7 @@ class ImageProjectiveTransformLayerResolver(LayerResolver, object):
             output_op_nodes_names = [str(image_proj_transform.outputs[0].name)]
             consumed_nodes = match.consumed_nodes
 
-            interpolation = str(image_proj_transform.get_attr('interpolation'))
+            interpolation = str(image_proj_transform.get_attr('interpolation').decode('utf-8'))
             if interpolation == "BILINEAR":
                interpolation_mode = 0
             elif interpolation == "NEAREST":

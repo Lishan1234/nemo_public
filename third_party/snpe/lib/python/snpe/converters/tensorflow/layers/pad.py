@@ -28,6 +28,7 @@ from snpe.converters.tensorflow.util import ConverterError
 
 
 class PadLayerResolver(LayerResolver, object):
+    TF_ATTRIBUTE_MODE = 'mode'
 
     class Descriptor(LayerDescriptor):
         def __init__(self, name, nodes, paddings, mode, constant_values, output_names=None):
@@ -54,13 +55,30 @@ class PadLayerResolver(LayerResolver, object):
         self.sequence_with_const_padding.set_inputs('root', ['input', 'paddings', 'const_values'])
         self.sequence_with_const_padding.set_outputs(['root'])
 
-        self.sequences = [self.sequence_with_zero_padding, self.sequence_with_const_padding]
+        self.sequence_with_reflect_padding = GraphSequence([
+            ConverterSequenceNode('mirror_pad', ['MirrorPad']),
+            ConverterSequenceNode('paddings', ['Const']),
+            NonConsumableConverterSequenceNode('input', ['?']),
+        ])
+        self.sequence_with_reflect_padding.set_inputs('mirror_pad', ['input', 'paddings'])
+        self.sequence_with_reflect_padding.set_outputs(['mirror_pad'])
+
+        self.sequences = [self.sequence_with_zero_padding, self.sequence_with_const_padding, self.sequence_with_reflect_padding]
 
     def resolve_layer(self, graph_matcher, graph_helper):
         descriptors = []
         for sequence in self.sequences:
             for match in graph_matcher.match_sequence(sequence):
-                pad_op = match['root']
+                pad_op = None
+                mode_values = modeltools.PADDING_CONSTANT
+                if 'root' in match:
+                    pad_op = match['root']
+                if 'mirror_pad' in match:
+                    pad_op = match['mirror_pad']
+                    mode = pad_op.get_attr(self.TF_ATTRIBUTE_MODE)
+                    if mode.decode() == "REFLECT":
+                        mode_values = modeltools.PADDING_REFLECT
+
                 input_op = match['input']
                 paddings_op = match['paddings']
 
@@ -84,7 +102,7 @@ class PadLayerResolver(LayerResolver, object):
                 consumed_nodes = match.consumed_nodes
                 pad_descriptor = PadLayerResolver.Descriptor(
                     str(pad_op.name), consumed_nodes, paddings_tensor,
-                    modeltools.PADDING_CONSTANT, const_values,
+                    mode_values, const_values,
                     output_names=[str(pad_op.outputs[0].name)])
                 descriptors.extend([pad_descriptor])
 

@@ -64,7 +64,7 @@ def check_adb_version(adb_path):
         raise ValueError("sdk-tests require adb version %s. Found adb version %s at %s" % (recommended_adb_version, adb_version, adb_path))
 
 class Adb(object):
-    def __init__(self, adb_executable, device, master_id=None):
+    def __init__(self, adb_executable, device, master_id=None, hostname='localhost'):
         if not os.path.exists(adb_executable):
             exists = False
             for path in os.environ['PATH'].split(os.pathsep):
@@ -77,6 +77,7 @@ class Adb(object):
         self.__adb_executable = adb_executable
         self.__master_id = master_id
         self._adb_device = device
+        self._hostname = 'localhost' if hostname is None else hostname
 
     @retry()
     def push(self, src, dst, cwd='.'):
@@ -149,7 +150,7 @@ class Adb(object):
         return code, out, err
 
     def _execute(self, command, args, cwd='.'):
-        adb_command_args = ["-s", self._adb_device, command] + args
+        adb_command_args = ['-H', self._hostname, '-s', self._adb_device, command] + args
         (return_code, output, error) = execute(self.__adb_executable, adb_command_args, cwd=cwd, timeout=Timeouts.ADB_DEFAULT_TIMEOUT)
         # when the process gets killed, it will return -9 code; Logging this error for debug purpose
         if return_code == -9:
@@ -173,7 +174,8 @@ class Adb(object):
 
         devices = []
         for line in out:
-            match_obj = re.match("^([a-zA-Z0-9]+)\s+device", line, re.M)
+            # Checking the connected adb devices with serial id and ip address
+            match_obj = re.match("^([a-zA-Z0-9.]+(:[0-9]+)?)\s+device", line, re.M)
             if match_obj:
                 devices.append(match_obj.group(1))
         return code, devices, err
@@ -210,16 +212,15 @@ class Adb(object):
         return ret == 0
 
     def is_device_online(self):
-        adb_command_args = ["-s", self._adb_device, 'wait-for-device']
-        code, out, err = execute(self.__adb_executable, adb_command_args, timeout=300)
+        code, out, err = self._execute('wait-for-device', [])
         return code == 0
 
     def getmetabuild(self):
         try:
-            from device_utils import get_metabuild
+            from .device_utils import get_metabuild
             os_type, metabuild = get_metabuild(self, logger)
             return os_type, metabuild
-        except:
+        except Exception as e:
             return UNKNOWN, UNKNOWN
 
     def recover_device(self):

@@ -14,10 +14,12 @@ import logging
 import os
 import webbrowser
 import sys
-
+if sys.version_info[0] == 3:
+    from importlib import reload
 # set encoding to utf8
 reload(sys)
-sys.setdefaultencoding('utf8')
+if sys.version_info[0] == 2:
+    sys.setdefaultencoding('utf8')
 
 try:
     from snpe.dlc_utils import snpe_dlc_utils
@@ -73,11 +75,17 @@ def model_info_to_graph_info(rows_all, total_macs, total_params):
         # Get param_count per inference if it exists
         param_count = row.get_num_params()
         if param_count>0:
-            parms.append('<br/>param count '+ get_si_notation(param_count, total_params))
+            parms.append('<br/>param count: '+ get_si_notation(param_count, total_params))
+
         # Get MACs per inference if it exists
         macs = row.get_macs()
         if macs>0:
-            parms.append('<br/>MACs per inference '+ get_si_notation(macs, total_macs))
+            parms.append('<br/>MACs per inference: '+ get_si_notation(macs, total_macs))
+
+        # Insert Affinity here
+        if row.layer_affinity != 'UNSET':
+            parms.append('<br/>Layer Affinity: '+ row.layer_affinity)
+
         # Create a node for the layer
         nodes.append({'name':row.name, 'parameters':parms, 'type': row.type})
         for out_name in out_names_list:
@@ -88,6 +96,8 @@ def model_info_to_graph_info(rows_all, total_macs, total_params):
             # To avoid self loop
             if in_name != row.name:
                 links.append({"source":in_name, "target":row.name})
+
+
 
     return nodes, links
 
@@ -109,11 +119,9 @@ def main():
     m = snpe_dlc_utils.ModelInfo()
     rows_all = m.extract_model_info(args.input_dlc)
 
-    total_params = 0
-    total_macs = 0
-    for row in rows_all:
-        total_params += row.get_num_params()
-        total_macs += row.get_macs()
+    total_params = m.get_total_params()
+    total_macs = m.get_total_macs()
+
     # Add method to ModelInfo class
     nodes, links = model_info_to_graph_info(rows_all, total_macs, total_params)
     # get meta-data from ModelInfo class
@@ -162,67 +170,71 @@ def main():
     # add to the html template
     filedata = filedata.replace('??copyright_table??', '%s' % model_copyright_table)
 
-    # get aix info if it exists
-    aix_table = ""
     if m.is_aix_enabled():
-        try:
-            aix_records = m.get_aix_records()
-            warning_msgs = ""
-            headers = ["AIP Record Name", "nnc_version", "hta_driver_version", "record_version", "record_size", "Subnets"]
-            aix_table += "<tr>"
-            for header in headers:
-                aix_table += "<th class='info_headers'>" + header + "</th>"
-            aix_table += "</tr>"
-            for aix_record_name, aix_meta_info in aix_records.items():
-                aix_table += "<tr><td>" + aix_record_name + "</td>" # add the record name column
+        # get aix info if it exists
+        if m.is_aix_record_present():
+            try:
+                aix_records = m.get_aix_records()
+                warning_msgs = ""
+                headers = ["AIP Record Name", "nnc_version", "hta_driver_version", "record_version", "record_size", "Subnets"]
+                aix_table = "<tr>"
+                for header in headers:
+                    aix_table += "<th class='info_headers'>" + header + "</th>"
+                aix_table += "</tr>"
+                for aix_record_name, aix_meta_info in aix_records.items():
+                    aix_table += "<tr><td>" + aix_record_name + "</td>" # add the record name column
 
-                # add everything after name but before Subnets(since Subnets have further info)
-                for i in range(1, len(headers) - 1):
-                    aix_table += "<td>" + str(aix_meta_info[headers[i]]) + "</td>"
+                    # add everything after name but before Subnets(since Subnets have further info)
+                    for i in range(1, len(headers) - 1):
+                        aix_table += "<td>" + str(aix_meta_info[headers[i]]) + "</td>"
 
-                subnet_col = "num_of_subnets: " + str(aix_meta_info['num_of_subnets'])
-                aix_table += "<td>" + subnet_col
+                    subnet_col = "num_of_subnets: " + str(aix_meta_info['num_of_subnets'])
+                    aix_table += "<td>" + subnet_col
 
-                # Add subnets meta info for record
-                if aix_meta_info['compatibility']:
-                    for j in range(0, aix_meta_info['num_of_subnets']):
-                        subnet_name = "subnet_" + str(j)
-                        aix_table += "<p style='margin:0'>" + subnet_name + ':</p>'
-                        # note: separated if cases for start/end ids so that they get printed one after the other for
-                        #        better visual. Python was ordering them randomly even if OrderedDict was used.
-                        if "start_layer_Id" in aix_meta_info[subnet_name].keys():
-                            aix_table += "<p style='padding-left:15px; margin:0'> start_layer_Id: " \
-                                         + str(aix_meta_info[subnet_name]["start_layer_Id"]) \
-                                         + "</p>"
-                            aix_meta_info[subnet_name].pop("start_layer_Id")
-                        if "end_layer_Id" in aix_meta_info[subnet_name].keys():
-                            aix_table += "<p style='padding-left:15px; margin:0'> end_layer_Id: " \
-                                         + str(aix_meta_info[subnet_name]["end_layer_Id"]) \
-                                         + "</p>"
-                            aix_meta_info[subnet_name].pop("end_layer_Id")
+                    # Add subnets meta info for record
+                    if aix_meta_info['compatibility']:
+                        for j in range(0, aix_meta_info['num_of_subnets']):
+                            subnet_name = "subnet_" + str(j)
+                            aix_table += "<p style='margin:0'>" + subnet_name + ':</p>'
+                            # note: separated if cases for start/end ids so that they get printed one after the other for
+                            #        better visual. Python was ordering them randomly even if OrderedDict was used.
+                            if "start_layer_Id" in aix_meta_info[subnet_name].keys():
+                                aix_table += "<p style='padding-left:15px; margin:0'> start_layer_Id: " \
+                                             + str(aix_meta_info[subnet_name]["start_layer_Id"]) \
+                                             + "</p>"
+                                aix_meta_info[subnet_name].pop("start_layer_Id")
+                            if "end_layer_Id" in aix_meta_info[subnet_name].keys():
+                                aix_table += "<p style='padding-left:15px; margin:0'> end_layer_Id: " \
+                                             + str(aix_meta_info[subnet_name]["end_layer_Id"]) \
+                                             + "</p>"
+                                aix_meta_info[subnet_name].pop("end_layer_Id")
 
-                        for subnet_key, subnet_value in aix_meta_info[subnet_name].items():
-                            if isinstance(subnet_value, list):
-                                aix_table += "<p style='padding-left:15px; margin:0'>" + str(subnet_key) + ":</p>"
-                                for value in subnet_value:
-                                    aix_table += "<p style='padding-left:25px; margin:0'>" + str(value) + "</p>"
-                            else:
-                                aix_table += "<p style='padding-left:15px; margin:0'>" + str(subnet_key) + ": " + str(subnet_value) + "</p>"
-                    aix_table += "</td>"
-                else:
-                    # add warning message if record is not compatible with current version of snpe
-                    warning_msgs += "- Record " + aix_record_name + " is incompatible with the latest version of SNPE\n"
+                            for subnet_key, subnet_value in aix_meta_info[subnet_name].items():
+                                if isinstance(subnet_value, list):
+                                    aix_table += "<p style='padding-left:15px; margin:0'>" + str(subnet_key) + ":</p>"
+                                    for value in subnet_value:
+                                        aix_table += "<p style='padding-left:25px; margin:0'>" + str(value) + "</p>"
+                                else:
+                                    aix_table += "<p style='padding-left:15px; margin:0'>" + str(subnet_key) + ": " + str(subnet_value) + "</p>"
+                        aix_table += "</td>"
+                    else:
+                        # add warning message if record is not compatible with current version of snpe
+                        warning_msgs += "- Record " + aix_record_name + " is incompatible with the latest version of SNPE\n"
 
-            if len(warning_msgs):
-                raise Exception(warning_msgs)
+                if len(warning_msgs):
+                    raise Exception(warning_msgs)
 
-        except Exception as e:
-            aix_table += "</table><p class='error'>Error querying AIP data:\n" + e.message + "</p>"
+            except Exception as e:
+                aix_table += "</table><p class='error'>Error querying AIP data:\n" + e.message + "</p>"
+        else:
+            aix_table = "<tr><td> No AIP Records Found in model. </td></tr>"
+
+        # add to the html template
+        filedata = filedata.replace('??aix_table??', '%s' % aix_table)
+        filedata = filedata.replace('??is_use_aix_set??', '%s' % "block") # enable AIX info tab
+
     else:
-        aix_table = "<tr><td> No AIP Records Found in model. </td></tr>"
-
-    # add to the html template
-    filedata = filedata.replace('??aix_table??', '%s' % aix_table)
+        filedata = filedata.replace('??is_use_aix_set??', '%s' % "none")  # Disable displaying AIX info tab in HTML output
 
     html_out = ""
     if args.save:

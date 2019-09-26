@@ -294,10 +294,12 @@ class FusedBatchNormNormLayerResolver(BatchNormLayerResolver):
             if len(parameter_tensors) < 4:
                 raise ConverterError(code_to_message.get_error_message('ERROR_TF_BATCHNORM_GLOBALNORMALIZATION_INPUT'))
             epsilon = bn_op.get_attr('epsilon')
-            scale = parameter_tensors[0]
-            beta = parameter_tensors[1]
-            mean = parameter_tensors[2]
-            variance = parameter_tensors[3]
+            # we want the last 4 inputs, as sometimes non-parameter input can be of type of Identity(eg: seen in
+            # mobilenet fpn ssd)
+            scale = parameter_tensors[-4]
+            beta = parameter_tensors[-3]
+            mean = parameter_tensors[-2]
+            variance = parameter_tensors[-1]
             consumed_nodes = match.consumed_nodes
             potential_descriptors.append(
                 FusedBatchNormNormLayerResolver.Descriptor(str(bn_op.name),

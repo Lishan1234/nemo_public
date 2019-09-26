@@ -1501,7 +1501,8 @@ class CaffeSnapDnnConverter(object):
                                         spec.input_shape[0].dim[1]] ))
         elif len(spec.input_shape) > 0:
             # input_shape, but not 4-D, just copy native dims and add 1 as batch
-            self.input_dim = list(map(int, spec.input_shape[0].dim.insert(0, 1)))
+            self.input_dim = list(map(int, spec.input_shape[0].dim))
+            self.input_dim.insert(0, 1)
         elif len(spec.input_dim) == 4:
             # 4-D input_dim. Treat as (batch, depth, height, width)
             self.input_dim = list(map( int, [spec.input_dim[0],
