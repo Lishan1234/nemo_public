@@ -50,4 +50,5 @@ class ConstantLayerBuilder(LayerBuilder):
             descriptor.value = array
         return converter_context.model.add_const_layer(descriptor.output_names[0],
                                                        list(descriptor.shape),
-                                                       descriptor.value)
+                                                       descriptor.value,
+                                                       True)

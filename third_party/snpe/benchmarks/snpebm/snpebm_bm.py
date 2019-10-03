@@ -6,18 +6,21 @@
 #
 #==============================================================================
 
-from snpebm_config_restrictions import *
-from snpebm_parser import LogParserFactory
+from .snpebm_config_restrictions import *
+from .snpebm_parser import LogParserFactory
 from collections import OrderedDict
 import time
 import os
+import logging
 
+logger = logging.getLogger(__name__)
 
-class BenchmarkStat:
-    def __init__(self, log_parser, stat_type):
+class BenchmarkStat(object):
+    def __init__(self, log_parser, stat_type, caching_enabled=None):
         self._stats = []
         self._log_parser = log_parser
         self._type = stat_type
+        self._cache = caching_enabled
 
     def __iter__(self):
         return self._stats.__iter__()
@@ -30,24 +33,29 @@ class BenchmarkStat:
     def type(self):
         return self._type
 
-    def _process(self, input_dir, logger):
-        data_frame = self._log_parser.parse(input_dir, logger)
+    def _process(self, input_dir):
+        data_frame = self._log_parser.parse(input_dir)
         self._stats.append(data_frame)
 
     @property
     def average(self):
         avg_dict = OrderedDict()
-        for stat in self._stats:
+        # ignoring the first run if caching is enabled
+        if self._cache:
+            stats = self._stats[1:]
+        # considering the all runs if caching is disabled
+        else:
+            stats = self._stats
+        for stat in stats:
             for channel, _sum, _len, _max, _min, _runtime in stat:
                 if channel in avg_dict:
                     avg_dict[channel][0] += _sum
                     avg_dict[channel][1] += _len
                 else:
                     avg_dict[channel] = [_sum, _len]
-
         avgs = OrderedDict()
         for channel in avg_dict:
-            avgs[channel] = avg_dict[channel][0] / avg_dict[channel][1]
+            avgs[channel] = int(avg_dict[channel][0] / avg_dict[channel][1])
         return avgs
 
     @property
@@ -81,12 +89,12 @@ class BenchmarkStat:
                     runtime_dict[channel] = _runtime
         return runtime_dict
 
-class BenchmarkCommand:
+class BenchmarkCommand(object):
     def __init__(self, function, params):
         self.function = function
         self.params = params
 
-class BenchmarkFactory:
+class BenchmarkFactory(object):
     def __init__(self):
         pass
 
@@ -108,6 +116,10 @@ class BenchmarkFactory:
                 dev_lib_path = config.get_device_artifacts_lib(runtime)
                 exe_name = config.get_exe_name(runtime)
                 parser = LogParserFactory.make_parser(measurement, config)
+                cache = False
+                # to check for each variant and run with cache option if cache is set and runtime is DSP or AIP
+                if config.enable_init_caching and runtime.startswith(ENABLE_CACHE_SUPPORTED_RUNTIMES):
+                    cache = True
                 benchmark = SnapDnnCppDroidBenchmark(
                     dev_bin_path,
                     dev_lib_path,
@@ -119,9 +131,10 @@ class BenchmarkFactory:
                     config.perfprofile,
                     config.profilinglevel,
                     config.cpu_fallback,
-                    config.host_rootpath
+                    config.host_rootpath,
+                    cache
                 )
-                benchmark.measurement = BenchmarkStat(parser, measurement)
+                benchmark.measurement = BenchmarkStat(parser, measurement, cache)
                 benchmark.runtime = runtime
                 benchmark.host_output_dir = host_result_dirs['droid']
                 benchmark.name = flavor
@@ -130,7 +143,7 @@ class BenchmarkFactory:
         return benchmarks, host_result_dirs['droid']
 
 
-class SnapDnnCppDroidBenchmark:
+class SnapDnnCppDroidBenchmark(object):
     @staticmethod
     def create_host_result_dir(host_output_dir):
         # Create results output dir, and a "latest_results" that links to it
@@ -143,7 +156,7 @@ class SnapDnnCppDroidBenchmark:
         os.symlink(os.path.relpath(_host_output_datetime_dir,host_output_dir), sim_link_path)
         return _host_output_datetime_dir
 
-    def __init__(self, exe_dir, dep_lib_dir, exe_name, model_dir, container_name, input_list_name, userbuffer_mode, perfprofile, profilinglevel, cpu_fallback, host_rootpath):
+    def __init__(self, exe_dir, dep_lib_dir, exe_name, model_dir, container_name, input_list_name, userbuffer_mode, perfprofile, profilinglevel, cpu_fallback, host_rootpath, cache=None):
         assert model_dir, "model dir is required"
         assert container_name, "container is required"
         assert input_list_name, "input_list is required"
@@ -167,6 +180,7 @@ class SnapDnnCppDroidBenchmark:
         self.profilinglevel = profilinglevel
         self.cpu_fallback = cpu_fallback
         self.host_rootpath = host_rootpath
+        self.cache = cache
 
     @property
     def runtime_flavor_measure(self):
@@ -200,6 +214,8 @@ class SnapDnnCppDroidBenchmark:
             run_cmd += " --profiling_level " + self.profilinglevel
         if self.cpu_fallback:
             run_cmd += " --enable_cpu_fallback"
+        if self.cache:
+            run_cmd += " --enable_init_cache"
         cmds.append(run_cmd)
         cmd_script_path = os.path.join(self.host_rootpath, SNPE_BENCH_SCRIPT)
         if os.path.isfile(cmd_script_path):
@@ -239,11 +255,11 @@ class SnapDnnCppDroidBenchmark:
                                                        self.host_result_dir]),
                 BenchmarkCommand('pull', [os.path.join(device_output_dir,SNPE_BENCH_DIAG_OUTPUT_FILE),
                                                        self.host_result_dir])]
-    def get_snpe_version(self, config, logger):
+    def get_snpe_version(self, config):
         snpe_version_parser = LogParserFactory.make_parser(MEASURE_SNPE_VERSION, config)
-        return snpe_version_parser.parse(self.host_result_dir, logger)
+        return snpe_version_parser.parse(self.host_result_dir)
 
-    def process_results(self, logger):
+    def process_results(self):
         assert os.path.isdir(self.host_result_dir), "ERROR: no host result directory"
-        self.measurement._process(self.host_result_dir, logger)
+        self.measurement._process(self.host_result_dir)
 

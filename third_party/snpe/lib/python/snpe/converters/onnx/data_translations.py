@@ -14,16 +14,14 @@ from .onnx_translations import *
 # ------------------------------------------------------------------------------
 class OnnxChannelShuffleTranslation(OnnxTranslationBase):
     def extract_parameters(self, src_op, graph):
+        # Note: Schema is not used here since this is not a valid Onnx Op
         params = extract_attributes(src_op,
                                     ('groups', 'i'))
         return op_adapter.ChannelShuffleOp(src_op.name, groups=params.groups)
 
-    def get_supported_version(self):
-        return OP_VERSION_SUPPORTED[op_adapter.ChannelShuffleOp.TRANSLATION_KEY]
-
 
 OnnxTranslations.register_translation(OnnxChannelShuffleTranslation(),
-                                      onnx_type('Channel_Shuffle'),
+                                      converter_type('Channel_Shuffle', 'onnx'),
                                       op_adapter.ChannelShuffleOp.TRANSLATION_KEY)
 
 
@@ -31,29 +29,31 @@ OnnxTranslations.register_translation(OnnxChannelShuffleTranslation(),
 #   Clip
 # ------------------------------------------------------------------------------
 class OnnxClipTranslation(OnnxTranslationBase):
+    def __init__(self):
+        OnnxTranslationBase.__init__(self)
+        self.register_op_schema('Clip', [1, 6, 7])
+
     def extract_parameters(self, src_op, graph):
-        params = extract_attributes(src_op,
-                                    ('max', 'f'),
-                                    ('min', 'f'))
+        params = extract_attributes(src_op, schema=self.op_schema())
         return op_adapter.NeuronOp(src_op.name,
                                    "NEURON_RELU_MIN_MAX",
                                    min_clamp=params.min,
                                    max_clamp=params.max)
 
-    def get_supported_version(self):
-        return OP_VERSION_SUPPORTED[op_adapter.NeuronOp.TRANSLATION_KEY]
 
-
-OnnxTranslations.register_translation(OnnxClipTranslation(), onnx_type('Clip'))
+OnnxTranslations.register_translation(OnnxClipTranslation(), converter_type('Clip', 'onnx'))
 
 
 # ------------------------------------------------------------------------------
 #   Concat
 # ------------------------------------------------------------------------------
 class OnnxConcatTranslation(OnnxTranslationBase):
+    def __init__(self):
+        OnnxTranslationBase.__init__(self)
+        self.register_op_schema('Concat', [1, 4])
+
     def extract_parameters(self, src_op, graph):
-        params = extract_attributes(src_op,
-                                    ('axis', 'i'))
+        params = extract_attributes(src_op, schema=self.op_schema())
 
         # static concatenation used for reshaping shape tensors
         if graph.weights.has_all(src_op.input):
@@ -85,12 +85,9 @@ class OnnxConcatTranslation(OnnxTranslationBase):
         else:
             return [str(src_op.output[0])]
 
-    def get_supported_version(self):
-        return OP_VERSION_SUPPORTED[op_adapter.ConcatOp.TRANSLATION_KEY]
-
 
 OnnxTranslations.register_translation(OnnxConcatTranslation(),
-                                      onnx_type('Concat'),
+                                      converter_type('Concat', 'onnx'),
                                       op_adapter.ConcatOp.TRANSLATION_KEY)
 
 
@@ -100,23 +97,20 @@ OnnxTranslations.register_translation(OnnxConcatTranslation(),
 class OnnxConstantTranslation(OnnxTranslationBase):
     def __init__(self):
         OnnxTranslationBase.__init__(self)
+        self.register_op_schema('Constant', [1])
 
     def extract_parameters(self, src_op, graph):
-        params = extract_attributes(src_op,
-                                    ('value', 't'))
+        params = extract_attributes(src_op, schema=self.op_schema())
         graph.weights.insert(src_op.output[0], params.value)
         # Constant op is a special case... the output name is the real name
         return op_adapter.ConstantOp(src_op.output[0], params.value)
 
     def infer_output_shapes(self, op, input_shapes):
-        return [op.tensor.shape]
-
-    def get_supported_version(self):
-        return OP_VERSION_SUPPORTED[op_adapter.ConstantOp.TRANSLATION_KEY]
+        return [list(op.tensor.shape)]
 
 
 OnnxTranslations.register_translation(OnnxConstantTranslation(),
-                                      onnx_type('Constant'),
+                                      converter_type('Constant', 'onnx'),
                                       op_adapter.ConstantOp.TRANSLATION_KEY)
 
 
@@ -124,8 +118,12 @@ OnnxTranslations.register_translation(OnnxConstantTranslation(),
 #   Flatten
 # ------------------------------------------------------------------------------
 class OnnxFlattenTranslation(OnnxTranslationBase):
+    def __init__(self):
+        OnnxTranslationBase.__init__(self)
+        self.register_op_schema('Flatten', [1, 5])
+
     def extract_parameters(self, src_op, graph):
-        params = extract_attributes(src_op, ('axis', 'i', 1))
+        params = extract_attributes(src_op, schema=self.op_schema())
         axis = params.axis
 
         input_buf = graph.get_buffer(str(src_op.input[0]))
@@ -133,7 +131,7 @@ class OnnxFlattenTranslation(OnnxTranslationBase):
 
         pre_axes = input_shape[:axis]
         post_axes = input_shape[axis:]
-        output_shape = [ product(pre_axes), product(post_axes) ]
+        output_shape = [product(pre_axes), product(post_axes)]
 
         # SNPE uses weights at construction time, not dynamically. Ensure they
         # are preprocessed statically.
@@ -161,60 +159,106 @@ class OnnxFlattenTranslation(OnnxTranslationBase):
         else:
             return [str(src_op.output[0])]
 
-    def get_supported_version(self):
-        return OP_VERSION_SUPPORTED[op_adapter.ReshapeOp.TRANSLATION_KEY]
+
+OnnxTranslations.register_translation(OnnxFlattenTranslation(), converter_type('Flatten', 'onnx'))
 
 
-OnnxTranslations.register_translation(OnnxFlattenTranslation(), onnx_type('Flatten'))
+# ------------------------------------------------------------------------------
+#   Gather
+# ------------------------------------------------------------------------------
+class OnnxGatherTranslation(OnnxTranslationBase):
+    def __init__(self):
+        OnnxTranslationBase.__init__(self)
+        self.register_op_schema('Gather', [7])
+
+    def add_op(self, src_op, graph):
+        ops = self.extract_parameters(src_op, graph)
+        input_names = self.extract_input_names(src_op, graph)
+        output_names = self.extract_output_names(src_op, graph)
+        if len(ops) > 1:
+            graph.add(ops[0], [], input_names[1])
+        graph.add(ops[-1], input_names, output_names)
+
+    def extract_parameters(self, src_op, graph):
+        params = extract_attributes(src_op, schema=self.op_schema())
+        ops = []
+        indices_name = str(src_op.input[1])
+        # If the input is stored as weights we need to create a const node
+        if not graph.has_buffer(indices_name):
+            indices = graph.weights.fetch(indices_name, prunable=False)
+            ops.append(op_adapter.ConstantOp(indices_name, indices, quantizable=False))
+        else:
+            indices_op = graph.get_buffer(indices_name).producer.op
+            if op_adapter.ConstantOp.TRANSLATION_KEY is indices_op.type:
+                indices_op.quantizable = False
+        ops.append(op_adapter.GatherOp(src_op.name, axis=params.axis))
+        return ops
+
+    def infer_output_shapes(self, op, input_shapes):
+        output_shape = input_shapes[0][:op.axis] + list(input_shapes[1]) + input_shapes[0][op.axis + 1:]
+        return [output_shape]
+
+
+OnnxTranslations.register_translation(OnnxGatherTranslation(),
+                                      converter_type('Gather', 'onnx'),
+                                      op_adapter.GatherOp.TRANSLATION_KEY)
 
 
 # ------------------------------------------------------------------------------
 #   Pad
 # ------------------------------------------------------------------------------
 class OnnxPadTranslation(OnnxTranslationBase):
+    def __init__(self):
+        OnnxTranslationBase.__init__(self)
+        self.register_op_schema('Pad', [1, 2])
+        self._op_schema.register_method(self.validate_attribute_values)
+
     def extract_parameters(self, src_op, graph):
-        pads = []
+        params = extract_attributes(src_op, schema=self.op_schema(), validate=True)
 
-        # Extract op version specific padding information
-        version = OpVersionInfo.onnx_op_ver(src_op, self.get_supported_version())
-        if version == 1:
-            pads = extract_attributes(src_op, ('paddings', 'li')).pads
+        if 'pads' in params:
+            pads = params.pads
         else:
-            pads = extract_attributes(src_op, ('pads', 'li')).pads
-
-        params = extract_attributes(src_op,
-                                    ('mode', 's'),
-                                    ('value', 'f', 0))
-
-        supported_modes = {'constant': "PADDING_CONSTANT",
-                           'reflect': "PADDING_REFLECT"}
-        if params.mode not in supported_modes:
-            log_error(code_to_message.get_error_message("ERROR_PAD_UNSUPPORTED_MODE")(params.mode))
-
+            pads = params.paddings
 
         # Pads/paddings need to be translated from r1_begin, r2_begin...r1_end, r2_end, ...
         # to pairs (r1_begin, r1_end), (r2_begin, r2_end)...
         input_buf = graph.get_buffer(str(src_op.input[0]))
         rank = len(input_buf.shape)
-        log_assert(rank == len(pads)/2,
+        log_assert(rank == len(pads) / 2,
                    "Rank of input tensor: %d must equal (# pads/2): %d",
                    rank,
-                   len(pads)/2)
+                   len(pads) / 2)
 
         pad_pairs = []
         for index in range(rank):
-            pad_pairs.append([pads[index], pads[index+rank]])
+            pad_pairs.append([pads[index], pads[index + rank]])
         return op_adapter.PadOp(src_op.name,
-                                mode=supported_modes[params.mode],
+                                mode=params.mode,
                                 pads=pad_pairs,
                                 constant_value=params.value)
 
-    def get_supported_version(self):
-        return OP_VERSION_SUPPORTED[op_adapter.PadOp.TRANSLATION_KEY]
+    def infer_output_shapes(self, op, input_shapes):
+        input_shape = input_shapes[0]
+        output_shape = []
+
+        for i in range(0, len(input_shape)):
+            output_shape.append(input_shape[i] + op.pads[i][0] + op.pads[i][1])
+
+        log_debug(code_to_message.get_debugging_message("DEBUG_INFERRED_SHAPE")(op.name, output_shape))
+        return [output_shape]
+
+    @staticmethod
+    def validate_attribute_values(src_op, attr_name, attr_value):
+        if attr_name == 'mode':
+            src_op_mode = attr_value
+            supported_modes = ['constant', 'reflect']
+            if src_op_mode not in supported_modes:
+                raise ValueError(code_to_message.get_error_message("ERROR_PAD_UNSUPPORTED_MODE")(src_op_mode))
 
 
 OnnxTranslations.register_translation(OnnxPadTranslation(),
-                                      onnx_type('Pad'),
+                                      converter_type('Pad', 'onnx'),
                                       op_adapter.PadOp.TRANSLATION_KEY)
 
 
@@ -224,6 +268,7 @@ OnnxTranslations.register_translation(OnnxPadTranslation(),
 class OnnxReshapeTranslation(OnnxTranslationBase):
     def __init__(self):
         OnnxTranslationBase.__init__(self)
+        self.register_op_schema('Reshape', [1, 5, 6, 7])
 
     def extract_parameters(self, src_op, graph):
         # There are two main versions of ONNX Reshape
@@ -248,7 +293,7 @@ class OnnxReshapeTranslation(OnnxTranslationBase):
             else:
                 shape = graph.get_buffer(str(src_op.input[1])).shape.tolist()
         else:
-            params = extract_attributes(src_op, ('shape', 'li'))
+            params = extract_attributes(src_op, schema=self.op_schema())
             shape = params.shape
 
         input_name = str(src_op.input[0])
@@ -297,20 +342,89 @@ class OnnxReshapeTranslation(OnnxTranslationBase):
     def infer_output_shapes(self, op, input_shapes):
         return [op.output_shape]
 
-    def get_supported_version(self):
-
-        return OP_VERSION_SUPPORTED[op_adapter.ReshapeOp.TRANSLATION_KEY]
-
 
 OnnxTranslations.register_translation(OnnxReshapeTranslation(),
-                                      onnx_type('Reshape'),
+                                      converter_type('Reshape', 'onnx'),
                                       op_adapter.ReshapeOp.TRANSLATION_KEY)
+
+
+# ------------------------------------------------------------------------------
+#   Resize
+# ------------------------------------------------------------------------------
+class OnnxResizeTranslation(OnnxTranslationBase):
+    def __init__(self):
+        OnnxTranslationBase.__init__(self)
+        self._op_schema.replace_default_values(mode='nearest')
+        self._op_schema.register_method(self.validate_attribute_values)
+        # self.register_op_schema('resize', [10]) # commented out since we needed latest onnx version(1.5.0 as of
+        # writing)
+
+    def extract_parameters(self, src_op, graph):
+        params = extract_attributes(src_op, attr_infos=[('mode', 's', 'nearest')], schema=self.op_schema(), validate=True)
+        input_buf = graph.get_buffer(str(src_op.input[0]))
+        if input_buf.rank() != 4:
+            raise ValueError(code_to_message.get_error_message("ERROR_RESIZE_INPUT_DIMS")(input_buf.shape))
+
+        if len(src_op.input) > 1:
+            scales_input = str(src_op.input[1])
+            if graph.weights.has(scales_input):
+                scales = graph.weights.fetch(scales_input).astype(numpy.float32).tolist()
+            else:
+                scales = graph.get_buffer(str(src_op.input[1])).shape.tolist()
+        else:
+            # deprecated. Added for Upsample version 7 and below
+            scales = extract_attributes(src_op, attr_infos=[('scales', 'lf')], schema=self.op_schema(), validate=True).scales
+
+        scale_height = scales[2]
+        scale_width = scales[3]
+        # Generate output shape using output_dims. Note: doing round() first since casting to int gets the floor
+        # which was causing output dim error in models.
+        input_shape = input_buf.shape
+        input_height = input_shape[2]
+        input_width = input_shape[3]
+        output_height = int(round(input_height * scale_height))
+        output_width = int(round(input_width * scale_width))
+        output_shape = [input_shape[0], input_shape[1], output_height, output_width]
+        return op_adapter.ResizeOp(src_op.name,
+                                   output_shape,
+                                   resize_mode=params.mode,
+                                   scale_height=scale_height,
+                                   scale_width=scale_width)
+
+    @staticmethod
+    def validate_attribute_values(src_op, attr_name, attr_value):
+        if attr_name == 'mode':
+            src_op_mode = attr_value
+            supported_modes = ['nearest', 'linear', 'bilinear']
+            if src_op_mode not in supported_modes:
+                raise ValueError(code_to_message.get_error_message("ERROR_RESIZE_UNSUPPORTED_MODE")
+                                 (src_op_mode, supported_modes))
+        elif attr_name == 'scales':
+            scales = attr_value
+            if scales[0] != 1 or scales[1] != 1:
+                log_warning(code_to_message.get_warning_message("WARNING_RESIZE"))
+
+    def extract_input_names(self, src_op, graph):
+        return [name for name in list(map(str, src_op.input)) if not graph.weights.consumed(name)]
+
+    def infer_output_shapes(self, op, input_shapes):
+        log_debug(code_to_message.get_debugging_message("DEBUG_INFERRED_SHAPE")(op.name, op.output_shape))
+        return [op.output_shape]
+
+
+OnnxTranslations.register_translation(OnnxResizeTranslation(),
+                                      converter_type('Resize', 'onnx'),
+                                      op_adapter.ResizeOp.TRANSLATION_KEY)
 
 
 # ------------------------------------------------------------------------------
 #   Shape
 # ------------------------------------------------------------------------------
 class OnnxShapeTranslation(OnnxTranslationBase):
+    def __init__(self):
+        OnnxTranslationBase.__init__(self)
+        self.register_op_schema('Shape', [1])
+
     def extract_parameters(self, src_op, graph):
         log_warning(code_to_message.get_warning_message("WARNING_STATIC_SHAPE")(src_op.name))
         shape = graph.get_buffer(str(src_op.input[0])).shape
@@ -319,31 +433,30 @@ class OnnxShapeTranslation(OnnxTranslationBase):
         return op_adapter.StaticOp(src_op.name)
 
     def extract_input_names(self, src_op, graph):
-            return []
+        return []
 
     def extract_output_names(self, src_op, graph):
-            return []
-
-    def get_supported_version(self):
-        return OP_VERSION_SUPPORTED['shape']
+        return []
 
 
 OnnxTranslations.register_translation(OnnxShapeTranslation(),
-                                      onnx_type('Shape'))
+                                      converter_type('Shape', 'onnx'))
 
 
 # ------------------------------------------------------------------------------
 #   Slice, Crop
 # ------------------------------------------------------------------------------
 class OnnxSliceTranslation(OnnxTranslationBase):
+    def __init__(self):
+        OnnxTranslationBase.__init__(self)
+        self.register_op_schema('Slice', [1])
+
     def extract_parameters(self, src_op, graph):
         input_name = str(src_op.input[0])
-        params = extract_attributes(src_op,
-                                    ('axes', 'li', []),
-                                    ('ends', 'li'),
-                                    ('starts', 'li'))
+        params = extract_attributes(src_op, schema=self.op_schema())
+
         # If axes are not provided axes is set from # of 'starts'
-        if not params.axes:
+        if not params.axes or len(params.axes) == 0:
             params.axes = list(range(len(params.starts)))
 
         log_assert(len(params.starts) == len(params.axes),
@@ -377,7 +490,7 @@ class OnnxSliceTranslation(OnnxTranslationBase):
         # canonicalize the axes
         input_buf = graph.get_buffer(str(src_op.input[0]))
         rank = input_buf.rank()
-        offsets = [0]*rank
+        offsets = [0] * rank
         output_shape = list(input_buf.shape[:])
         for i, axis in enumerate(params.axes):
             start = params.starts[i]
@@ -385,7 +498,7 @@ class OnnxSliceTranslation(OnnxTranslationBase):
             dim = input_buf.shape[axis]
             start, end = get_indicies(start, end, dim)
             offsets[axis] = start
-            output_shape[axis] = end-start
+            output_shape[axis] = end - start
 
         return op_adapter.CropOp(src_op.name, offsets, output_shape)
 
@@ -404,16 +517,15 @@ class OnnxSliceTranslation(OnnxTranslationBase):
             return list(map(str, src_op.output))
 
     def infer_output_shapes(self, op, input_shapes):
+        if isinstance(op.output_shape[0], list):
+            return op.output_shape
         return [op.output_shape]
-
-    def get_supported_version(self):
-        return OP_VERSION_SUPPORTED[op_adapter.CropOp.TRANSLATION_KEY]
 
 
 # Onnx Crop should go here as well, but the documentation is really
 # ambiguous so we won't add it until we see an example.
 OnnxTranslations.register_translation(OnnxSliceTranslation(),
-                                      onnx_type('Slice'),
+                                      converter_type('Slice', 'onnx'),
                                       op_adapter.CropOp.TRANSLATION_KEY)
 
 
@@ -421,29 +533,38 @@ OnnxTranslations.register_translation(OnnxSliceTranslation(),
 #   Split
 # ------------------------------------------------------------------------------
 class OnnxSplitTranslation(OnnxTranslationBase):
+    def __init__(self):
+        OnnxTranslationBase.__init__(self)
+        self.register_op_schema('Split', [1, 2])
+
     def extract_parameters(self, src_op, graph):
-        params = extract_attributes(src_op,
-                                    ('axis', 'i'),
-                                    ('split', 'li', []))
+        params = extract_attributes(src_op, schema=self.op_schema())
         input_buf = graph.get_buffer(str(src_op.input[0]))
+        output_shape = [input_buf.shape[:]]*len(src_op.output)
         if not params.split:
-            params.split = [input_buf.shape[params.axis]/len(src_op.output)]
+            params.split = [input_buf.shape[params.axis] / len(src_op.output)] * len(src_op.output)
 
         slice_points = []
         next_slice_point = 0
         for split in params.split[1:]:
             next_slice_point += split
             slice_points.append(next_slice_point)
+
+        for i, shape in enumerate(output_shape):
+            shape[params.axis] = params.split[i]
+            output_shape[i] = shape
+
         return op_adapter.SliceOp(src_op.name,
                                   axis=params.axis,
-                                  slice_points=slice_points)
+                                  slice_points=slice_points,
+                                  output_shape=output_shape)
 
-    def get_supported_version(self):
-        return OP_VERSION_SUPPORTED[op_adapter.SliceOp.TRANSLATION_KEY]
+    def infer_output_shapes(self, op, input_shapes):
+        return op.output_shape
 
 
 OnnxTranslations.register_translation(OnnxSplitTranslation(),
-                                      onnx_type('Split'),
+                                      converter_type('Split', 'onnx'),
                                       op_adapter.SliceOp.TRANSLATION_KEY)
 
 
@@ -451,12 +572,20 @@ OnnxTranslations.register_translation(OnnxSplitTranslation(),
 #   Squeeze
 # ------------------------------------------------------------------------------
 class OnnxSqueezeTranslation(OnnxTranslationBase):
+    def __init__(self):
+        OnnxTranslationBase.__init__(self)
+        self.register_op_schema('Squeeze', [1])
+
     def extract_parameters(self, src_op, graph):
         input_name = str(src_op.input[0])
         input_buf = graph.get_buffer(input_name)
         input_shape = input_buf.shape
         default_axes = [i for i, s in enumerate(input_shape) if s == 1]
-        params = extract_attributes(src_op, ('axes', 'li', default_axes))
+
+        params = extract_attributes(src_op, schema=self.op_schema())
+
+        if not params.axes or 'axes' not in params:
+            params['axes'] = default_axes
 
         if not all(x < len(input_shape) for x in params.axes):
             raise ValueError(code_to_message.get_error_message("ERROR_SQUEEZE_DIM_GREATER_THAN_RANK")(params.axes,
@@ -493,11 +622,8 @@ class OnnxSqueezeTranslation(OnnxTranslationBase):
         else:
             return [str(src_op.output[0])]
 
-    def get_supported_version(self):
-        return OP_VERSION_SUPPORTED['squeeze']
 
-
-OnnxTranslations.register_translation(OnnxSqueezeTranslation(), onnx_type('Squeeze'))
+OnnxTranslations.register_translation(OnnxSqueezeTranslation(), converter_type('Squeeze', 'onnx'))
 
 
 # ------------------------------------------------------------------------------
@@ -506,9 +632,10 @@ OnnxTranslations.register_translation(OnnxSqueezeTranslation(), onnx_type('Squee
 class OnnxTransposeTranslation(OnnxTranslationBase):
     def __init__(self):
         OnnxTranslationBase.__init__(self)
+        self.register_op_schema('Transpose', [1])
 
     def extract_parameters(self, src_op, graph):
-        params = extract_attributes(src_op, ('perm', 'li'))
+        params = extract_attributes(src_op, schema=self.op_schema())
         input_name = str(src_op.input[0])
         if graph.weights.has(input_name):
             # static reshape of weight parameters
@@ -537,12 +664,9 @@ class OnnxTransposeTranslation(OnnxTranslationBase):
         output_shape = [input_shapes[0][i] for i in op.order]
         return [output_shape]
 
-    def get_supported_version(self):
-        return OP_VERSION_SUPPORTED[op_adapter.PermuteOp.TRANSLATION_KEY]
-
 
 OnnxTranslations.register_translation(OnnxTransposeTranslation(),
-                                      onnx_type('Transpose'),
+                                      converter_type('Transpose', 'onnx'),
                                       op_adapter.PermuteOp.TRANSLATION_KEY)
 
 
@@ -550,17 +674,20 @@ OnnxTranslations.register_translation(OnnxTransposeTranslation(),
 #   Unsqueeze
 # ------------------------------------------------------------------------------
 class OnnxUnsqueezeTranslation(OnnxTranslationBase):
+    def __init__(self):
+        OnnxTranslationBase.__init__(self)
+        self.register_op_schema('Unsqueeze', [1, 5])
+        self._op_schema.register_method(self.validate_attribute_values)
+
     def extract_parameters(self, src_op, graph):
         # default_axes = [i for i, s in enumerate(input_shape) if s == 1]
-        params = extract_attributes(src_op, ('axes', 'li'))
+        params = extract_attributes(src_op, schema=self.op_schema(), validate=True)
 
         input_name = str(src_op.input[0])
         input_buf = graph.get_buffer(input_name)
         input_shape = input_buf.shape
-        if not all(x >= 0 for x in params.axes):
-            raise ValueError(code_to_message.get_error_message("ERROR_UNSQUEEZE_NEGATIVE_DIMS")(params.axes))
 
-        new_rank = len(input_shape)+len(params.axes)
+        new_rank = len(input_shape) + len(params.axes)
         if not all(x < new_rank for x in params.axes):
             raise ValueError(code_to_message.get_error_message("ERROR_UNSQUEEZE_DIMS_GREATER_THAN_RANK")(params.axes,
                                                                                                          new_rank))
@@ -598,54 +725,26 @@ class OnnxUnsqueezeTranslation(OnnxTranslationBase):
         else:
             return [str(src_op.output[0])]
 
-    def get_supported_version(self):
-        return OP_VERSION_SUPPORTED['unsqueeze']
+    @staticmethod
+    def validate_attribute_values(src_op, attr_name='', attr_value=None):
+        if attr_name == 'axes':
+            if not all(x >= 0 for x in attr_value):
+                raise ValueError(code_to_message.get_error_message("ERROR_UNSQUEEZE_NEGATIVE_DIMS")(attr_value))
 
 
-OnnxTranslations.register_translation(OnnxUnsqueezeTranslation(), onnx_type('Unsqueeze'))
+OnnxTranslations.register_translation(OnnxUnsqueezeTranslation(), converter_type('Unsqueeze', 'onnx'))
 
 
 # ------------------------------------------------------------------------------
 #   Upsample
 # ------------------------------------------------------------------------------
-class OnnxUpsampleTranslation(OnnxTranslationBase):
-    def extract_parameters(self, src_op, graph):
-        params = extract_attributes(src_op,
-                                    ('mode', 's', 'nearest'),
-                                    ('scales', 'lf'))
-        input_buf = graph.get_buffer(str(src_op.input[0]))
-        if input_buf.rank() != 4:
-            raise ValueError(code_to_message.get_error_message("ERROR_UPSAMPLE_INPUT_DIMS")(input_buf.shape))
-        scale_height = params.scales[2]
-        scale_width = params.scales[3]
-        supported_modes = {'nearest': "RESIZE_NEAREST_NEIGHBOR",
-                           'bilinear': "RESIZE_BILINEAR"}
-
-        if params.mode not in supported_modes:
-            raise ValueError(code_to_message.get_error_message("ERROR_UPSAMPLE_UNSUPPORTED_MODE")(params.mode))
-        mode = supported_modes[params.mode]
-
-        # Generate output shape using output_dims = floor(input_dims * scale).
-        input_shape = input_buf.shape
-        input_height = input_shape[2]
-        input_width = input_shape[3]
-        output_height = int(input_height * scale_height)
-        output_width = int(input_width * scale_width)
-        output_shape = [input_shape[0], input_shape[1], output_height, output_width]
-        return op_adapter.ResizeOp(src_op.name,
-                                   output_shape,
-                                   resize_mode=mode,
-                                   scale_height=scale_height,
-                                   scale_width=scale_width)
-
-    def infer_output_shapes(self, op, input_shapes):
-        log_debug(code_to_message.get_debugging_message("DEBUG_INFERRED_SHAPE")(op.name, op.output_shape))
-        return [op.output_shape]
-
-    def get_supported_version(self):
-        return OP_VERSION_SUPPORTED[op_adapter.ResizeOp.TRANSLATION_KEY]
+class OnnxUpsampleTranslation(OnnxResizeTranslation):
+    def __init__(self):
+        OnnxTranslationBase.__init__(self)
+        self.register_op_schema('Upsample', [1, 7, 9])
+        self._op_schema.register_method(self.validate_attribute_values)
 
 
 OnnxTranslations.register_translation(OnnxUpsampleTranslation(),
-                                      onnx_type('Upsample'),
-                                      op_adapter.ResizeOp.TRANSLATION_KEY)
+                                      converter_type('Upsample', 'onnx'),
+                                      op_adapter.Upsample.TRANSLATION_KEY)

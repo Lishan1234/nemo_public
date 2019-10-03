@@ -6,20 +6,23 @@
 #
 #==============================================================================
 
+from __future__ import absolute_import
 from multiprocessing import Process
-from snpebm_constants import *
+from .snpebm_constants import *
 import os
 import time
 import re
 from common_utils.adb import Adb
 from common_utils.exceptions import AdbShellCmdFailedException
+import logging
 
+logger = logging.getLogger(__name__)
 
 REGX_SPACES = re.compile('[\s]+')
 ONE_HOUR_IN_SEC = 1 * 60 * 60.0
 
 
-class DeviceFactory():
+class DeviceFactory(object):
     @staticmethod
     def make_device(device_id, config):
         assert device_id, "device id is required"
@@ -27,7 +30,7 @@ class DeviceFactory():
         return BenchmarkDevice(device_id, device_id, config.device_path, config.platform, config.host_rootpath, config.hostname)
 
 
-class BenchmarkDevice():
+class BenchmarkDevice(object):
     def __init__(self, device_name, serial_no, device_root_dir, platform, host_output_dir, host_name='localhost'):
         assert device_root_dir, "device root directory is required"
         self._device_name = device_name
@@ -38,12 +41,14 @@ class BenchmarkDevice():
         self._mem_proc = None
         self._power_proc = None
         self._platform = platform
-        self.adb = Adb('adb', serial_no)
+        self.adb = Adb('adb', serial_no, hostname=host_name)
 
         if(self._platform == PLATFORM_OS_ANDROID):
             self._device_type = DEVICE_TYPE_ARM_ANDROID
         elif (self._platform == PLATFORM_OS_LINUX):
             self._device_type = DEVICE_TYPE_ARM_LINUX
+        elif (self._platform == PLATFORM_OS_QNX):
+            self._device_type = DEVICE_TYPE_ARM_QNX
         else:
             raise Exception("device: Invalid platform !!!", platform)
 
@@ -82,7 +87,7 @@ class BenchmarkDevice():
     def __mem_log_file(self):
         return os.path.join(self._device_root_dir, MEM_LOG_FILE_NAME)
 
-    def __capture_mem_droid(self, exe_name, logger):
+    def __capture_mem_droid(self, exe_name):
         time_out = ONE_HOUR_IN_SEC
         t0 = time.time()
         ps_name = exe_name
@@ -120,7 +125,7 @@ class BenchmarkDevice():
             num_of_samples += 1
         return
 
-    def __capture_mem_le(self, exe_name, logger):
+    def __capture_mem_le(self, exe_name):
         time_out = ONE_HOUR_IN_SEC
         t0 = time.time()
         ps_name = exe_name
@@ -152,7 +157,41 @@ class BenchmarkDevice():
             num_of_samples += 1
         return
 
-    def execute(self, commands, logger):
+    def __capture_mem_qnx(self, exe_name):
+        time_out = ONE_HOUR_IN_SEC
+        t0 = time.time()
+        ps_name = exe_name
+
+        # Find the Process ID
+        ps_pid = None
+        while time_out > (time.time() - t0):
+            ret, output_pidin, err = self.adb.shell('pidin', ['a', '|', 'grep', ps_name, '| grep -v grep'])
+            if output_pidin:
+                ps_pid = REGX_SPACES.split(output_pidin[0].strip())[0]
+                logger.debug(output_pidin)
+                logger.debug("Found PID ({0}) of the Process".format(ps_pid))
+                break
+            if ps_pid is not None:
+                break
+
+        assert ps_pid, "Could not find the Process ID of {0}".format(exe_name)
+
+        num_of_samples = 0
+        mem_log_file = self.__mem_log_file()
+        logger.debug("Capturing memory usage of {0} with PID {1}".format(exe_name, ps_pid))
+        logger.debug("Time required to determine the PID:{0}".format((time.time() - t0)))
+        while time_out > (time.time() - t0):
+            if num_of_samples == 0:
+                logger.debug("Memory Log Capture available at: {0}".format(mem_log_file))
+                create_or_append = ">"
+            else:
+                create_or_append = "| cat >>"
+            self.adb.shell('cat', ["/proc/%s/pmap | awk --non-decimal-data -F ',' "
+                    "'BEGIN{sum=0} {sum+=$2}END {print sum}' %s %s" % (ps_pid, create_or_append, mem_log_file)])
+            num_of_samples += 1
+        return
+
+    def execute(self, commands):
         functions = {
             'shell': self.adb.shell,
             'push': self.adb.push,
@@ -166,17 +205,21 @@ class BenchmarkDevice():
                 raise AdbShellCmdFailedException
         return
 
-    def start_measurement(self, benchmark, logger):
+    def start_measurement(self, benchmark):
         if benchmark.measurement.type == MEASURE_MEM:
             if self._mem_proc is None:
                 logger.info("starting memory capture in a parallel process")
                 if(self._platform == PLATFORM_OS_ANDROID):
                     logger.info("Android platform")
-                    self._mem_proc = Process(target=self.__capture_mem_droid, args=(benchmark.exe_name, logger))
+                    self._mem_proc = Process(target=self.__capture_mem_droid, args=(benchmark.exe_name,))
                     self._mem_proc.start()
                 elif(self._platform == PLATFORM_OS_LINUX):
                     logger.info("Linux Embedded")
-                    self._mem_proc = Process(target=self.__capture_mem_le, args=(benchmark.exe_name, logger))
+                    self._mem_proc = Process(target=self.__capture_mem_le, args=(benchmark.exe_name,))
+                    self._mem_proc.start()
+                elif(self._platform == PLATFORM_OS_QNX):
+                    logger.info("QNX platform")
+                    self._mem_proc = Process(target=self.__capture_mem_qnx, args=(benchmark.exe_name,))
                     self._mem_proc.start()
                 else:
                     raise Exception("start_measurement: Invalid platform !!!", self.platform)
@@ -184,7 +227,7 @@ class BenchmarkDevice():
                 logger.info("memory capture is already started")
         return
 
-    def stop_measurement(self, benchmark, logger):
+    def stop_measurement(self, benchmark):
         if benchmark.measurement.type == MEASURE_MEM:
             if self._mem_proc is not None:
                 self._mem_proc.terminate()

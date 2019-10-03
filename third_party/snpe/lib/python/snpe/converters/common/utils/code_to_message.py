@@ -33,6 +33,7 @@ error_codes_to_messages = {
     # start of the conv errors
     'ERROR_TF_CONV_RESOLVE_BIAS': "Cannot resolve convolution layer due to missing bias after operation: {}",
     'ERROR_TF_CONV_RESOLVE_WEIGHTS': "Cannot resolve convolution layer due to missing weights for operation: {}",
+    'ERROR_TF_CONV_RESOLVE_WEIGHTS_SHAPE': "Cannot resolve convolution layer due to unsupported Shape[3], needs to be 1 for op {}",
     'ERROR_TF_CONV_RESOLVE_DILATION': "Cannot resolve convolution layer due to missing dilation for operation: {}",
 
     # start of the Deconv errors
@@ -76,6 +77,9 @@ error_codes_to_messages = {
 
     # nms and gather
     'ERROR_TF_NMS_BOXES_SHAPE': "Shape for boxes tensor must be 2. Got{}",
+
+    # space_to_depth
+    'ERROR_TF_SPACE_TO_DEPTH_DATA_FORMAT': "Unsupported data format. Supported formats:{}, Got:{}",
 
     # start of the converter errors
     'ERROR_TF_ADD_N_NUM_OF_INPUTS': "Expected two or more inputs for AddN operation: {}, converter cannot resolve at least two inputs",
@@ -139,6 +143,8 @@ error_codes_to_messages = {
     'ERROR_CAFFE_LAYER_TYPE_NOT_SUPPORTED': "Cannot resolve {} layer of type {} which is not yet supported by this conversion script.",
 
     'ERROR_CAFFE_UDL_FACTORY_FUNCS_NOT_SUPPLIED': "UDL factory functions improperly specified. Must be a dictionary instead of {}",
+    'DEBUG_CAFFE_UNSUPPORTED_INPUT_DIMS': "Input rank of {} not supported by layer {}.",
+    'DEBUG_CAFFE_UNSUPPORTED_OUTPUT_DIMS': "Output rank of {} not supported by layer {}.",
     'ERROR_CAFFE_UDL_BLOB_SIZE_IS_ZERO': "Cannot resolve UDL layer {}. Blob size of 0 not supported.",
     'ERROR_CAFFE_CONCAT_BATCH_DIM_ERR': "Cannot resolve Concat layer {}. Concatenation along batch dimension not supported.",
     'ERROR_CAFFE_CHANNEL_SHUFFLE_LAYER_MISSING_GROUPS_ARG': "Cannot resolve Channel Shuffle layer {}. No input or argument 'groups' specified.",
@@ -235,31 +241,32 @@ error_codes_to_messages = {
     # //=============================================================================
     "ERROR_ASYMMETRIC_PADS_VALUES": "SNPE does not support asymmetric pads values",
     "ERROR_ACTIVATION_FUNCTION_UNSUPPORTED": "SNPE does not support activation function {}",
-    "ERROR_ADD_BIAS_PREV_NO_BIAS": "Cannot squash bias-add op {} onto predecessor {} with type {}",
     "ERROR_ATTRIBUTE_MISSING": "Node {} is missing required attribute {}",
     "ERROR_ATTRIBUTE_WRONG_TYPE": "Node {}: requested to extract parameter {} with type {}, but stored as type {}",
     "ERROR_BATCHNORM_TEST_ONLY": "SNPE supports only test mode for BatchNormalization Ops",
     "ERROR_BROADCAST_NOT_SUPPORTED": "Cannot convert op {}: SNPE does not support broadcast operations",
     "ERROR_DECONV_OUTPUT_PADDING_UNSUPPORTED": "SNPE does not support output padding for ConvTranspose ops",
     "ERROR_DECONV_RECTANGULAR_STRIDE_UNSUPPORTED": "SNPE does not support rectangular strides for ConvTranspose ops",
-    "ERROR_FC_WRONG_INPUT_SIZE": "FC Node {}: input size expected by weights ({}) does not match input size of buffer ({})",
     "ERROR_GEMM_TRANSPOSE_NOT_SUPPORTED": "SNPE does not support input transpositions for GEMM.",
     "ERROR_INPUT_UNEXPECTED_RANK": "non-opaque input {} has unexpected rank of {}",
     "ERROR_KERNEL_SHAPE_DIFFERS_FROM_WEIGHTS": "kernel_shape parameter differs from weights shape",
-    "ERROR_MAX_ROI_POOL_BATCH_UNSUPPORTED": "SNPE does not currently support a batch dimension greater than 1 for MaxRoiPool ops",
     "ERROR_MUL_SCALE_PREV_NOT_BATCHNORM": "Cannot squash scale op onto predecessor {} with type {}",
+    "ERROR_DIV_SCALE_PREV_NOT_BATCHNORM": "Cannot squash scale op onto predecessor {} with type {}",
     "ERROR_PADDING_TYPE_UNSUPPORTED": "Node {}: SNPE does not support padding type {}",
     "ERROR_WEIGHTS_MISSING_KEY": "Expected a static initializer for value {}",
     "ERROR_ONNX_NOT_FOUND": "No onnx installation found on PYTHONPATH: {}",
+    "ERROR_CAFFE_NOT_FOUND": "No caffe installation found on PYTHONPATH: {}",
     "ERROR_RESHAPE_BATCH_UNSUPPORTED": "SNPE does not support a batch dimension greater than 1 for reshape ops",
-    "ERROR_UPSAMPLE_UNSUPPORTED_MODE": " upsampling but {} was set",
-    "ERROR_UPSAMPLE_INPUT_DIMS": "SNPE expects 4D input to Upsample, but got: {}",
+    "ERROR_RESIZE_UNSUPPORTED_MODE": "resizing {} was not supported. Please choose from modes: {}",
+    "ERROR_RESIZE_INPUT_DIMS": "SNPE expects 4D input to resize(scale), but got: {}",
     "ERROR_PAD_UNSUPPORTED_MODE": "Unsupported mode {} set in Pad layer",
     "ERROR_SQUEEZE_DIM_GREATER_THAN_RANK": "Squeeze dims {} greater than input rank {}",
     "ERROR_SQUEEZE_DIMS_EQUAL_ONE": "t all point to dims==1 {}",
     "ERROR_UNSQUEEZE_NEGATIVE_DIMS": "Unsqueeze got negative dims: {}",
     "ERROR_UNSQUEEZE_DIMS_GREATER_THAN_RANK": "Unsqueeze got dims {} greater than new rank {}",
     "ERROR_UNSQUEEZE_DUPLICATE_DIMS": "Duplicate unsqueeze dims {}",
+    "ERROR_MULTIPLE_CONST_INPUTS_FOUND": "Cannot have multiple constant inputs for {}. Found const inputs {}",
+    "ERROR_UNSUPPORTED_ATTRIBUTE_VALUE": "Attribute {} in {} Op with input {} has an unsupported value. Expected value {} for this Op attribute, got {}",
 
     # //=============================================================================
     # //                 IR GENERAL CONVERTER ERROR CODES
@@ -274,9 +281,30 @@ error_codes_to_messages = {
     "ERROR_PERMUTE_UNEXPECTED_INPUT_ORDER": "Permute op got unexpected input data order {}",
     "ERROR_FC_AXIS_UNSUPPORTED": "SNPE only supports an axis value of 1 for FC layers",
     "ERROR_FC_AXIS_W_UNSUPPORTED": "SNPE only supports an axis_w value of 1 for FC layers",
+    "ERROR_FC_WRONG_INPUT_SIZE": "FC Node {}: input size expected by weights ({}) does not match input size of buffer "
+                                 "({}). Note: weights are assumed to have shape (input_size, output_size) when "
+                                 "converted from training framework format to IR",
     "ERROR_BATCHNORM_DIM_UNSUPPORTED": "SNPE only supports 4D,3D and 2D inputs to batchnorm. Got {}",
     "ERROR_RESHAPE_UNEXPECTED_INPUT_ORDER": "Reshape op got unexpected input data order {}",
-    "ERROR_UNKNOWN_OPTIMIZATION_METHOD": "Requested Optimization method not supported {}"
+
+    # //=============================================================================
+    # //                 IR OPTIMIZATIONS ERROR CODES
+    # //=============================================================================
+    "ERROR_UNKNOWN_OPTIMIZATION_METHOD": "Requested Optimization method not supported {}",
+    "ERROR_BIAS_ADD_PREV_NO_BIAS": "Cannot squash bias-add op node {} onto predecessor {} with type {}",
+    "ERROR_BIAS_SUB_PREV_NO_BIAS": "Cannot squash bias-subtract op node {} onto previous node: {} of type: {}",
+    "ERROR_UNKNOWN_MATCHING_CRITERIA": "Ops optimization: Expected {} for matching criteria of buffers, Got {}",
+    "ERROR_UNKNOWN_BUFFER_CRITERIA": "Op type {} optimization: Expected {} or int(Index) for buffer criteria, Got {}",
+    "ERROR_BUFFER_CRITERIA_INDEX": "Op type {} optimization: Index {} for buffer list length {} not valid. Please adjust optimization criteria",
+    "ERROR_BUFFER_CRITERIA_ALL": "Op type {} optimization: There should only be one expected buffer provided when Buffer criteria is 'ALL'. Got {}",
+    "ERROR_UNKNOWN_OP_TYPE(S)_FOUND": "Not all requested op_type(s) '{}' for matching sequence  supported. Please verify that each op_type exists in op_adapter.py",
+
+    # //=============================================================================
+    # //                 IR_TO_DLC(i.e SNPE) ERROR CODES
+    # //=============================================================================
+    'ERROR_SNPE_TILE_AXIS_NOT_SUPPORTED': "Cannot resolve Tile layer {}. Axis must be less than 4. Got axis {}",
+    'ERROR_PRELU_NON_CHANNEL_SHARED_SUPPORT_ONLY': "Cannot resolve Prelu layer {}. Only non-channel-shared supported in SNPE.",
+    "ERROR_ROI_POOL_BATCH_UNSUPPORTED": "SNPE does not currently support a batch dimension greater than 1 for MaxRoiPool ops",
 }
 
 warning_codes_to_messages = {
@@ -310,17 +338,23 @@ warning_codes_to_messages = {
     # //=============================================================================
     # //                 ONNX CONVERTER WARNING CODES
     # //=============================================================================
-    "WARNING_BROADCAST_ADD": "SNPE does not support broadcast Add operations, will attempt to interpret as bias-add operation",
-    "WARNING_BROADCAST_MUL": "SNPE does not support broadcast Mul operations, will attempt to interpret as scale operation",
+    "WARNING_BROADCAST_ADD": "SNPE does not support dynamic broadcast Add operations, will attempt to interpret as a static bias-add operation",
+    "WARNING_BROADCAST_SUB": "SNPE does not support dynamic broadcast Sub operations, will attempt to interpret as a static bias-sub",
+    "WARNING_BROADCAST_MUL": " SNPE does not support dynamic broadcast Mul operations, will attempt to interpret as a static scale operation",
+    "WARNING_BROADCAST_DIV": " SNPE does not support dynamic broadcast Div operations, will attempt to interpret as a static scale operation",
     "WARNING_GEMM": "SNPE does not support GEMM in the general case, attempting to interpret as FC",
     "WARNING_MATMUL": "SNPE does not support MatMul in the general case, attempting to interpret as FC",
+    "WARNING_RESIZE": "SNPE only support resizing Height and Width, ignoring other dimensions.",
     "WARNING_OPSET_VERSION": "Warning multiple opset versions specified, using highest.",
-
+    "WARNING_UNSUPPORTED_ATTRIBUTE": "Unsupported attribute: {} found in {} Op with input: {}. This attribute may be ignored or cause an error during model conversion.",
+    "WARNING_UNSUPPORTED_ATTRIBUTE_VALUE": " Attribute {} in {} Op with input {} has an unsupported value. Expected value {} for this Op attribute, got {}. ",
     # //=============================================================================
     # //                 IR COMMON CONVERTER WARNING CODES
     # //=============================================================================
     "WARNING_STATIC_SHAPE": "SNPE only supports static shape ops, interpreted at conversion time {}",
-    "WARNING_OP_NOT_SUPPORTED": "WARNING: Operation {} Not Supported.",
+    "WARNING_OP_NOT_SUPPORTED": "Operation {} Not Supported.",
+    "WARNING_OP_VERSION_NOT_SUPPORTED": "Operation {} Not Supported. "
+                                        "Expected operator version: {}, instead got version: {}"
 }
 
 debug_codes_to_messages = {
@@ -521,7 +555,16 @@ debug_codes_to_messages = {
     # //=============================================================================
     # //                 IR OPTIMIZATIONS DEBUGGING CODES
     # //=============================================================================
-    "DEBUG_BATCHNORM_SQUASH": "Squashing Batchnorm {} into Convolution {}"
+    "DEBUG_BATCHNORM_SQUASH": "Squashed Batchnorm:{} into {}:{}",
+    "DEBUG_SCALE_SQUASH": "Squashed Scale:{} into {}:{}",
+    "DEBUG_CONCAT_FOLD": "Folded Concat:{} into Concat:{}",
+    "DEBUG_CHANNEL_SHUFFLE_REPLACE": "Replaced [Reshape:{}, Permute:{}, Reshape:{}] with ChannelShuffle:{}",
+    "DEBUG_ELEMENTWISEPRODUCT_SQUASH": "Squashed ElementwiseProduct {} into {} of type {}",
+    "DEBUG_ELEMENTWISEDIV_SQUASH": "Squashed ElementwiseProduct {} into {} of type {}",
+    "DEBUG_ELEMENTWISEDIV_SUB": "Squashed ElementwiseProduct {} into {} of type {}",
+    "DEBUG_ELEMENTWISESUM_SQUASH": "Squashed ElementwiseSum:{} into {} of type {}",
+    "DEBUG_DETECTIONOUT_FOLDING": "Squashed concat of priorboxes:{} into {}",
+    "DEBUG_ELEMENTWISESUB_SQUASH": "Squashed ElementwiseSub Op:{} into {} of type {}",
 }
 
 progress_codes_to_messages = {

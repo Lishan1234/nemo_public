@@ -6,13 +6,16 @@
 #
 #==============================================================================
 
+from __future__ import absolute_import
 import json
 import csv
+import logging
 from collections import OrderedDict
-from snpebm_constants import MEASURE_TIMING, MEASURE_MEM
+from .snpebm_constants import MEASURE_TIMING, MEASURE_MEM
 
+logger = logging.getLogger(__name__)
 
-class Writer:
+class Writer(object):
     SPACE = ' '
     NOT_AVAILABLE = "N/A"
     SDK_VERSION_HEADER = "SNPE SDK version:"
@@ -20,7 +23,7 @@ class Writer:
     DEVICE_INFO_HEADER = "Device Info:"
     UNITS = {MEASURE_TIMING: "us", MEASURE_MEM: "kB"}
 
-    def __init__(self, snpe_sdk_version, benchmarks, config, device_info, sleeptime, logger):
+    def __init__(self, snpe_sdk_version, benchmarks, config, device_info, sleeptime):
         self._snpe_sdk_version = snpe_sdk_version
         self._tables = {}
         self._config = config
@@ -43,7 +46,7 @@ class Writer:
         writer.writerow([])
         return
 
-    def writecsv(self, csv_file_path, logger):
+    def writecsv(self, csv_file_path):
         csv_file = open(csv_file_path, 'wt')
         try:
             writer = csv.writer(csv_file)
@@ -124,7 +127,7 @@ class Writer:
         writer.update(jsonrows)
         return
 
-    def writejson(self, json_file_path, logger):
+    def writejson(self, json_file_path):
         bm_data = {}
         run_data = {}
         try:
@@ -149,7 +152,7 @@ class Writer:
                         if channel in runtime_dict:
                             actual_runtime = runtime_dict[channel]
                         else:
-                            logger.error("Eroor:Actual runtime information is not present for the layer")
+                            logger.error("Error:Actual runtime information is not present for the layer")
                             return
                         if channel in max_dict:
                             max_val_channel = max_dict[channel]

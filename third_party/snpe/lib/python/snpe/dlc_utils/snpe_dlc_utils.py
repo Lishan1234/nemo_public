@@ -56,7 +56,9 @@ def color_space_name(type_code):
                     1:"argb32",
                     2:"rgba",
                     3:"nv21",
-                    4:"bgr" }
+                    4:"bgr",
+                    5:"blob1d",
+                    6:"blob2d" }
 
         return cs_name[type_code]
 
@@ -126,11 +128,16 @@ class LayerRow(object):
         self.type = layer['type']
         self.input_names = layer['input_names']
         self.input_dims = [ model.get_buffer_dims(i) for i in self.input_names ]
+        if len(self.input_dims) < 1:
+            self.input_batch = 0
+        else:
+            self.input_batch = self.input_dims[0][0]
         self.output_names = layer['output_names']
         self.output_dims_list = []
         self.macs = 0
         self.param_count = 0 # i.e. size of weights
         self.nativeDimSize = 3
+        self.layer_affinity = model.get_layer_affinity(self.name)
         for name in self.output_names:
            self.output_dims_list.append(model.get_buffer_dims(name))
 
@@ -189,15 +196,9 @@ class LayerRow(object):
         extractor = getattr(self, 'extract_%s' % layer['type'], extract_noop)
         extractor(layer)
 
-    def dump(self, col_sizes, total_params, total_macs, csv_content):
-        if self.param_count > 0:
-            self.add_parm( "param count", get_si_notation(self.param_count, total_params))
-        if self.macs > 0:
-            self.add_parm( "MACs per inference", get_si_notation(self.macs, total_macs))
-
+    def dump(self, model, col_sizes, csv_content):
         print_row([str(self.id), self.name, self.type, self.get_input(0),
                    self.get_output(0), self.outputs_string(0), self.get_parm(0)], col_sizes, csv_content)
-
 
         extra_rows = max(len(self.input_names), len(self.parms))
         extra_rows = max( extra_rows, len(self.output_names) )
@@ -356,6 +357,11 @@ class LayerRow(object):
         # = filter size * number of filter positions / groups
         self.macs = product(weights.shape[0:3])*product(native_output_dims)/layer.get('groups',1)
 
+    def extract_correlation(self, layer):
+        self.add_parm('displacement', layer['displacement'])
+        self.add_parm('shift', layer['shift'])
+        self.add_parm('stride', layer['stride'])
+
     def extract_crop(self, layer):
         for i, o in enumerate(layer['offsets']):
             self.add_parm('offsets[%d]' % i, o)
@@ -382,6 +388,15 @@ class LayerRow(object):
     def extract_dropout(self, layer):
         self.add_parm("keep", layer["keep"])
 
+    def extract_elementwise_op(self, layer):
+        self.add_parm("operation", layer["op_name"])
+
+    def extract_elementwise_binary_op(self, layer):
+        self.add_parm("operation", layer["op_name"])
+
+    def extract_elementwise_unary_op(self, layer):
+        self.add_parm("operation", layer["op_name"])
+
     def extract_extract_glimpse(self, layer):
         self.add_parm("glimpse_width", layer["glimpse_width"])
         self.add_parm("glimpse_height", layer["glimpse_height"])
@@ -389,7 +404,7 @@ class LayerRow(object):
         self.add_parm("normalized", layer["normalized"])
         self.add_parm("uniform_noise", layer["uniform_noise"])
 
-    def extract_fc(self, layer):
+    def extract_fully_connected(self, layer):
         self.param_count = layer['bias'].shape[0]
         for weights in layer['weights_list']:
             self.param_count += product(weights.shape)
@@ -481,6 +496,10 @@ class LayerRow(object):
         self.add_parm("shift", "%s" %( layer['shift']))
         self.add_parm("power", "%s" %( layer['power']))
 
+    def extract_reduce(self, layer):
+
+        self.add_parm("operation", "%s" %( layer['op_name']))
+
     def extract_roialign(self, layer):
         def add(parm):
             self.add_parm(parm, layer[parm])
@@ -541,6 +560,8 @@ class LayerRow(object):
         self.add_parm("mode", mode_name)
         if mode_name == 'constant':
             self.add_parm("constant_values", layer['constant_values'])
+        if mode_name == 'reflect':
+            self.add_parm("constant_values", 0)
 
     def extract_argmax(self, layer):
         self.add_parm("axis", layer['axis'])
@@ -591,12 +612,21 @@ class LayerRow(object):
         self.add_parm("axes", layer['axes'])
         self.add_parm("keep_dims", layer['keep_dims'])
 
+    def extract_gather(self, layer):
+        self.add_parm("axis", layer['axis'])
+
+    def extract_space_to_depth(self, layer):
+        self.add_parm('downscale factor', layer['downscale_factor'])
+
+
 class ModelInfo(object):
     def __init__(self):
         self.model = modeltools.Model()
         self.model_filename = ""
         self.rows = []
         self.layer_mapping = {}
+        self.total_params = 0
+        self.total_macs = 0
 
     def load(self, input_file_name):
         self.model.load(input_file_name)
@@ -609,30 +639,35 @@ class ModelInfo(object):
         for layer in layers:
             row = LayerRow(layer, self.rows, self.model)
             self.rows.append(row)
+            self.total_params += row.get_num_params()
+            self.total_macs += row.get_macs()
         return self.rows
 
     def dump_info(self, input_file_name, output_file_name):
-        self.load(input_file_name)
+        self.extract_model_info(input_file_name)
 
         global csv_file_flag
         csv_content = []
         if output_file_name is not None:
             csv_file_flag = True
 
-        print_value('DLC info for' + os.path.abspath(input_file_name), csv_content)
+        print_value('DLC info for: ' + os.path.abspath(input_file_name), csv_content)
 
         layers = self.model.get_layers()
         headers = ["Id", "Name", "Type", "Inputs", "Outputs", "Out Dims", "Parameters"]
         col_sizes = [1+len(header) for header in headers]
-        total_params = 0
-        total_macs = 0
-        # make a little extra room in parms column for param count.
-        billion = 1e9
-        col_sizes[6] = len("param count: " + get_si_notation(billion, billion))
 
-        for layer in layers:
-            row = LayerRow(layer, self.rows, self.model)
-            self.rows.append(row)
+        for row in self.rows:
+            if row.param_count > 0:
+                row.add_parm( "param count", get_si_notation(row.param_count, self.total_params))
+
+            if row.macs > 0:
+                row.add_parm( "MACs per inference", get_si_notation(row.macs, self.total_macs))
+
+            if row.layer_affinity != 'UNSET':
+                row.add_parm( "Layer Affinity", row.layer_affinity)
+
+        for row in self.rows:
             col_sizes[0] = max(col_sizes[0], 1+row.id_width())
             col_sizes[1] = max(col_sizes[1], 1+row.name_width())
             col_sizes[2] = max(col_sizes[2], 1+row.type_width())
@@ -640,11 +675,9 @@ class ModelInfo(object):
             col_sizes[4] = max(col_sizes[4], 1+row.output_width())
             col_sizes[5] = max(col_sizes[5], 1+row.output_dims_width())
             col_sizes[6] = max(col_sizes[6], 1+row.parms_width())
-            total_params += row.get_num_params()
-            total_macs += row.get_macs()
 
         (model_version, total_params_str, total_macs_str, converter_command,
-         converter_version, model_copyright) = self.get_meta_data(total_params, total_macs, input_file_name)
+         converter_version, model_copyright) = self.get_meta_data(self.total_params, self.total_macs, input_file_name)
         print_value(model_version, csv_content)
         print_value(model_copyright, csv_content)
         total_size = 2+2*len(col_sizes)-1+sum(col_sizes)
@@ -653,17 +686,18 @@ class ModelInfo(object):
         print_value('-'*total_size)
 
         for row in self.rows:
-            row.dump(col_sizes, total_params, total_macs, csv_content)
+            row.dump(self.model, col_sizes, csv_content)
 
         print_value(total_params_str + '\n' + total_macs_str + '\n' + converter_command + '\n' + converter_version, csv_content)
         print_value(('-' * total_size) + '\n')
 
-        try:
-            aix_records = self.get_aix_records()
-            if aix_records:
-                self.dump_aix_info(aix_records, csv_content)
-        except Exception as e:
-            raise Exception("Error Querying for AIP Records in model:", self.model_filename, e)
+        if self.is_aix_enabled():
+            try:
+                aix_records = self.get_aix_records()
+                if aix_records:
+                    self.dump_aix_info(aix_records, csv_content)
+            except Exception as e:
+                raise Exception("Error Querying for AIP Records in model:", self.model_filename, e)
 
         if output_file_name is not None:
             try:
@@ -748,16 +782,19 @@ class ModelInfo(object):
                 return v
         return 'N/A'
 
-    def get_aix_records(self):
-        return self.model.get_aix_records()
-
     def is_aix_enabled(self):
+        return self.model.is_aix_enabled()
+
+    def is_aix_record_present(self):
         archive = zipfile.ZipFile(self.model_filename, 'r')
         archive_filelist = archive.filelist
         for fileinfo in archive_filelist:
             if "aip" in fileinfo.filename or "hta" in fileinfo.filename or "aix" in fileinfo.filename:
                 return True
         return False
+
+    def get_aix_records(self):
+        return self.model.get_aix_records()
 
     def read_converter_version(self, dlc_file_path):
         archive = zipfile.ZipFile(dlc_file_path, 'r')
@@ -796,10 +833,10 @@ class ModelInfo(object):
         return row.outputs_string(0)
 
     def get_total_macs(self):
-        total_macs = 0
-        for row in self.rows:
-            total_macs += row.get_macs()
-        return total_macs
+        return self.total_macs
+
+    def get_total_params(self):
+        return self.total_params
 
     def types_info(self):
         name_and_type = {}
@@ -836,3 +873,9 @@ class ModelInfo(object):
             layer = row.layer
             name_and_weights.update({row.name: layer.get('weights')})
         return name_and_weights
+
+    def get_output_names(self):
+        output_names = []
+        for row in self.rows:
+            output_names.append(row.get_output_list())
+        return output_names

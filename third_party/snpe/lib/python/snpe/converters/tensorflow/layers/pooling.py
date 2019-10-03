@@ -105,8 +105,8 @@ class PoolingLayerBuilder(LayerBuilder):
             pad_x = ((output_width - 1) * strides[1] + pool_dims[1] - input_size[1])
             # We divide by two and truncate if odd padding given the runtime will
             # take care of Asymmetry
-            pad_y //= 2
-            pad_x //= 2
+            pad_y /= 2
+            pad_x /= 2
             padding_size_strategy = modeltools.PADDING_SIZE_IMPLICIT_SAME
         return int(pad_y), int(pad_x), padding_size_strategy
 

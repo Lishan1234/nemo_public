@@ -76,28 +76,14 @@ class ConvolutionLayerResolver(LayerResolver, object):
             weights = self.get_weights(graph_helper, conv_op)
             consumed_nodes = list(match.consumed_nodes)
             output_op_nodes_names = [str(match[node.identifier].outputs[0].name) for node in self.sequence.output_nodes]
-            try:
-                conv_output_ops = graph_helper.get_op_outputs(conv_op)
-                bias_op = GraphHelper.filter_single_op_by_type(conv_output_ops, 'BiasAdd')
-                biases = self.get_biases(graph_helper, conv_op, bias_op)
-
-            except OperationNotFoundError:
-                pass
-
-            if bias_op is None:
-                try:
-                    conv_output_ops = graph_helper.get_op_outputs(conv_op)
-                    bias_op = GraphHelper.filter_single_op_by_type(conv_output_ops, 'Add')
-                    biases = self.get_biases(graph_helper, conv_op, bias_op)
-                except OperationNotFoundError:
-                    pass
-
+            conv_output_ops = graph_helper.get_op_outputs(conv_op)
+            bias_op, biases = self.get_conv_bias(graph_helper, conv_op, conv_output_ops)
             if bias_op is not None and biases is not None:
                 output_op_nodes_names = [str(bias_op.outputs[0].name)]
                 consumed_nodes.append(bias_op)
             else:
+                bias_op = None
                 biases = np.zeros(weights.shape[-1], dtype=np.float32)
-
             descriptor = ConvolutionLayerResolver.Descriptor(str(conv_op.name), consumed_nodes, conv_op, bias_op,
                                                              strides, padding, weights, biases,
                                                              output_names=output_op_nodes_names)
@@ -111,6 +97,30 @@ class ConvolutionLayerResolver(LayerResolver, object):
             raise ConverterError(code_to_message.get_error_message('ERROR_TF_CONV_RESOLVE_BIAS')(conv_op.name))
         biases = graph_helper.evaluate_tensor_output(biases_tensor)
         return biases
+
+    def get_conv_bias(self, graph_helper, input_op, conv_output_ops):
+        bias_op = None
+        biases = None
+        try:
+            bias_op = GraphHelper.filter_single_op_by_type(conv_output_ops, 'BiasAdd')
+            biases = self.get_biases(graph_helper, input_op, bias_op)
+
+        except OperationNotFoundError:
+            pass
+
+        if bias_op is None:
+            try:
+                bias_op = GraphHelper.filter_single_op_by_type(conv_output_ops, 'Add')
+                biases = self.get_biases(graph_helper, input_op, bias_op)
+            except OperationNotFoundError, ConverterError:
+                bias_op = None
+                biases = None
+
+        if biases is not None and len(biases.shape) != 1:
+            bias_op = None
+            biases = None
+
+        return bias_op, biases
 
     def get_weights(self, graph_helper, conv_op):
         _, weights_tensor = GraphHelper.get_op_input_tensors(conv_op, ('?', '?'))
@@ -155,14 +165,13 @@ class DilatedConvolutionLayerResolver(ConvolutionLayerResolver, object):
             consumed_nodes = match.consumed_nodes
             output_op_nodes_names = [str(match[node.identifier].outputs[0].name) for node in
                                      self.graph_sequence.output_nodes]
-            try:
-                batch_to_space_op = match['batch_to_space']
-                conv_output_ops = graph_helper.get_op_outputs(batch_to_space_op)
-                bias_op = GraphHelper.filter_single_op_by_type(conv_output_ops, 'BiasAdd')
-                biases = self.get_biases(graph_helper, conv_op, bias_op)
-                consumed_nodes.append(bias_op)
+            batch_to_space_op = match['batch_to_space']
+            conv_output_ops = graph_helper.get_op_outputs(batch_to_space_op)
+            bias_op, biases = self.get_conv_bias(graph_helper, batch_to_space_op, conv_output_ops)
+            if bias_op is not None and biases is not None:
                 output_op_nodes_names = [str(bias_op.outputs[0].name)]
-            except OperationNotFoundError:
+                consumed_nodes.append(bias_op)
+            else:
                 bias_op = None
                 biases = np.zeros(weights.shape[-1], dtype=np.float32)
             dilation_sizes = match['dilation_sizes']
@@ -251,23 +260,26 @@ class DilatedDepthwiseConvolutionLayerResolver(ConvolutionLayerResolver, object)
         descriptors = []
         for match in matches:
             conv_op = match['conv_op']
+            biases = None
+            bias_op = None
             strides = conv_op.get_attr(self.TF_ATTRIBUTE_STRIDES)
             padding = conv_op.get_attr(self.TF_ATTRIBUTE_PADDING)
             weights = self.get_weights(graph_helper, conv_op)
+            if weights.shape[3] != 1:
+                raise ConverterError(code_to_message.get_error_message('ERROR_TF_CONV_RESOLVE_WEIGHTS_SHAPE')(conv_op.name))
             weights = np.transpose(weights, [0, 1, 3, 2])
             consumed_nodes = match.consumed_nodes
             output_op_nodes_names = [str(match[node.identifier].outputs[0].name) for node in
                                      self.graph_sequence.output_nodes]
-            try:
-                batch_to_space_op = match['batch_to_space']
-                conv_output_ops = graph_helper.get_op_outputs(batch_to_space_op)
-                bias_op = GraphHelper.filter_single_op_by_type(conv_output_ops, 'BiasAdd')
-                biases = self.get_biases(graph_helper, conv_op, bias_op)
-                consumed_nodes.append(bias_op)
+            batch_to_space_op = match['batch_to_space']
+            conv_output_ops = graph_helper.get_op_outputs(batch_to_space_op)
+            bias_op, biases = self.get_conv_bias(graph_helper, batch_to_space_op, conv_output_ops)
+            if bias_op is not None and biases is not None:
                 output_op_nodes_names = [str(bias_op.outputs[0].name)]
-            except OperationNotFoundError:
+                consumed_nodes.append(bias_op)
+            else:
                 bias_op = None
-                biases = np.zeros(np.shape(weights)[-1], dtype=np.float32)
+                biases = np.zeros(weights.shape[-1], dtype=np.float32)
             dilation_sizes = match['dilation_sizes']
             dilation_sizes = graph_helper.evaluate_tensor_output(dilation_sizes.outputs[0])
             if np.shape(dilation_sizes) != (2,):
@@ -458,15 +470,13 @@ class GroupedConvolutionLayerResolver(ConvolutionLayerResolver, object):
             consumed_nodes = match.consumed_nodes
             output_op_nodes_names = [str(match[node.identifier].outputs[0].name) for node in
                                      self.sequence.output_nodes]
-            try:
-                concat_op = match['concat_op']
-                concat_op_output_ops = graph_helper.get_op_outputs(concat_op)
-                bias_op = GraphHelper.filter_single_op_by_type(concat_op_output_ops, 'BiasAdd')
-                # need to consume input of bias
-                biases = self.get_biases(graph_helper, conv_op, bias_op)
-                consumed_nodes.append(bias_op)
+            concat_op = match['concat_op']
+            concat_op_output_ops = graph_helper.get_op_outputs(concat_op)
+            bias_op, biases = self.get_conv_bias(graph_helper, concat_op, concat_op_output_ops)
+            if bias_op is not None and biases is not None:
                 output_op_nodes_names = [str(bias_op.outputs[0].name)]
-            except OperationNotFoundError:
+                consumed_nodes.append(bias_op)
+            else:
                 bias_op = None
                 biases = np.zeros(weights.outputs[0].get_shape()[-1], dtype=np.float32)
 

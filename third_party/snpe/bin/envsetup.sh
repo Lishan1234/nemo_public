@@ -27,50 +27,6 @@ optional arguments:
 EOF
 }
 
-# copy appropriate C++ STL library (libgnustl_shared.so|libc++_shared.so) to lib directory of SNPE SDK
-function _copy_stl_lib()
-{
-  local SNPE_TARGET_DIR=$1 # arm-android-gcc4.9 | aarch64-android-gcc4.9 | arm-android-clang3.8 | aarch64-android-clang3.8
-  local ANDROID_NDK_DIR=$2 # armeabi-v7a | arm64-v8a
-  local STL_LIB_NAME=$3 # libgnustl_shared.so | libc++_shared.so
-  local AAR_NAME=$4 # snpe-gcc-release.aar | snpe-release.aar
-  local STL_LIB_VERSION=$5 # Optional: 4.9
-
-  local CXX_STL_COPY=
-  if [ ! -e "$SNPE_ROOT/lib/$SNPE_TARGET_DIR/$STL_LIB_NAME" ]; then
-    if [[ -d "$ANDROID_NDK_ROOT" ]]; then
-      local FOUND_CXX_STL=
-      if [ ! -z $STL_LIB_VERSION ]; then
-        FOUND_CXX_STL=`find $ANDROID_NDK_ROOT/ -name $STL_LIB_NAME | grep "$STL_LIB_VERSION" | grep "$ANDROID_NDK_DIR\/$STL_LIB_NAME"`
-      else
-        FOUND_CXX_STL=`find $ANDROID_NDK_ROOT/ -name $STL_LIB_NAME $GREP_VERSION | grep "$ANDROID_NDK_DIR\/$STL_LIB_NAME"`
-      fi
-
-      echo "[INFO] $STL_LIB_NAME found at "$FOUND_CXX_STL
-      echo "[INFO] Copying $STL_LIB_NAME to $SNPE_ROOT/lib/$SNPE_TARGET_DIR"
-
-      cp $FOUND_CXX_STL $SNPE_ROOT/lib/$SNPE_TARGET_DIR
-      CXX_STL_COPY=1
-    else
-      echo "[WARNING] Please copy $STL_LIB_NAME for $ANDROID_NDK_DIR from the Android NDK into ${SNPE_ROOT}/lib/$SNPE_TARGET_DIR"
-    fi
-  else
-    echo "[INFO] Found $SNPE_ROOT/lib/$SNPE_TARGET_DIR/$STL_LIB_NAME"
-    CXX_STL_COPY=1
-  fi
-
-  if [[ $CXX_STL_COPY ]]
-  then
-      echo "[INFO] Adding $ANDROID_NDK_DIR $STL_LIB_NAME to $SNPE_ROOT/android/$AAR_NAME"
-      pushd $SNPE_ROOT/android > /dev/null
-      mkdir -p jni/$ANDROID_NDK_DIR/
-      cp $SNPE_ROOT/lib/$SNPE_TARGET_DIR/$STL_LIB_NAME jni/$ANDROID_NDK_DIR/
-      zip -rq $AAR_NAME jni/$ANDROID_NDK_DIR/$STL_LIB_NAME
-      rm -rf jni
-      popd > /dev/null
-  fi
-}
-
 function _setup_snpe()
 {
   # get directory of the bash script
@@ -222,7 +178,6 @@ function _is_valid_directory()
 function _cleanup()
 {
   unset -f _usage
-  unset -f _copy_libgnustl
   unset -f _setup_snpe
   unset -f _setup_caffe
   unset -f _setup_caffe2
@@ -249,10 +204,6 @@ done
 
 # check for NDK
 _check_ndk
-
-# Make sure libgnustl_shared.so has been copied over to the arm-android-gcc4.9 and aarch64-android-gcc4.9 directory
-_copy_stl_lib "arm-android-gcc4.9" "armeabi-v7a" "libgnustl_shared.so" "snpe-gcc-release.aar" "4.9"
-_copy_stl_lib "aarch64-android-gcc4.9" "arm64-v8a" "libgnustl_shared.so" "snpe-gcc-release.aar" "4.9"
 
 # cleanup
 _cleanup

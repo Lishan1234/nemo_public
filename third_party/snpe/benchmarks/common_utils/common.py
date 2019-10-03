@@ -3,11 +3,15 @@
 # All Rights Reserved.
 # Confidential and Proprietary - Qualcomm Technologies, Inc.
 #
+
+from . import constants
+
 import subprocess
 import sys
 import logging
 import os
 from threading import Timer
+from shutil import copyfile
 
 logger = logging.getLogger(__name__)
 
@@ -51,8 +55,8 @@ def execute(command, args=[], cwd='.', shell=False, timeout=Timeouts.DEFAULT_POP
             timer.start()
             output, error = process.communicate()
             if sys.version_info[0] == 3:
-                output = output.decode()
-                error = error.decode()
+                output = output.decode('utf-8')
+                error = error.decode('utf-8')
         finally:
             # If the timer is alive, that implies process exited within the timeout;
             # Hence stopping the timer task;
@@ -67,14 +71,3 @@ def execute(command, args=[], cwd='.', shell=False, timeout=Timeouts.DEFAULT_POP
         return return_code, __format_output(output), __format_output(error)
     except OSError as error:
         return -1, [], __format_output(str(error))
-
-def recursive_dir_scan(current_dir):
-    all_files = []
-    all_dirs = []
-    for root, dirs, files in os.walk(current_dir):
-        for file_name in files:
-            all_files.append(os.path.join(root, file_name))
-        for dir_name in dirs:
-            sub_dir = os.path.join(root, dir_name)
-            all_dirs.append(sub_dir)
-    return all_files, all_dirs

@@ -71,6 +71,8 @@ from snpe.converters.tensorflow.layers.batchnorm import (
 )
 
 from snpe.converters.tensorflow.layers.instance_norm import (
+    InstanceNormRMSLayerBuilder,
+    InstanceNormRMSLayerResolver,
     InstanceNormLayerBuilder,
     InstanceNormLayerResolver
 )
@@ -244,6 +246,11 @@ from snpe.converters.tensorflow.layers.moments import (
     MomentsLayerBuilder
 )
 
+from snpe.converters.tensorflow.layers.space_to_depth import (
+    SpaceToDepthLayerResolver,
+    SpaceToDepthLayerBuilder
+)
+
 from snpe.converters.tensorflow.common import (
     LayerDescriptor,
     LayerResolver,
@@ -269,6 +276,7 @@ layer_resolvers = [
     SoftmaxLayerResolver,
     LrnLayerResolver,
     DeConvolutionOptimizedLayerResolver,
+    InstanceNormRMSLayerResolver,
     InstanceNormLayerResolver,
     EltWiseSumLayerResolver,
     EltWiseSubLayerResolver,
@@ -313,7 +321,8 @@ layer_resolvers = [
     ExtractGlimpseLayerResolver,
     ImageProjectiveTransformLayerResolver,
     CropAndResizeLayerResolver,
-    MomentsLayerResolver
+    MomentsLayerResolver,
+    SpaceToDepthLayerResolver
 ]
 """
 type: list[type(LayerResolver)]
@@ -331,6 +340,7 @@ layer_builders = {
     EltWiseSumLayerResolver.Descriptor: EltWiseSumLayerBuilder,
     EltWiseSubLayerResolver.Descriptor: EltWiseSubLayerBuilder,
     EltWiseDivLayerResolver.Descriptor: EltWiseDivLayerBuilder,
+    InstanceNormRMSLayerResolver.Descriptor: InstanceNormRMSLayerBuilder,
     InstanceNormLayerResolver.Descriptor: InstanceNormLayerBuilder,
     AddNLayerResolver.Descriptor: AddNLayerBuilder,
     TileLayerResolver.Descriptor: TileLayerBuilder,
@@ -380,7 +390,8 @@ layer_builders = {
     ExtractGlimpseLayerResolver.Descriptor: ExtractGlimpseLayerBuilder,
     ImageProjectiveTransformLayerResolver.Descriptor: ImageProjectiveTransformLayerBuilder,
     CropAndResizeLayerResolver.Descriptor: CropAndResizeLayerBuilder,
-    MomentsLayerResolver.Descriptor: MomentsLayerBuilder
+    MomentsLayerResolver.Descriptor: MomentsLayerBuilder,
+    SpaceToDepthLayerResolver.Descriptor: SpaceToDepthLayerBuilder
 }
 """
 type: dict[type(LayerDescriptor), type(LayerBuilder)]

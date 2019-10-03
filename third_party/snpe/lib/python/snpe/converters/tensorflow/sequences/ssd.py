@@ -147,4 +147,5 @@ nms_sequence.set_inputs('Postprocessor/BatchMultiClassNonMaxSuppression/map/Tens
 nms_sequence.set_inputs('Postprocessor/BatchMultiClassNonMaxSuppression/map/TensorArrayStack/range', ['stub_23','Postprocessor/BatchMultiClassNonMaxSuppression/map/TensorArrayStack/TensorArraySizeV3','stub_24'])
 nms_sequence.set_inputs('Postprocessor/BatchMultiClassNonMaxSuppression/map/TensorArrayStack/TensorArraySizeV3', ['Postprocessor/BatchMultiClassNonMaxSuppression/map/TensorArray_4','stub_17'])
 nms_sequence.set_inputs('detection_scores', ['Postprocessor/BatchMultiClassNonMaxSuppression/map/TensorArrayStack_1/TensorArrayGatherV3'])
-nms_sequence.set_outputs(['detection_boxes','detection_scores','add_6'])
+# do not retrieve detection_scores and detection_classes as that cause high memory usage when finding root_candidate_assignments, specifically the itertools.product. This happens when model has a lot of identity ops.
+nms_sequence.set_outputs(['Postprocessor/BatchMultiClassNonMaxSuppression/map/TensorArrayStack/TensorArrayGatherV3','Postprocessor/BatchMultiClassNonMaxSuppression/map/TensorArrayStack_1/TensorArrayGatherV3','Postprocessor/BatchMultiClassNonMaxSuppression/map/TensorArrayStack_2/TensorArrayGatherV3','add_6'])

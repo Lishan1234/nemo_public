@@ -45,6 +45,7 @@ class InputOp(Op):
         self.addattr('image_encoding_out', kargs, 'bgr')
         self.addattr('image_type', kargs, 'default')
 
+
 class ArgMaxOp(Op):
     TRANSLATION_KEY = 'argmax'
 
@@ -52,6 +53,7 @@ class ArgMaxOp(Op):
         Op.__init__(self, name, self.TRANSLATION_KEY)
         self.axis = axis
         self.addattr('keepdims', kargs, False)
+
 
 class BatchnormOp(Op):
     TRANSLATION_KEY = 'batchnorm'
@@ -84,13 +86,13 @@ class ConvolutionOp(Op):
         self.bias = bias
         self.assertattr('padx', kargs)
         self.assertattr('pady', kargs)
-        self.addattr('padding_mode', kargs, "PADDING_ZERO")
-        self.addattr('padding_size_strategy', kargs, "PADDING_SIZE_EXPLICIT")
         self.assertattr('stridex', kargs)
         self.assertattr('stridey', kargs)
         self.assertattr('dilationx', kargs)
         self.assertattr('dilationy', kargs)
         self.addattr('groups', kargs, 1)
+        self.addattr('padding_mode', kargs, "PADDING_ZERO")
+        self.addattr('padding_size_strategy', kargs, "PADDING_SIZE_EXPLICIT")
 
 
 class ConcatOp(Op):
@@ -104,9 +106,10 @@ class ConcatOp(Op):
 class ConstantOp(Op):
     TRANSLATION_KEY = 'constant'
 
-    def __init__(self, name, tensor):
+    def __init__(self, name, tensor, **kargs):
         Op.__init__(self, name, self.TRANSLATION_KEY)
         self.tensor = tensor
+        self.addattr('quantizable', kargs, True)
 
 
 class CropOp(Op):
@@ -140,6 +143,25 @@ class DeconvolutionOp(Op):
         self.addattr('groups', kargs, 1)
 
 
+class DetectionOutputOp(Op):
+    TRANSLATION_KEY = 'detection_output'
+
+    def __init__(self, name, **kargs):
+        Op.__init__(self, name, self.TRANSLATION_KEY)
+        self.assertattr('output_dims', kargs)
+        self.assertattr('num_classes', kargs)
+        self.assertattr('share_location', kargs)
+        self.assertattr('background_label_id', kargs)
+        self.assertattr('nms_threshold', kargs)
+        self.assertattr('confidence_threshold', kargs)
+        self.assertattr('nms_top_k', kargs)
+        self.assertattr('nms_eta', kargs)
+        self.assertattr('code_type', kargs)
+        self.assertattr('keep_top_k', kargs)
+        self.assertattr('variance_encoded_in_target', kargs)
+        self.addattr('priorbox_data', kargs, None)  # gets filled out in optimization
+
+
 class DropoutOp(Op):
     TRANSLATION_KEY = 'dropout'
 
@@ -148,8 +170,50 @@ class DropoutOp(Op):
         self.keep = keep
 
 
+class ElementwiseDivOp(Op):
+    TRANSLATION_KEY = 'elementwise_div'
+
+    def __init__(self, name):
+        Op.__init__(self, name, self.TRANSLATION_KEY)
+
+
+class ElementwiseUnaryAbsOp(Op):
+    TRANSLATION_KEY = 'elementwise_unary_abs'
+
+    def __init__(self, name):
+        Op.__init__(self, name, self.TRANSLATION_KEY)
+
+
+class ElementwiseUnaryFloorOp(Op):
+    TRANSLATION_KEY = 'elementwise_unary_floor'
+
+    def __init__(self, name):
+        Op.__init__(self, name, self.TRANSLATION_KEY)
+
+
+class ElementwiseUnaryExpOp(Op):
+    TRANSLATION_KEY = 'elementwise_unary_exp'
+
+    def __init__(self, name):
+        Op.__init__(self, name, self.TRANSLATION_KEY)
+
+
+class ElementwiseUnaryLogOp(Op):
+    TRANSLATION_KEY = 'elementwise_unary_log'
+
+    def __init__(self, name):
+        Op.__init__(self, name, self.TRANSLATION_KEY)
+
+
 class ElementwiseMaxOp(Op):
     TRANSLATION_KEY = 'elementwise_max'
+
+    def __init__(self, name):
+        Op.__init__(self, name, self.TRANSLATION_KEY)
+
+
+class ElementwiseUnaryNegOp(Op):
+    TRANSLATION_KEY = 'elementwise_unary_neg'
 
     def __init__(self, name):
         Op.__init__(self, name, self.TRANSLATION_KEY)
@@ -170,6 +234,29 @@ class ElementwiseSumOp(Op):
         self.coeffs = coeffs
 
 
+class ElementwiseSubOp(Op):
+
+    TRANSLATION_KEY = 'elementwise_sub'
+
+    def __init__(self, name, **kargs):
+        Op.__init__(self, name, self.TRANSLATION_KEY)
+        self.addattr('scale_input', kargs, [])
+
+
+class ElementwiseUnarySinOp(Op):
+    TRANSLATION_KEY = 'elementwise_unary_sin'
+
+    def __init__(self, name):
+        Op.__init__(self, name, self.TRANSLATION_KEY)
+
+
+class ElementwiseUnarySqrtOp(Op):
+    TRANSLATION_KEY = 'elementwise_unary_sqrt'
+
+    def __init__(self, name):
+        Op.__init__(self, name, self.TRANSLATION_KEY)
+
+
 class FullyConnectedOp(Op):
     TRANSLATION_KEY = 'fully_connected'
 
@@ -177,6 +264,14 @@ class FullyConnectedOp(Op):
         Op.__init__(self, name, self.TRANSLATION_KEY)
         self.weights_list = weights_list
         self.bias = bias
+
+
+class GatherOp(Op):
+    TRANSLATION_KEY = 'gather'
+
+    def __init__(self, name, **kargs):
+        Op.__init__(self, name, self.TRANSLATION_KEY)
+        self.addattr('axis', kargs, 0)
 
 
 class GenerateProposalsOp(Op):
@@ -206,6 +301,18 @@ class GruOp(Op):
         self.addattr('backwards', kargs, False)
 
 
+class LrnOp(Op):
+    TRANSLATION_KEY = 'lrn'
+
+    def __init__(self, name, **kargs):
+        Op.__init__(self, name, self.TRANSLATION_KEY)
+        self.addattr('norm_region', kargs, "")
+        self.assertattr('window_size', kargs)
+        self.assertattr('alpha', kargs)
+        self.assertattr('beta', kargs)
+        self.assertattr('k', kargs)
+
+
 class LstmOp(Op):
     TRANSLATION_KEY = 'lstm'
 
@@ -216,11 +323,31 @@ class LstmOp(Op):
         self.assertattr('recurrent_weights', kargs)
         self.addattr('w_xc_static', kargs, None)
         self.addattr('backward', kargs, False)
+        self.addattr('activations', kargs, [])
         self.addattr('reset_state_at_time_step_0', kargs, False)
+        self.addattr('h_0_input_name', kargs, '')
+        self.addattr('c_0_input_name', kargs, '')
+        self.addattr('sequence_continuation_name', kargs, '')
+        self.addattr('x_static_name', kargs, '')
+        self.addattr('w_cc', kargs, None)
+        self.addattr('cell_clip', kargs, 0.0)
+        self.addattr('w_p', kargs, None)
+        self.addattr('b_p', kargs, None)
+        self.addattr('projection_clip', kargs, 0.0)
+        self.addattr('w_n', kargs, 0.0)
+        self.addattr('epsilon', kargs, 0.0)
+
 
 
 class MaxYOp(Op):
     TRANSLATION_KEY = 'max_y'
+
+    def __init__(self, name):
+        Op.__init__(self, name, self.TRANSLATION_KEY)
+
+
+class NegOp(Op):
+    TRANSLATION_KEY = 'neg'
 
     def __init__(self, name):
         Op.__init__(self, name, self.TRANSLATION_KEY)
@@ -279,12 +406,23 @@ class PermuteOp(Op):
         self.order = order
 
 
+class PowerOp(Op):
+    TRANSLATION_KEY = 'power'
+
+    def __init__(self, name, **kargs):
+        Op.__init__(self, name, self.TRANSLATION_KEY)
+        self.addattr('scale', kargs, 1.0)
+        self.addattr('shift', kargs, 0.0)
+        self.addattr('power', kargs, 1.0)
+
+
 class PreluOp(Op):
     TRANSLATION_KEY = 'prelu'
 
-    def __init__(self, name, coeff):
+    def __init__(self, name, **kargs):
         Op.__init__(self, name, self.TRANSLATION_KEY)
-        self.coeff = coeff
+        self.assertattr('coeff', kargs)
+        self.addattr('channel_shared', kargs, False)
 
 
 class ProposalOp(Op):
@@ -295,11 +433,29 @@ class ProposalOp(Op):
         self.assertattr('feat_stride', kargs)
         self.assertattr('scales', kargs)
         self.assertattr('ratios', kargs)
-        self.assertattr('anchor_bas_size', kargs)
+        self.assertattr('anchor_base_size', kargs)
         self.assertattr('min_bbox_size', kargs)
         self.assertattr('max_num_proposals', kargs)
         self.assertattr('max_num_rois', kargs)
         self.assertattr('iou_threshold_nms', kargs)
+
+
+class ReduceMaxOp(Op):
+    TRANSLATION_KEY = 'reduce_max'
+
+    def __init__(self, name, **kargs):
+        Op.__init__(self, name, self.TRANSLATION_KEY)
+        self.assertattr('axes', kargs)
+        self.addattr('keepdims', kargs, True)
+
+
+class ReduceSumOp(Op):
+    TRANSLATION_KEY = 'reduce_sum'
+
+    def __init__(self, name, **kargs):
+        Op.__init__(self, name, self.TRANSLATION_KEY)
+        self.assertattr('axes', kargs)
+        self.addattr('keepdims', kargs, True)
 
 
 class ReshapeOp(Op):
@@ -374,6 +530,17 @@ class RnnTransformationOp(Op):
         self.activation = activation
 
 
+class ScaleOp(Op):
+    TRANSLATION_KEY = 'scale'
+
+    def __init__(self, name, weights, bias, **kargs):
+        Op.__init__(self, name, self.TRANSLATION_KEY)
+        self.weights = weights
+        self.bias = bias
+        self.assertattr('axis', kargs)
+        self.assertattr('num_axes', kargs)
+
+
 class SliceOp(Op):
     TRANSLATION_KEY = 'slice'
 
@@ -381,6 +548,7 @@ class SliceOp(Op):
         Op.__init__(self, name, self.TRANSLATION_KEY)
         self.assertattr('axis', kargs)
         self.assertattr('slice_points', kargs)
+        self.addattr('output_shape', kargs, [])
 
 
 class StaticOp(Op):
@@ -403,6 +571,21 @@ class SubtractMeanOp(Op):
     def __init__(self, name, mean_values):
         Op.__init__(self, name, self.TRANSLATION_KEY)
         self.mean_values = mean_values
+
+class UdlOp(Op):
+    TRANSLATION_KEY = 'udl'
+
+    def __init__(self, name, layer_type, blob, output_dims, expected_input_axis_orders, expected_output_axis_orders):
+        Op.__init__(self, name, self.TRANSLATION_KEY)
+        self.layer_type = layer_type
+        self.blob = blob
+        self.output_dims = output_dims
+        self.expected_input_axis_orders = expected_input_axis_orders
+        self.expected_output_axis_orders = expected_output_axis_orders
+
+
+class Upsample(ResizeOp):
+    TRANSLATION_KEY = "upsample"
 
 
 class UpsampleIndexBasedOp(Op):

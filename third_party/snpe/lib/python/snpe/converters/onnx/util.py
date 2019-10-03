@@ -6,8 +6,8 @@
 #
 # ==============================================================================
 
-from operator import mul
 from functools import reduce
+from operator import mul
 
 try:
     import onnx
@@ -20,14 +20,78 @@ from snpe.converters.common.utils import code_to_message
 from snpe.converters.common.utils.snpe_converter_utils import *
 
 
-def is_broadcast(onnx_op):
-    attrs = extract_attributes(onnx_op, ('axis', 'i', 0), ('broadcast', 'i', 0))
+code_to_enum = {'i': onnx.AttributeProto.INT,
+                'f': onnx.AttributeProto.FLOAT,
+                's': onnx.AttributeProto.STRING,
+                't': onnx.AttributeProto.TENSOR,
+                'g': onnx.AttributeProto.GRAPH,
+                'li': onnx.AttributeProto.INTS,
+                'lf': onnx.AttributeProto.FLOATS,
+                'ls': onnx.AttributeProto.STRINGS,
+                'lt': onnx.AttributeProto.TENSORS,
+                'lg': onnx.AttributeProto.GRAPHS}
+
+KNOWN_ATTRIBUTE_DEFAULTS = dict(dilations=[1, 1],
+                                strides=[1, 1],
+                                pads=[0, 0, 0, 0],
+                                output_shape=[],
+                                axes=[],
+                                consumed_inputs=[])
+
+
+def parse_out_weights_biases_inputs(onnx_op, graph):
+    """
+    Checks if OP has constant weights or biases.
+    :param onnx_op: onnx operation
+    :param graph: the converter IR graph
+    :return: tuple([const_input_names], [non_const_input_names])
+    """
+    input_names = list(map(str, onnx_op.input))
+    weight_biases_inputs = []
+    actual_inputs = []
+
+    # check if any input OP has a bias or weights attribute(i.e Conv, BN...). This would lead to assume that the
+    # rest input without those attributes are bias or weights themselves
+    if any(hasattr(graph.get_buffer(name).producer.op, "bias") or hasattr(graph.get_buffer(name).producer.op, "weights")
+           for name in input_names):
+        for name in input_names:
+            # to be considered a weight or bias input, it must be listed in initializer AND either the input buffer
+            # must not be produced by an IR graph node or if in IR graph the node itself must not have a bias
+            # or weights attribute(i.e most likely is a ConstantOp or StaticOp node)
+            if graph.weights.has(name) and (not graph.has_buffer(name) or
+                                            (not hasattr(graph.get_buffer(name).producer.op, "bias") and
+                                             not hasattr(graph.get_buffer(name).producer.op, "weights"))):
+                weight_biases_inputs.append(name)
+            else:
+                actual_inputs.append(name)
+    else:
+        actual_inputs = input_names
+
+    return weight_biases_inputs, actual_inputs
+
+
+def is_broadcast(onnx_op, graph=None):
+    attrs = extract_attributes(onnx_op, [('axis', 'i', 0), ('broadcast', 'i', 0)])
+
+    if graph is not None:
+        # newer version of onnx(e.g version 7 of Mul or Add) do not have axis and broadcast attributes
+        # hence another way to check would be to make sure all inputs to op are the same shape
+        input_names = list(map(str, onnx_op.input))
+        input_buffers_shape = []
+        for name in input_names:
+            if graph.has_buffer(name):
+                input_buffers_shape.append(list(graph.get_buffer(name).shape))
+            else:
+                input_buffers_shape.append(list(graph.weights.fetch(name).shape))
+        if any(shape != input_buffers_shape[0] for shape in input_buffers_shape):
+            return True
+
     return attrs['axis'] != 0 or attrs['broadcast'] == 1
 
 
 def assert_no_broadcast(onnx_op):
-     log_assert(not is_broadcast(onnx_op),
-                code_to_message.get_error_message("ERROR_BROADCAST_NOT_SUPPORTED")(onnx_op.name))
+    log_assert(not is_broadcast(onnx_op),
+               code_to_message.get_error_message("ERROR_BROADCAST_NOT_SUPPORTED")(onnx_op.name))
 
 
 class NamedDict(dict):
@@ -35,9 +99,13 @@ class NamedDict(dict):
         return self[key]
 
 
-def extract_attributes(onnx_op, *attr_infos):
+def extract_attributes(onnx_op, attr_infos=None, schema=None, validate=False):
     """Ensure the existence and extract well typed attributes from an onnx
     NodeProto.
+    :param attr_infos: a list of attributes to extract in the form [(attr_name, attr_type, attr_value)]
+    :param schema:   an op_schema object for the onnx_op
+    :param validate:  an optional validator function that is registered with the schema
+                     of the form:  validator(src_op, attr_name, attr_value)
 
     Each entry in attr_info should be either a 2- or 3-tuple.
     * The first element should be the string name of an attribute.
@@ -47,25 +115,21 @@ def extract_attributes(onnx_op, *attr_infos):
       - s for string attributes
       - t for tensor attributes (returned as a numpy array)
       - g for graph attributes
-      - lx, where x is one of the preceeding attribute type identifiers, for list valued attributes
+      - lx, where x is one of the preceding attribute type identifiers, for list valued attributes
     * The third element, if present, specifies a default value should the attribute not be present.
       If no default is specified, this function will thrown an error.
 
     The return object will have a named property for each attribute info."""
     onnx_attrs = {}
+    if not attr_infos and schema:
+        attr_infos = schema.attributes()
+
     for attr in onnx_op.attribute:
         onnx_attrs[attr.name] = attr
-
-    code_to_enum = {'i': onnx.AttributeProto.INT,
-                    'f': onnx.AttributeProto.FLOAT,
-                    's': onnx.AttributeProto.STRING,
-                    't': onnx.AttributeProto.TENSOR,
-                    'g': onnx.AttributeProto.GRAPH,
-                    'li': onnx.AttributeProto.INTS,
-                    'lf': onnx.AttributeProto.FLOATS,
-                    'ls': onnx.AttributeProto.STRINGS,
-                    'lt': onnx.AttributeProto.TENSORS,
-                    'lg': onnx.AttributeProto.GRAPHS }
+        if schema and not validate:
+            if not schema.check_unsupported_attributes(str(attr.name)):
+                log_warning(code_to_message.get_warning_message("WARNING_UNSUPPORTED_ATTRIBUTE")
+                            (attr.name, onnx_op.op_type, onnx_op.input[0]))
 
     ret = NamedDict()
     for attr_info in attr_infos:
@@ -75,7 +139,11 @@ def extract_attributes(onnx_op, *attr_infos):
                 ret[name] = attr_info[2]
                 continue
             else:
-                raise ValueError(code_to_message.get_error_message("ERROR_ATTRIBUTE_MISSING")(onnx_op.name, name))
+                try:
+                    ret[name] = KNOWN_ATTRIBUTE_DEFAULTS[name]
+                    continue
+                except KeyError:
+                    raise ValueError(code_to_message.get_error_message("ERROR_ATTRIBUTE_MISSING")(onnx_op.name, name))
         attr = onnx_attrs[name]
         code = attr_info[1]
         requested_type = code_to_enum[code]
@@ -84,40 +152,40 @@ def extract_attributes(onnx_op, *attr_infos):
                                                                                   name,
                                                                                   onnx.AttributeProto.AttributeType.Name(requested_type),
                                                                                   onnx.AttributeProto.AttributeType.Name(attr.type))
-            raise ValueError(msg)
-        if code == 'i':
-            ret[name] = int(attr.i)
-        elif code == 'f':
-            ret[name] = float(attr.f)
-        elif code == 's':
-            ret[name] = str(attr.s)
-        elif code == 'g':
-            ret[name] = attr.g
-        elif code == 't':
-            ret[name] = extract_onnx_tensor(attr.t)
-        elif code == 'li':
-            ret[name] = list(map(int, attr.ints))
-        elif code == 'lf':
-            ret[name] = list(map(float, attr.floats))
-        elif code == 'ls':
-            ret[name] = list(map(str, attr.strings))
-        elif code == 'lg':
-            ret[name] = list(attr.graphs)
-        elif code == 'lt':
-            ret[name] = list(map(extract_onnx_tensor, attr.tensors))
+            raise TypeError(msg)
+        value = extract_onnx_type(code, attr)
+
+        if validate and schema:
+            schema.validate_data_constraints(onnx_op)
+            schema.get_validate_method("validate_attribute_values")(onnx_op, name, value)
+        ret[name] = value
 
     return ret
 
 
-def extract_activation(onnx_activation):
-    acts = {'Relu': "NEURON_RELU",
-             'Tanh': "NEURON_TANH",
-             'Sigmoid': "NEURON_LOGISTIC",
-             'Elu': "NEURON_ELU"}
-    try:
-        return acts[str(onnx_activation)]
-    except KeyError:
-        raise ValueError(code_to_message.get_error_message("ERROR_ACTIVATION_FUNCTION_UNSUPPORTED")(onnx_activation))
+def extract_onnx_type(code, attr):
+    ret = ''
+    if code == 'i':
+        ret = int(attr.i)
+    elif code == 'f':
+        ret = float(attr.f)
+    elif code == 's':
+        ret = str((attr.s).decode('utf-8'))
+    elif code == 'g':
+        ret = attr.g
+    elif code == 't':
+        ret = extract_onnx_tensor(attr.t)
+    elif code == 'li':
+        ret = list(map(int, attr.ints))
+    elif code == 'lf':
+        ret = list(map(float, attr.floats))
+    elif code == 'ls':
+        ret = list(map(str, attr.strings))
+    elif code == 'lg':
+        ret = list(attr.graphs)
+    elif code == 'lt':
+        ret = list(map(extract_onnx_tensor, attr.tensors))
+    return ret
 
 
 def extract_padding_mode(auto_pad, node_name):
@@ -125,30 +193,94 @@ def extract_padding_mode(auto_pad, node_name):
         return "PADDING_SIZE_IMPLICIT_VALID"
     elif auto_pad == 'SAME_LOWER':
         return "PADDING_SIZE_IMPLICIT_SAME"
-    elif auto_pad == '':
+    elif auto_pad == 'NOTSET':
         return "PADDING_SIZE_EXPLICIT_FLOOR"
     else:
         raise ValueError(code_to_message.get_error_message("ERROR_PADDING_TYPE_UNSUPPORTED")(node_name, auto_pad))
 
 
-def get_op_info(type_name):
-    """Return the op name and version, if specified"""
-    op_data = str(type_name).split('-')
-    if len(op_data) > 1:
-        return [op_data[0], int(op_data[1])]
-    op_data.append(0)
-    return op_data
+def set_to_weights_and_biases(src_op, graph, mode='bias'):
+    """
+     Sets a scale op's const input to either a weight or a bias depending on the mode (which can be either 'weights'
+     or 'bias'). It assumes that if a scale op has const input then it can either be a weight or a bias if it follows
+     an op that has a weight or bias. The exception is if the shapes of the const input and the prev op's weight/bias
+     do not match or are not broadcastable to each other.
+
+     The scale ops are:
+        elementwise_sum
+        elementwise_sub
+        elementwise_product
+        elementwise_div
+
+    :param src_op: The onnx op
+    :param graph:  The IRGraph object
+    :param mode:   is either 'bias' or 'weights' depending on the nature of the scaling arithmetic.
+    :return:       a tuple of the non-const inputs, non-zero biases and weights.
+                   a tuple of non-const inputs, with one of the inputs broadcasted to match the previous op and
+                   re-inserted into the graph, bias of NoneType and a weight of NoneType. The latter occurs when the op
+                   shape does not match
+    """
+    weights = None
+    bias = None
+    const_input, actual_inputs = parse_out_weights_biases_inputs(src_op, graph)
+    prev_ = graph.get_buffer(actual_inputs[0]).producer
+
+    if len(const_input):
+        log_assert(len(const_input) == 1, code_to_message.get_error_message("ERROR_MULTIPLE_CONST_INPUTS_FOUND")
+                                                                           (src_op.op_type, const_input))
+
+        const_value = graph.weights.fetch(const_input[0])
+        if mode == 'bias':
+            # if the previous op has a weight input or bias with the same shape, then we know the bias can be absorbed
+            # without changing the final output.
+            if hasattr(prev_.op, 'bias') and prev_.op.bias.shape != const_value.shape:
+                pass
+            else:
+                bias = const_value
+                return actual_inputs, weights, bias
+        elif mode == 'weights':
+            # if the previous op has a bias input or weights that are broadcastable with each other,
+            # then we know the weights can be absorbed without changing the final output.
+            if hasattr(prev_.op, 'weights') and not broadcastable(prev_.op.weights.shape, const_value.shape):
+                pass
+            else:
+                weights = const_value
+                return actual_inputs, weights, bias
+
+        # if the code has not returned by this point, it means there is a shape mismatch between the inputs
+        # which may be either a bias or a weight.
+        # we take the const input and broadcast into according to the actual input (if possible),
+        # and then pass it back into the graph.
+        const_broadcast_value = broadcast_to(graph.get_buffer(actual_inputs[0]).shape, const_value)
+        graph.weights.insert(const_input[0], const_broadcast_value)
+        actual_inputs = [actual_inputs[0], const_input[0]]
+
+    return actual_inputs, weights, bias
 
 
-def op_type(type_name):
-    """Return the actual onnx op name"""
-    data = get_op_info(type_name)
-    return data[0]
+def broadcast_to(new_shape, data):
+    """
+    Broadcasts data into a new shape if possible
+    :param new_shape: shape to be broadcasted into
+    :param data: data to be broadcasted
+    :return: broadcasted data if possible or original data if not
+    """
+    if data.shape != new_shape and broadcastable(new_shape, data.shape):
+        return numpy.broadcast_to(data, new_shape).astype(numpy.float32)
+    return data
 
 
-def onnx_type(type_name):
-    """Convert an onnx type name string to a namespaced format"""
-    return 'onnx_' + (op_type(type_name)).lower()
+def broadcastable(old_shape, new_shape):
+    """
+    Checks if two shapes are can be broadcast into one another in the numpy sense.
+    :param old_shape: Shape of the old data
+    :param new_shape: Desired broadcast shape
+    :return: boolean if broadcast is possible otherwise false
+    """
+    while len(new_shape) != len(old_shape):
+        new_shape.insert(0, 1)
+    return any([(new_idx == 1 or new_idx == old_idx)
+                for new_idx, old_idx in zip(old_shape, new_shape)])
 
 
 def pads_symmetric(pads):
@@ -204,14 +336,19 @@ class WeightProvider(object):
             return False
         return self.weight_map[key].consumed
 
-    def fetch(self, *keys):
+    def fetch(self, *keys, **kwargs):
         ret = []
+        # Prunable indicates whether the weights have been consumed in such a way as to
+        # allow pruning of the node (eg Const ops that contain weights are consumed by
+        # Conv/FC/etc and thus can be pruned from the network. Const ops that are inputs
+        # to a node cannot
+        consumed = kwargs.get('prunable', True)
         for key in keys:
             key = str(key)
             log_debug(code_to_message.get_debugging_message("DEBUG_RETRIEVE_WEIGHTS, key"))
             if key not in self.weight_map:
                 raise KeyError(code_to_message.get_error_message("ERROR_WEIGHTS_MISSING_KEY")(key))
-            self.weight_map[key].consumed = True
+            self.weight_map[key].consumed = consumed
             # Explicitly copy the data so if later ops modify it, the original data remains intact
             ret.append(numpy.require(self.weight_map[key].weights.copy(), dtype=numpy.float32))
         if len(ret) == 1:
@@ -228,3 +365,4 @@ class WeightProvider(object):
     def insert(self, key, weights):
         log_debug("Inserting weights for {}", key)
         self.weight_map[key] = WeightData(weights)
+

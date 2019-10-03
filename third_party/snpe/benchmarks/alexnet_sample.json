@@ -8,7 +8,7 @@
     "Runs":2,
 
     "Model": {
-        "Name": "Alexnet",
+        "Name": "ALEXNET",
         "Dlc": "../models/alexnet/dlc/bvlc_alexnet.dlc",
         "InputList": "../models/alexnet/data/target_raw_list.txt",
         "Data": [

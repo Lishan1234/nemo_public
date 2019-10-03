@@ -6,18 +6,22 @@
 #
 #==============================================================================
 
+from __future__ import absolute_import
 import json
 import os
-from snpebm_jsonkeys import *
-from snpebm_config_restrictions import *
+import shutil
+from .snpebm_jsonkeys import *
+from .snpebm_config_restrictions import *
 import datetime
 from subprocess import check_output
 import numpy as np
 from common_utils.adb import Adb
 from common_utils.exceptions import ConfigError, AdbShellCmdFailedException
+import logging
 
+logger = logging.getLogger(__name__)
 
-def load_json(cfgfile, logger):
+def load_json(cfgfile):
     try:
         with open(cfgfile, 'r') as cfg:
             try:
@@ -31,7 +35,7 @@ def load_json(cfgfile, logger):
         return []
 
 
-class DnnModel:
+class DnnModel(object):
     def __init__(self, config, host_artifacts):
         self._name = config[CONFIG_MODEL_KEY][CONFIG_MODEL_NAME_SUBKEY]
         self._dlc = DnnModel.__default_path(config[CONFIG_MODEL_KEY][CONFIG_MODEL_DLC_SUBKEY])
@@ -57,11 +61,12 @@ class DnnModel:
                 raise ConfigError('Input can not be less than 1')
             random_data_dim_str = input_layer_dim[0].split(":")[-1]
             random_data_dim = random_data_dim_str.split(",")
-            random_data_dim = map(int, random_data_dim)
+            random_data_dim = list(map(int, random_data_dim))
             random_inputs_dir = os.path.join(config[CONFIG_HOST_ROOTPATH_KEY], 'random_inputs')
             _abs_random_inputs_path = os.path.abspath(random_inputs_dir)
-            if not os.path.isdir(_abs_random_inputs_path):
-                os.makedirs(_abs_random_inputs_path)
+            if os.path.isdir(_abs_random_inputs_path):
+                shutil.rmtree(_abs_random_inputs_path)
+            os.makedirs(_abs_random_inputs_path)
             self._input_list_name = "random_raw_list.txt"
             input_file_path = os.path.join(_abs_random_inputs_path, self._input_list_name)
             input_file = open(input_file_path, 'w')
@@ -70,7 +75,7 @@ class DnnModel:
                 rand_raw = np.random.uniform(-1.0, +1.0, random_data_dim).astype(np.float32)
                 with open(raw_filepath, 'wb') as fid:
                     fid.write(rand_raw)
-                raw_rel_path = os.path.basename(random_inputs_dir) + "/" + os.path.basename(raw_filepath)
+                raw_rel_path = os.path.join(os.path.basename(random_inputs_dir), os.path.basename(raw_filepath))
                 input_file.write(raw_rel_path + "\n")
             input_file.close()
             self._artifacts = []
@@ -118,8 +123,8 @@ class DnnModel:
         try:
             dlc_info_output = check_output(dlc_cmd).decode()
         except Exception as de:
-            self._logger.warning("Failed to parse {0}".format(self._dlc))
-            self._logger.warning(repr(de))
+            logger.warning("Failed to parse {0}".format(self._dlc))
+            logger.warning(repr(de))
             return []
 
         inputs = []
@@ -134,9 +139,8 @@ class DnnModel:
         return inputs
 
 
-class Config:
-    def __init__(self, cfg_from_json, outputbasedir, devicelist, hostname, deviceostype, logger, userbuffer_mode, perfprofile, profilinglevel):
-        self._logger = logger
+class Config(object):
+    def __init__(self, cfg_file, cfg_from_json, outputbasedir, devicelist, hostname, deviceostype, userbuffer_mode, perfprofile, profilinglevel, enable_init_caching):
         config_prefix = os.path.join(os.path.abspath(os.path.dirname(__file__)), '../')
         self._cfg_from_json = cfg_from_json
         if deviceostype and deviceostype not in CONFIG_VALID_DEVICEOSTYPES:
@@ -145,75 +149,67 @@ class Config:
             self._architectures = [ARCH_ARM]
             self._platform_os = PLATFORM_OS_LINUX
             self._compiler = COMPILER_GCC49
-            self._stl_library = STL_GNUSTL_SHARED
-            self._artifacts_config = load_json(os.path.join(config_prefix, "snpebm", SNPE_BENCH_LE_ARTIFACTS_JSON), self._logger)
+            self._stl_library = None
+            self._artifacts_config = load_json(os.path.join(config_prefix, "snpebm", SNPE_BENCH_LE_ARTIFACTS_JSON))
         elif deviceostype == CONFIG_DEVICEOSTYPES_LE64_GCC49:
             self._architectures = [ARCH_AARCH64]
             self._platform_os = PLATFORM_OS_LINUX
             self._compiler = COMPILER_GCC49
-            self._stl_library = STL_GNUSTL_SHARED
-            self._artifacts_config = load_json(os.path.join(config_prefix, "snpebm", SNPE_BENCH_LE64_GCC49_ARTIFACTS_JSON), self._logger)
+            self._stl_library = None
+            self._artifacts_config = load_json(os.path.join(config_prefix, "snpebm", SNPE_BENCH_LE64_GCC49_ARTIFACTS_JSON))
         elif deviceostype == CONFIG_DEVICEOSTYPES_LE64_GCC53:
             self._architectures = [ARCH_AARCH64]
             self._platform_os = PLATFORM_OS_LINUX
             self._compiler = COMPILER_GCC53
-            self._stl_library = STL_GNUSTL_SHARED
-            self._artifacts_config = load_json(os.path.join(config_prefix,"snpebm", SNPE_BENCH_LE64_GCC53_ARTIFACTS_JSON), self._logger)
+            self._stl_library = None
+            self._artifacts_config = load_json(os.path.join(config_prefix, "snpebm", SNPE_BENCH_LE64_GCC53_ARTIFACTS_JSON))
         elif deviceostype == CONFIG_DEVICEOSTYPES_ANDROID_AARCH64:
             self._architectures = [ARCH_AARCH64]
-            self._compiler = COMPILER_GCC49
-            self._platform_os = PLATFORM_OS_ANDROID
-            self._stl_library = STL_GNUSTL_SHARED
-            self._artifacts_config = load_json(os.path.join(config_prefix,"snpebm", SNPE_BENCH_ANDROID_AARCH64_ARTIFACTS_JSON), self._logger)
-        elif deviceostype == CONFIG_DEVICEOSTYPES_ANDROID_ARM32_LLVM:
-            self._architectures = [ARCH_ARM]
-            self._platform_os = PLATFORM_OS_ANDROID
             self._compiler = COMPILER_CLANG60
-            self._stl_library = STL_LIBCXX_SHARED
-            self._artifacts_config = load_json(os.path.join(config_prefix,"snpebm", SNPE_BENCH_ANDROID_ARM32_LLVM_ARTIFACTS_JSON), self._logger)
-        elif deviceostype == CONFIG_DEVICEOSTYPES_ANDROID_AARCH64_LLVM:
-            self._architectures = [ARCH_AARCH64]
             self._platform_os = PLATFORM_OS_ANDROID
-            self._compiler = COMPILER_CLANG60
             self._stl_library = STL_LIBCXX_SHARED
-            self._artifacts_config = load_json(os.path.join(config_prefix,"snpebm", SNPE_BENCH_ANDROID_AARCH64_LLVM_ARTIFACTS_JSON), self._logger)
-        elif deviceostype == CONFIG_DEVICEOSTYPES_LE_GCC48_HF:
+            self._artifacts_config = load_json(os.path.join(config_prefix, "snpebm", SNPE_BENCH_ANDROID_AARCH64_ARTIFACTS_JSON))
+        elif deviceostype == CONFIG_DEVICEOSTYPES_LE_OE_GCC82:
             self._architectures = [ARCH_ARM]
             self._platform_os = PLATFORM_OS_LINUX
-            self._compiler = COMPILER_GCC48
-            self._stl_library = STL_GNUSTL_SHARED
-            self._artifacts_config = load_json(os.path.join(config_prefix, "snpebm", SNPE_BENCH_LE_GCC48_HF_ARTIFACTS_JSON), self._logger)
-        elif deviceostype == CONFIG_DEVICEOSTYPES_LE_OE_GCC64:
-            self._architectures = [ARCH_ARM]
-            self._platform_os = PLATFORM_OS_LINUX
-            self._compiler = COMPILER_GCC64
-            self._stl_library = STL_GNUSTL_SHARED
-            self._artifacts_config = load_json(os.path.join(config_prefix, "snpebm", SNPE_BENCH_LE_OE_GCC64_HF_ARTIFACTS_JSON), self._logger)
-        elif deviceostype == CONFIG_DEVICEOSTYPES_LE64_OE_GCC64:
+            self._compiler = COMPILER_GCC82
+            self._stl_library = None
+            self._artifacts_config = load_json(os.path.join(config_prefix, "snpebm", SNPE_BENCH_LE_OE_GCC82_HF_ARTIFACTS_JSON))
+        elif deviceostype == CONFIG_DEVICEOSTYPES_LE64_OE_GCC82:
             self._architectures = [ARCH_AARCH64]
             self._platform_os = PLATFORM_OS_LINUX
-            self._compiler = COMPILER_GCC64
-            self._stl_library = STL_GNUSTL_SHARED
-            self._artifacts_config = load_json(os.path.join(config_prefix, "snpebm", SNPE_BENCH_LE64_OE_GCC64_ARTIFACTS_JSON), self._logger)
+            self._compiler = COMPILER_GCC82
+            self._stl_library = None
+            self._artifacts_config = load_json(os.path.join(config_prefix, "snpebm", SNPE_BENCH_LE64_OE_GCC82_ARTIFACTS_JSON))
+        elif deviceostype == CONFIG_DEVICEOSTYPES_QNX64_GCC54:
+            self._architectures = [ARCH_AARCH64]
+            self._platform_os = PLATFORM_OS_QNX
+            self._compiler = COMPILER_GCC54
+            self._stl_library = None
+            self._artifacts_config = load_json(os.path.join(config_prefix, "snpebm", SNPE_BENCH_QNX64_GCC54_ARTIFACTS_JSON))
         elif deviceostype:
             # presumed to be Android arm32
             self._architectures = [ARCH_ARM]
             self._platform_os = PLATFORM_OS_ANDROID
-            self._compiler = COMPILER_GCC49
-            self._stl_library = STL_GNUSTL_SHARED
-            self._artifacts_config = load_json(os.path.join(config_prefix,"snpebm", SNPE_BENCH_ANDROID_ARM32_ARTIFACTS_JSON), self._logger)
-        self.__override_cfgfile__(outputbasedir, devicelist, hostname, logger)
+            self._compiler = COMPILER_CLANG60
+            self._stl_library = STL_LIBCXX_SHARED
+            self._artifacts_config = load_json(os.path.join(config_prefix, "snpebm", SNPE_BENCH_ANDROID_ARM32_ARTIFACTS_JSON))
+        self.__override_cfgfile__(outputbasedir, devicelist, hostname)
         self.__quick_verify__()
         self._dnnmodel = DnnModel(self._cfg_from_json, self.host_artifacts)
 
         self.userbuffer_mode = userbuffer_mode
+        self.enable_init_caching = enable_init_caching
         try:
-            self.hostname = self._cfg_from_json[CONFIG_HOST_NAME_KEY]
+            self._hostname = self._cfg_from_json[CONFIG_HOST_NAME_KEY]
         except KeyError:
             self._cfg_from_json[CONFIG_HOST_NAME_KEY] = 'localhost'
 
         try:
             self.cpu_fallback = self._cfg_from_json[CONFIG_CPU_FALLBACK_KEY]
+            if not isinstance(self.cpu_fallback, bool):
+                raise ConfigError(CONFIG_CPU_FALLBACK_KEY + " key in " + cfg_file + " expects boolean type. Found " + str(type(self.cpu_fallback)))
+
         except KeyError:
             self.cpu_fallback = False
 
@@ -249,7 +245,7 @@ class Config:
             self.profilinglevel = profilinglevel
 
 
-    def __override_cfgfile__(self, outputbasedir, devicelist, hostname, logger):
+    def __override_cfgfile__(self, outputbasedir, devicelist, hostname):
         # Override output base dir if the host paths are relative paths
         # after override, it will become an absolute path
         if outputbasedir is not None:
@@ -261,7 +257,7 @@ class Config:
                     self._cfg_from_json[_key] = _abs_path
         # Override device id if one's supplied
         if devicelist is not None:
-            _prevDevices = self._cfg_from_json[CONFIG_DEVICES_KEY]
+            _prevDevices = self._cfg_from_json.get(CONFIG_DEVICES_KEY, None)
             self._cfg_from_json[CONFIG_DEVICES_KEY] = devicelist
             logger.info('Overriding device id to %s, instead of %s from config file' % (self._cfg_from_json[CONFIG_DEVICES_KEY], _prevDevices))
         # Override Host Name is one's supplied
@@ -530,7 +526,7 @@ class Config:
                 for runtime in flavors:
                     flavors[runtime].extend(RUNTIME_BUFFER_MODES[runtime])
             else:
-                if not all(map(lambda x: x in BUFFER_MODES, self.buffertypes)):
+                if not all([x in BUFFER_MODES for x in self.buffertypes]):
                     raise ConfigError('Wrong buffer mode specified in config file')
                 for runtime in flavors:
                     flavors[runtime].extend(self.buffertypes)
@@ -538,17 +534,17 @@ class Config:
         runtimes.extend(self.runtimes)
         # TODO figure out a better way to decide whether GPU_s is supported
         if RUNTIME_GPU in runtimes and \
-            any(map(lambda x: x in self._artifacts_config[CONFIG_ARTIFACTS_KEY], CONFIG_ARTIFACTS_COMPILER_KEY_TARGET_ANDROID_OSPACE)) and \
+            any([x in self._artifacts_config[CONFIG_ARTIFACTS_KEY] for x in CONFIG_ARTIFACTS_COMPILER_KEY_TARGET_ANDROID_OSPACE]) and \
             not self.cpu_fallback:
             runtimes.insert(runtimes.index(RUNTIME_GPU) + 1, RUNTIME_GPU_ONLY)
             for runtime in flavors:
-                flavors[runtime] = filter(lambda x: x in RUNTIME_BUFFER_MODES[runtime], flavors[runtime])
+                flavors[runtime] = [x for x in flavors[runtime] if x in RUNTIME_BUFFER_MODES[runtime]]
         return [(i, (lambda:j, lambda:"")[j == "float"]()) for i in runtimes for j in flavors[i]]
 
     @property
     def runtime_flavors(self):
         rf = self.return_valid_run_flavors()
-        return list(map(lambda x: '_'.join(filter(''.__ne__, x)), rf))
+        return list(['_'.join(filter(''.__ne__, x)) for x in rf])
 
     @property
     def host_artifacts(self):
@@ -656,15 +652,20 @@ class Config:
                 "--END CONFIG--\n")
 
 
-class ConfigFactory:
+class ConfigFactory(object):
     def __init__(self):
         pass
 
     @staticmethod
-    def make_config(cfgfile, outputbasedir, devicelist, hostname, usedevicesconnected, deviceostype, logger, userbuffer_mode, perfprofile, profilinglevel):
-        _config_from_json = load_json(cfgfile, logger)
+    def make_config(cfgfile, outputbasedir, devicelist, hostname, usedevicesconnected, deviceostype, userbuffer_mode, perfprofile, profilinglevel, enable_init_caching):
+        _config_from_json = load_json(cfgfile)
+        if hostname is None:
+            try:
+                hostname = _config_from_json[CONFIG_HOST_NAME_KEY]
+            except KeyError:
+                pass
         if usedevicesconnected:
-            ret, devicelist, err = Adb('adb', '').get_devices()
+            ret, devicelist, err = Adb('adb', '', hostname=hostname).get_devices()
             if ret != 0:
                 logger.error('Failed to get device list')
                 raise AdbShellCmdFailedException(err)
@@ -680,4 +681,4 @@ class ConfigFactory:
             logger.error(dlc_path + " doesn't exist")
             return
         else:
-            return Config(_config_from_json, outputbasedir, devicelist, hostname, deviceostype, logger, userbuffer_mode, perfprofile, profilinglevel)
+            return Config(cfgfile, _config_from_json, outputbasedir, devicelist, hostname, deviceostype, userbuffer_mode, perfprofile, profilinglevel, enable_init_caching)
