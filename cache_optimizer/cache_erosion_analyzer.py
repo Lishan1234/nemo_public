@@ -4,15 +4,24 @@ import struct
 
 from option import args
 
+class FrameIndex():
+    def __init__(self, current_frame_index, super_frame_index):
+        self.current_frame_index = current_frame_index;
+        self.super_frame_index= super_frame_index;
+
+def get_profile_name(current_frame_index, super_frame_index):
+    return "c{}_s{}.profile".format(current_frame_index, super_frame_index)
+
 class CacheErosionAnalyzer():
     def __init__(self):
-        self.content_dir = args.cra_content_dir
-        self.input_video_name = args.cra_input_video_name
-        self.dnn_video_name = args.cra_dnn_video_name
-        self.compare_video_name = args.cra_compare_video_name
+        self.frame_index_list = None
+        self.content_dir = args.content_dir
+        self.input_video_name = args.input_video_name
+        self.dnn_video_name = args.dnn_video_name
+        self.compare_video_name = args.compare_video_name
         self.num_cores = args.cra_num_cores
 
-        self.result_dir = os.path.join(self.content_dir, "cra_{}".format(self.input_video_name))
+        self.result_dir = os.path.join(self.content_dir, "result", "cra_{}".format(self.input_video_name))
         self.log_dir = os.path.join(self.result_dir, "log")
         self.profile_dir = os.path.join(self.result_dir, "profile")
 
@@ -20,39 +29,56 @@ class CacheErosionAnalyzer():
         os.makedirs(self.log_dir, exist_ok=True)
         os.makedirs(self.profile_dir, exist_ok=True)
 
-        if args.cra_total_frames == 0:
-            #TODO: analyze a video by ffmepg and read total number of frames
-            print("Need to implement: read the total number of frames from a video")
-            sys.exit()
-        else:
-            self.total_frames = args.cra_total_frames
+        self.base_cmd = "{} --codec=vp9 --summary --noblit --threads={} --frame-buffers=50  --content-dir={} --input-video={} --dnn-video={} --compare-video={} --prefix=cra_{}".format(args.vpxdec_path, args.cra_num_threads, self.content_dir, self.input_video_name, self.dnn_video_name, self.compare_video_name, self.input_video_name)
+        if args.cra_total_frames is not None:
+            self.base_cmd = "{} --limit={}".format(self.base_cmd, args.cra_total_frames)
+
+    def prepare_frame_index(self):
+        #run a decoder to generate a log of frame index information
+        current_frame_index = 0
+        super_frame_index = 0
+        cmd = "{} --decode-mode=0 --save-metadata".format(self.base_cmd)
+        os.system(cmd)
+
+        #load the log and read frame index information
+        self.frame_index_list = []
+        metadata_log_path = os.path.join(self.log_dir, "metadata_thread01.log")
+        with open(metadata_log_path, "r") as f:
+            lines = f.readlines()
+            for line in lines:
+                metadata = line.split('\t')
+                current_frame_index = int(metadata[0])
+                super_frame_index = int(metadata[1])
+                frame_index = FrameIndex(current_frame_index, super_frame_index)
+                self.frame_index_list.append(frame_index)
 
     #generate cache profiles for CRA: 1 of |GOP| frames is selceted as an anchor point
-    def save_cache_profile(self, frame_index):
-        cache_profile_path = os.path.join(self.profile_dir, "g{}_i{}.profile".format(self.total_frames, frame_index))
+    def save_cache_profile(self, current_frame_index, super_frame_index):
+        cache_profile_path = os.path.join(self.profile_dir, get_profile_name(current_frame_index, super_frame_index))
         with open(cache_profile_path, "wb") as f:
             byte_value = 0
-            for i in range(self.total_frames):
-                if i == frame_index:
+            for i, frame_index in enumerate(self.frame_index_list):
+                if frame_index.current_frame_index == current_frame_index and frame_index.super_frame_index == super_frame_index:
                     byte_value += 1 << (i % 8)
 
                 if i % 8 == 7:
                     f.write(struct.pack("=B", byte_value))
                     byte_value = 0
 
-            if self.total_frames % 8 != 0:
+            if len(self.frame_index_list) % 8 != 0:
                 f.write(struct.pack("=B", byte_value))
 
     def prepare_cache_profiles(self):
-        for i in range(self.total_frames):
-            self.save_cache_profile(i)
+        for frame_index in self.frame_index_list:
+            self.save_cache_profile(frame_index.current_frame_index, frame_index.super_frame_index)
 
-    #run the cache profiles & measure the quality
     #TODO: use Process and Queue for parallel decoding on multi-cores
+    #run the cache profiles & measure the quality
     def run_cache_profiles(self):
-        for i in range(self.total_frames):
-            cache_profile_path = os.path.join(self.profile_dir, "g{}_i{}.profile".format(self.total_frames, frame_index))
-            cmd = "./vpxdec --codec=vp9 --summary --noblit --threads=1 --frame-buffers=50 --limit=30 --content-dir={} --input-video={}.webm --dnn-video={}.webm --compare-video={}.webm --cache-profile={} --prefix={} --decode-mode=2 --dnn-mode=2 --cache-policy=1 --save-quality".format(self.content_dir, self.input_video_name, self.dnn_video_name, self.compare_video_name, cache_profile_path, "cra")
+        for frame_index in self.frame_index_list:
+            cache_profile_name = get_profile_name(frame_index.current_frame_index, frame_index.super_frame_index)
+            cache_profile_path = os.path.join(self.profile_dir, cache_profile_name)
+            cmd = "{} --decode-mode=2 --dnn-mode=2 --cache-policy=1 --cache-profile={} --save-quality --save-metadata".format(self.base_cmd, cache_profile_path)
             os.system(cmd)
 
     def load_dnn_quality(self):
@@ -99,4 +125,6 @@ class CacheErosionAnalyzer():
 if __name__ == '__main__':
     #TODO: check whether cache profile is corretely generated by loading it in libvpx
     cra = CacheErosionAnalyzer()
+    cra.prepare_frame_index()
     cra.prepare_cache_profiles()
+    cra.run_cache_profiles()
