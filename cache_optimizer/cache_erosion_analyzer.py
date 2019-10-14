@@ -4,17 +4,17 @@ import struct
 
 from option import args
 
-class FrameIndex():
-    def __init__(self, current_frame_index, super_frame_index):
-        self.current_frame_index = current_frame_index;
-        self.super_frame_index= super_frame_index;
+class Frame():
+    def __init__(self, video_index, super_index):
+        self.video_index = video_index;
+        self.super_index= super_index;
 
-def get_profile_name(current_frame_index, super_frame_index):
-    return "c{}_s{}.profile".format(current_frame_index, super_frame_index)
+def get_profile_name(video_index, super_index):
+    return "c{}_s{}.profile".format(video_index, super_index)
 
 class CacheErosionAnalyzer():
     def __init__(self):
-        self.frame_index_list = None
+        self.frame_list = None
         self.content_dir = args.content_dir
         self.input_video_name = args.input_video_name
         self.dnn_video_name = args.dnn_video_name
@@ -35,48 +35,48 @@ class CacheErosionAnalyzer():
 
     def prepare_frame_index(self):
         #run a decoder to generate a log of frame index information
-        current_frame_index = 0
-        super_frame_index = 0
+        video_index = 0
+        super_index = 0
         cmd = "{} --decode-mode=0 --save-metadata".format(self.base_cmd)
         os.system(cmd)
 
         #load the log and read frame index information
-        self.frame_index_list = []
+        self.frame_list = []
         metadata_log_path = os.path.join(self.log_dir, "metadata_thread01.log")
         with open(metadata_log_path, "r") as f:
             lines = f.readlines()
             for line in lines:
                 metadata = line.split('\t')
-                current_frame_index = int(metadata[0])
-                super_frame_index = int(metadata[1])
-                frame_index = FrameIndex(current_frame_index, super_frame_index)
-                self.frame_index_list.append(frame_index)
+                video_index = int(metadata[0])
+                super_index = int(metadata[1])
+                frame = Frame(video_index, super_index)
+                self.frame_list.append(frame)
 
     #generate cache profiles for CRA: 1 of |GOP| frames is selceted as an anchor point
-    def save_cache_profile(self, current_frame_index, super_frame_index):
-        cache_profile_path = os.path.join(self.profile_dir, get_profile_name(current_frame_index, super_frame_index))
+    def save_cache_profile(self, video_index, super_index):
+        cache_profile_path = os.path.join(self.profile_dir, get_profile_name(video_index, super_index))
         with open(cache_profile_path, "wb") as f:
             byte_value = 0
-            for i, frame_index in enumerate(self.frame_index_list):
-                if frame_index.current_frame_index == current_frame_index and frame_index.super_frame_index == super_frame_index:
+            for i, frame in enumerate(self.frame_list):
+                if frame.video_index == video_index and frame.super_index == super_index:
                     byte_value += 1 << (i % 8)
 
                 if i % 8 == 7:
                     f.write(struct.pack("=B", byte_value))
                     byte_value = 0
 
-            if len(self.frame_index_list) % 8 != 0:
+            if len(self.frame_list) % 8 != 0:
                 f.write(struct.pack("=B", byte_value))
 
     def prepare_cache_profiles(self):
-        for frame_index in self.frame_index_list:
-            self.save_cache_profile(frame_index.current_frame_index, frame_index.super_frame_index)
+        for frame in self.frame_list:
+            self.save_cache_profile(frame.video_index, frame.super_index)
 
     #TODO: use Process and Queue for parallel decoding on multi-cores
     #run the cache profiles & measure the quality
     def run_cache_profiles(self):
-        for frame_index in self.frame_index_list:
-            cache_profile_name = get_profile_name(frame_index.current_frame_index, frame_index.super_frame_index)
+        for frame in self.frame_list:
+            cache_profile_name = get_profile_name(frame.video_index, frame.super_index)
             cache_profile_path = os.path.join(self.profile_dir, cache_profile_name)
             cmd = "{} --decode-mode=2 --dnn-mode=2 --cache-policy=1 --cache-profile={} --save-quality --save-metadata".format(self.base_cmd, cache_profile_path)
             os.system(cmd)
