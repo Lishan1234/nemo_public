@@ -3,7 +3,17 @@ import sys
 import struct
 
 from option import args
-from utility import Frame
+
+class Frame():
+    def __init__(self, video_index, super_index):
+        self.video_index = video_index
+        self.super_index= super_index
+
+    def __lt__(self, other):
+        if self.video_index == other.video_index:
+            return self.super_index < other.super_index
+        else:
+            return self.video_index < other.video_index
 
 #Cache Erosion Analyzer (CRA)
 class CRA():
@@ -27,7 +37,8 @@ class CRA():
         if args.num_frames is not None:
             self.base_cmd = "{} --limit={}".format(self.base_cmd, args.num_frames)
 
-    def get_profile_name(self, video_index, super_index):
+    @classmethod
+    def get_profile_name(cls, video_index, super_index):
         return "cra_v{}_s{}".format(video_index, super_index)
 
     def prepare_frame_index(self):
@@ -36,9 +47,8 @@ class CRA():
         super_index = 0
 
         #run a decoder to generate a log of frame index information
-        if not os.path.isfile(metadata_log_path):
-            cmd = "{} --decode-mode=0 --save-metadata".format(self.base_cmd)
-            os.system(cmd)
+        cmd = "{} --decode-mode=0 --save-metadata".format(self.base_cmd)
+        os.system(cmd)
 
         #load the log and read frame index information
         self.frame_list = []
@@ -53,7 +63,7 @@ class CRA():
 
     #generate cache profiles for CRA: 1 of |GOP| frames is selceted as an anchor point
     def save_cache_profile(self, video_index, super_index):
-        cache_profile_path = os.path.join(self.profile_dir, self.get_profile_name(video_index, super_index))
+        cache_profile_path = os.path.join(self.profile_dir, CRA.get_profile_name(video_index, super_index))
         with open(cache_profile_path, "wb") as f:
             byte_value = 0
             for i, frame in enumerate(self.frame_list):
@@ -75,7 +85,7 @@ class CRA():
     #run the cache profiles & measure the quality
     def run_cache_profiles(self):
         for frame in self.frame_list:
-            cache_profile_name = self.get_profile_name(frame.video_index, frame.super_index)
+            cache_profile_name = CRA.get_profile_name(frame.video_index, frame.super_index)
             cache_profile_path = os.path.join(self.profile_dir, cache_profile_name)
             cmd = "{} --decode-mode=2 --dnn-mode=2 --cache-policy=1 --cache-profile={} --save-quality --save-metadata".format(self.base_cmd, cache_profile_path)
             os.system(cmd)
