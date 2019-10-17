@@ -17,7 +17,9 @@ parser.add_argument('--cra_num_threads', default=1, type=int)
 #parser.add_argument('--cra.video_format', default="webm", type=str)
 
 #options for APS
-parser.add_argument('--aps_threshold', default=2.0, type=float)
+parser.add_argument('--aps_threshold', default=1.0, type=float)
+parser.add_argument('--aps_start_idx', default=None, type=int)
+parser.add_argument('--aps_end_idx', default=None, type=int)
 
 #options for all modules
 
