@@ -193,16 +193,6 @@ class APS():
 
     #TODO: load sr, bilinear, bilinear-cache quality
     def prepare_video_quality(self):
-        #bilinear_quliaty
-        cmd = "{} --decode-mode=3 --save-quality".format(self.base_cmd)
-        os.system(cmd)
-        log_path = os.path.join(self.log_dir, "quality_bilinear")
-        with open(log_path, "r") as f:
-            lines = f.readlines()
-            for i, line in enumerate(lines):
-                self.bilinear_quality.append(float(line.split('\t')[1]))
-        logging.debug("bilinear_quality: {}".format(self.bilinear_quality))
-
         #sr_quality
         cmd = "{} --decode-mode=1 --dnn-mode=2 --save-quality".format(self.base_cmd)
         os.system(cmd)
@@ -216,7 +206,7 @@ class APS():
         #bilinear_quliaty
         cmd = "{} --decode-mode=2 --save-quality".format(self.base_cmd)
         os.system(cmd)
-        log_path = os.path.join(self.log_dir, "quality_bilinear")
+        log_path = os.path.join(self.log_dir, "quality_cache_no_dnn")
         with open(log_path, "r") as f:
             lines = f.readlines()
             for i, line in enumerate(lines):
@@ -276,6 +266,7 @@ class APS():
                 psnr_gain = np.subtract(anchor_point.sr_cache_quality, self.bilinear_cache_quality)
                 total_psnr_gain = np.sum(psnr_gain)
                 f.write("{}\t{}\t{}\n".format(anchor_point.video_index, anchor_point.super_index, np.round(total_psnr_gain, 2)))
+                logging.debug("video index: {}, super index: {}".format(anchor_point.video_index, anchor_point.super_index))
 
     def evaluate_cache_profiles(self):
         log_name = self.get_log_name("cache_profiles")
@@ -331,12 +322,26 @@ class OptimizedAPS(APS):
         else:
             prev_psnr_sum = np.sum(self.current_cache_profile.sr_cache_quality['estimated'])
 
+        """
+        for i, anchor_point in enumerate(self.anchor_points):
+            curr_psnr_sum = np.sum(estimate_quality(self.current_cache_profile, anchor_point))
+            psnr_gain = curr_psnr_sum - prev_psnr_sum
+            if anchor_point.video_index == 21 and anchor_point.super_index == 0:
+                return self.anchor_points.pop(i), psnr_gain
+        """
+
         for i, anchor_point in enumerate(self.anchor_points):
             curr_psnr_sum = np.sum(estimate_quality(self.current_cache_profile, anchor_point))
             psnr_gain = curr_psnr_sum - prev_psnr_sum
             if psnr_gain > max_psnr_gain:
                 max_psnr_gain = psnr_gain
                 index = i
+            logging.info("{}-Anchor point: video index {} super index {} psrn gain {}dB".format(self.__class__.__name__, anchor_point.video_index, anchor_point.super_index, psnr_gain))
+
+        if self.current_cache_profile.sr_cache_quality['estimated'] is not None:
+            start_idx = 0 if self.start_idx is None else self.start_idx
+            end_idx = self.frames[-1].video_idx if self.end_idx is None else self.end_idx
+            print(self.current_cache_profile.sr_cache_quality['estimated'][start_idx:end_idx + 1])
 
         return self.anchor_points.pop(index), max_psnr_gain
 
@@ -373,8 +378,9 @@ if __name__ == '__main__':
     aps.prepare_frame()
     aps.prepare_video_quality()
     aps.prepare_anchor_point()
-    aps.select_anchor_points()
     aps.evaluate_anchor_points()
+    aps.select_anchor_points()
+"""
     aps.save_cache_profiles()
     aps.run_cache_profiles()
     aps.prepare_cache_quality()
@@ -391,3 +397,4 @@ if __name__ == '__main__':
     aps.run_cache_profiles()
     aps.prepare_cache_quality()
     aps.evaluate_cache_profiles()
+"""
