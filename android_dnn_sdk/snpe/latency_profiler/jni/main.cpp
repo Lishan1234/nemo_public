@@ -55,6 +55,7 @@ int main(int argc, char** argv)
     static std::string dlc = "";
     static std::string OutputDir = "./output/";
     const char* inputFile = "";
+    const char* logfileName = "";
     std::string bufferTypeStr = "ITENSOR";
     std::string userBufferSourceStr = "CPUBUFFER";
     static zdl::DlSystem::Runtime_t runtime = zdl::DlSystem::Runtime_t::CPU;
@@ -64,7 +65,7 @@ int main(int argc, char** argv)
 
     // Process command line arguments
     int opt = 0;
-    while ((opt = getopt(argc, argv, "hi:d:o:b:s:r:z:c:n:")) != -1)
+    while ((opt = getopt(argc, argv, "hi:d:o:b:s:r:z:c:n:l:")) != -1)
     {
         switch (opt)
         {
@@ -81,6 +82,7 @@ int main(int argc, char** argv)
                         << "  -i  <FILE>   Path to a file listing the inputs for the network.\n"
                         << "  -o  <PATH>   Path to directory to store output results.\n"
                         << "  -n  <NUMBER>  Number of iterations for measurement.\n"
+                        << "  -l  <NAME>  Name of a log file.\n"
                         << "\n"
                         << "OPTIONAL ARGUMENTS:\n"
                         << "-------------------\n"
@@ -117,6 +119,9 @@ int main(int argc, char** argv)
                 break;
             case 'n':
                 numIter = atoi(optarg);
+                break;
+            case 'l':
+                logfileName = optarg;
                 break;
             case 'r':
                 if (strcmp(optarg, "gpu") == 0)
@@ -399,12 +404,12 @@ int main(int argc, char** argv)
     else if(bufferType == ITENSOR)
     {
         // Create a log file
-        const std::string logName = "latency.log";
-        const std::string logPath = OutputDir + "/" + logName;
+        //const std::string logName = "latency.log";
+        const std::string logPath = OutputDir + "/" + logfileName;
 
         std::ofstream logFile(logPath);
         if (!logFile.is_open()) {
-            std::cerr << "Log file open fail: " << logName;
+            std::cerr << "Log file open fail: " << logfileName;
             return FAILURE;
         }
         else{

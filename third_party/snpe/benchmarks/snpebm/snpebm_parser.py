@@ -6,18 +6,21 @@
 #
 #==============================================================================
 
+from __future__ import absolute_import
+from __future__ import print_function
 from abc import ABCMeta, abstractmethod
-from pylab import *
 import argparse
 import json
 import os
+import logging
 
 from subprocess import check_output
 from argparse import RawTextHelpFormatter
-from snpebm_config_restrictions import *
+from .snpebm_config_restrictions import *
 
+logger = logging.getLogger(__name__)
 
-class ArgsParser():
+class ArgsParser(object):
     def __init__(self,program_name,args_list):
         parser = argparse.ArgumentParser(prog=program_name,description="Run the {0}".format(SNPE_BENCH_NAME), formatter_class=RawTextHelpFormatter)
         parser._action_groups.pop()
@@ -44,9 +47,10 @@ class ArgsParser():
         optional.add_argument('-p', '--perfprofile', default='',
                             help='Set the benchmark operating mode (balanced, default, sustained_high_performance, high_performance, power_saver, system_settings)', required=False)
         optional.add_argument('-l', '--profilinglevel', default='',
-                            help='Set the profiling level mode (off, basic, detailed). Default is basic. Basic profiling only applies to DSP runtime.', required=False)
+                            help='Set the profiling level mode (off, basic, detailed). Default is basic.', required=False)
         optional.add_argument('-json', '--generate_json', action='store_true',
                               help='Set to produce json output.', required=False)
+        optional.add_argument('-cache', '--enable_init_cache', action='store_true', help='Enable init caching mode to accelerate the network building process. Defaults to disable.', required=False)
         self._args = vars(parser.parse_args([item for item in args_list]))
         if self._args['run_on_all_connected_devices_override'] and self._args['device_id_override']:
             print('run_on_all_connected_devices_override (-a) and device_id_override (-v) are mutually exclusive')
@@ -111,8 +115,12 @@ class ArgsParser():
     def generate_json(self):
         return self._args['generate_json']
 
+    @property
+    def enable_init_cache(self):
+        return self._args['enable_init_cache']
 
-class DataFrame:
+
+class DataFrame(object):
     def __init__(self):
         self._raw_data = []
 
@@ -130,7 +138,7 @@ class AbstractLogParser(object):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def parse(self, input_dir, logger):
+    def parse(self, input_dir):
         return "Derived class must implement this"
 
 
@@ -138,7 +146,7 @@ class SnpeVersionParser(AbstractLogParser):
     def __init__(self, diagview_exe):
         self._diagview = diagview_exe
 
-    def __parse_diaglog(self, diag_log_file, logger):
+    def __parse_diaglog(self, diag_log_file):
         try:
             diag_cmd = [self._diagview, '--input_log', diag_log_file]
             return check_output(diag_cmd).decode().split('\n')
@@ -147,10 +155,10 @@ class SnpeVersionParser(AbstractLogParser):
             logger.warning(repr(de))
         return []
 
-    def parse(self, input_dir, logger):
+    def parse(self, input_dir):
         assert input_dir, 'ERROR: log_file is required'
         diag_log_file = os.path.join(input_dir, SNPE_BENCH_DIAG_OUTPUT_FILE)
-        diag_log_output = self.__parse_diaglog(diag_log_file, logger)
+        diag_log_output = self.__parse_diaglog(diag_log_file)
         version_str = 'unparsed'
         for data in diag_log_output:
             if 'Software library version:' in data:
@@ -167,18 +175,31 @@ class DroidTimingLogParser(AbstractLogParser):
         "Init": 0,
         "De-Init": 0
     }
+    MAJOR_STATISTICS_1_DETAILED = {
+        "Create Network(s)": 0,
+        "RPC Init Time": 0,
+        "Snpe Accelerator Init Time": 0,
+        "Accelerator Init Time": 0
+    }
 
     MAJOR_STATISTICS_2 = {
         "Total Inference Time": "Total Inference Time",
         "Forward Propagate Time": "Forward Propagate"
     }
+    MAJOR_STATISTICS_2_DETAILED = {
+        "RPC Execute Time": "RPC Execute",
+        "Snpe Accelerator Time": "Snpe Accelerator",
+        "Accelerator Time": "Accelerator",
+        "Misc Accelerator Time": "Misc Accelerator"
+    }
 
-    def __init__(self, model_dlc, diagview_exe, dlc_info_exe):
+    def __init__(self, model_dlc, diagview_exe, dlc_info_exe, profilinglevel):
         self._model_dlc = model_dlc
         self._diagview = diagview_exe
         self._dlc_info = dlc_info_exe
+        self._profilinglevel = profilinglevel
 
-    def __parse_diaglog(self, diag_log_file, logger):
+    def __parse_diaglog(self, diag_log_file):
         try:
             if DIAGVIEW_OPTION not in os.environ:
                 diag_cmd = [self._diagview, '--input_log', diag_log_file]
@@ -190,7 +211,7 @@ class DroidTimingLogParser(AbstractLogParser):
             logger.warning(repr(de))
         return []
 
-    def __parse_dlc(self, dlc_file, logger):
+    def __parse_dlc(self, dlc_file):
         try:
             layer_metadata = []
             dlc_cmd = [self._dlc_info, '-i', dlc_file]
@@ -209,7 +230,7 @@ class DroidTimingLogParser(AbstractLogParser):
             logger.warning(repr(de))
         return []
 
-    def parse(self, input_dir, logger):
+    def parse(self, input_dir):
         def _get_layer_name(_layer_metadata, _layer_num):
             _layer_name = "layer_%03d" % _layer_num
             try:
@@ -220,8 +241,8 @@ class DroidTimingLogParser(AbstractLogParser):
         assert input_dir, 'ERROR: log_file is required'
         diag_log_file = os.path.join(input_dir, SNPE_BENCH_DIAG_OUTPUT_FILE)
         dlc_file = self._model_dlc
-        diag_log_output = self.__parse_diaglog(diag_log_file, logger)
-        layer_metadata = self.__parse_dlc(dlc_file, logger)
+        diag_log_output = self.__parse_diaglog(diag_log_file)
+        layer_metadata = self.__parse_dlc(dlc_file)
 
         data_frame = DataFrame()
 
@@ -231,6 +252,8 @@ class DroidTimingLogParser(AbstractLogParser):
         for data in diag_log_output:
             if "Layer Times" in data:
                 start_collecting = True
+            elif "Convert Times" in data:
+                break
             elif start_collecting is True:
                 if len(data.split(": ")) >= 3:
                     layer_runtime = data.split(": ")[2]
@@ -240,16 +263,20 @@ class DroidTimingLogParser(AbstractLogParser):
                         layer_runtimes += "|" + layer_runtime
 
         # get forward propagate time
+        if self._profilinglevel == PROFILING_LEVEL_DETAILED:
+            self.MAJOR_STATISTICS_1.update(self.MAJOR_STATISTICS_1_DETAILED)
+            self.MAJOR_STATISTICS_2.update(self.MAJOR_STATISTICS_2_DETAILED)
+
         for data in diag_log_output:
             for statistic_key in self.MAJOR_STATISTICS_1:
-                if statistic_key + ":" in data and self.MAJOR_STATISTICS_1[statistic_key] != 1:
+                if data.startswith(statistic_key + ":") and self.MAJOR_STATISTICS_1[statistic_key] != 1:
                     self.MAJOR_STATISTICS_1[statistic_key] = 1
                     statistic_time = int(data.split(": ")[1].strip().split()[0])
                     data_frame.add_sum(statistic_key, statistic_time, 1, "CPU")
                     break
 
             for statistic_key in self.MAJOR_STATISTICS_2:
-                if statistic_key + ":" in data:
+                if data.startswith(statistic_key + ":"):
                     statistic_time = int(data.split(": ")[1].strip().split()[0])
                     if statistic_key == "Forward Propagate Time" and statistic_time is 0:
                         break
@@ -265,6 +292,8 @@ class DroidTimingLogParser(AbstractLogParser):
         for data in diag_log_output:
             if "Layer Times" in data:
                 start_collecting = True
+            elif "Convert Times" in data:
+                break
             elif start_collecting is True:
                 if len(data.split(": ")) >= 2:
                     layer_num = int(data.split(": ")[0])
@@ -282,6 +311,28 @@ class DroidTimingLogParser(AbstractLogParser):
                         expected_layer_num += 1
                     data_frame.add_sum(_get_layer_name(layer_metadata, layer_num), layer_time, 1, layer_runtime)
                     expected_layer_num += 1
+
+        #get convert convert time
+        subnet_converts = dict()
+        start_collecting = False
+        layer_runtime = "AIP"
+        for data in diag_log_output:
+            if "Convert Times" in data:
+                start_collecting = True
+            elif start_collecting is True:
+                if len(data.split(": ")) >= 3:
+                    convert_data = data.split(": ")
+                    subnet_indices = convert_data[0]
+                    convert_info = convert_data[1:]
+                    if subnet_indices not in subnet_converts:
+                        subnet_converts[subnet_indices] = list()
+                    subnet_converts[subnet_indices].append(convert_info)
+        if start_collecting is True:
+            for subnet_indices in sorted(subnet_converts.keys()):
+                for convert_info in subnet_converts[subnet_indices]:
+                    buffer_name = str(convert_info[0])
+                    convert_time = int(convert_info[1].split(" ")[0])
+                    data_frame.add_sum("Convert Time:" + subnet_indices + " (Name:" + buffer_name + ")", convert_time, 1, layer_runtime)
         return data_frame
 
 class DroidDumpSysMemLogParser(AbstractLogParser):
@@ -292,7 +343,7 @@ class DroidDumpSysMemLogParser(AbstractLogParser):
     def __init__(self):
         pass
 
-    def parse(self, input_dir, logger):
+    def parse(self, input_dir):
         assert input_dir, 'ERROR: log_file is required'
         log_file = os.path.join(input_dir, MEM_LOG_FILE_NAME)
         fid = open(log_file, 'r')
@@ -334,7 +385,7 @@ class LeDumpSysMemLogParser(AbstractLogParser):
     def __init__(self):
         pass
 
-    def parse(self, input_dir, logger):
+    def parse(self, input_dir):
         assert input_dir, 'log_file is required'
         log_file = os.path.join(input_dir, MEM_LOG_FILE_NAME)
         fid = open(log_file, 'r')
@@ -383,14 +434,41 @@ class LeDumpSysMemLogParser(AbstractLogParser):
         return data_frame
 
 
+class QnxDumpSysMemLogParser(AbstractLogParser):
+    PMAP = 'pmap'
+
+    def __init__(self):
+        pass
+
+    def parse(self, input_dir):
+        assert input_dir, 'log_file is required'
+        log_file = os.path.join(input_dir, MEM_LOG_FILE_NAME)
+        fid = open(log_file, 'r')
+
+        pmap = []
+
+        logger.debug('Parsing Memory Log: %s' % log_file)
+        for line in fid.readlines():
+            if line and int(line) != 0:
+                pmap.append(int(line)/1024)
+
+        fid.close()
+        data_frame = DataFrame()
+        if len(pmap) == 0:
+            logger.warning('No memory info found in %s' % log_file)
+        else:
+            data_frame.add_sum_max_min(self.PMAP, sum(pmap), len(pmap), max(pmap), min(pmap))
+        return data_frame
+
+
 class EmptyLogParser(AbstractLogParser):
     def __init__(self):
         pass
 
-    def parse(self, input_dir, logger):
+    def parse(self, input_dir):
         return DataFrame()
 
-class LogParserFactory:
+class LogParserFactory(object):
     def __init__(self):
         pass
 
@@ -401,6 +479,8 @@ class LogParserFactory:
                 return DroidDumpSysMemLogParser()
             elif(config.platform == PLATFORM_OS_LINUX):
                 return LeDumpSysMemLogParser()
+            elif(config.platform == PLATFORM_OS_QNX):
+                return QnxDumpSysMemLogParser()
             else:
                 raise Exception("make_parser: Invalid platform !!!", config.platform)
         elif measure == MEASURE_TIMING:
@@ -409,7 +489,8 @@ class LogParserFactory:
             if config.profilinglevel != PROFILING_LEVEL_OFF:
                 return DroidTimingLogParser(config.dnn_model.dlc,
                                             config.host_artifacts[SNPE_DIAGVIEW_EXE],
-                                            config.host_artifacts[SNPE_DLC_INFO_EXE])
+                                            config.host_artifacts[SNPE_DLC_INFO_EXE],
+                                            config.profilinglevel)
             else:
                 return EmptyLogParser();
         elif measure == MEASURE_SNPE_VERSION:

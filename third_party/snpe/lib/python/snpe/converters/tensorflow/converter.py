@@ -434,9 +434,10 @@ class DlcConverter(object):
                         op_to_descriptor[o] = d
                         for op, descriptor in list(op_to_descriptor.items()):
                             if descriptor == current_descriptor:
-                                op_to_descriptor[op].child_ops.remove(o)
-                                op_to_descriptor[op].set_ignored(True)
-                                op_to_descriptor[op].layer_name += '_ignored'
+                                if o in op_to_descriptor[op].child_ops:
+                                    op_to_descriptor[op].child_ops.remove(o)
+                                    op_to_descriptor[op].set_ignored(True)
+                                    op_to_descriptor[op].layer_name += '_ignored'
                     else:
                         break
                 else:

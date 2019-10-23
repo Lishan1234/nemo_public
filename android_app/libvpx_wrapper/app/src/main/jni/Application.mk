@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 APP_OPTIM := release
+# APP_OPTIM := debug
 APP_STL := gnustl_static
 APP_CPPFLAGS := -frtti
 APP_PLATFORM := android-9

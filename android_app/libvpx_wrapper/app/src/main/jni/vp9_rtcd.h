@@ -1,1 +1,0 @@
-libvpx_android_configs/arm64-v8a/vp9_rtcd.h

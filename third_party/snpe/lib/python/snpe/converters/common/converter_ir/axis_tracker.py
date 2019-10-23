@@ -6,8 +6,9 @@
 #
 # ==============================================================================
 
-from snpe.converters.common.converter_ir import op_adapter
 from snpe.converters.common.utils import code_to_message, snpe_converter_utils
+from snpe.converters.common.utils.snpe_converter_utils import *
+from snpe.converters.common.converter_ir import op_adapter
 
 
 class AxisTracker(object):
@@ -60,6 +61,46 @@ class AxisTracker(object):
         TBF_TO_BTF = BTF_TO_TBF = [1, 0, 2]
 
     @classmethod
+    def get_axis_annotation_from_format(cls, axis_format):
+        if axis_format == cls.AxisFormat.NCS:
+            return [AxisTracker.AxisAnnotations.BATCH, AxisTracker.AxisAnnotations.CHANNEL,
+                    AxisTracker.AxisAnnotations.HEIGHT, AxisTracker.AxisAnnotations.WIDTH]
+        elif axis_format == cls.AxisFormat.NSC:
+            return [AxisTracker.AxisAnnotations.BATCH, AxisTracker.AxisAnnotations.HEIGHT,
+                    AxisTracker.AxisAnnotations.WIDTH, AxisTracker.AxisAnnotations.CHANNEL]
+        elif axis_format == cls.AxisFormat.TBF:
+            return [AxisTracker.AxisAnnotations.TIME, AxisTracker.AxisAnnotations.BATCH,
+                    AxisTracker.AxisAnnotations.FEATURE]
+        elif axis_format == cls.AxisFormat.BTF:
+            return [AxisTracker.AxisAnnotations.BATCH, AxisTracker.AxisAnnotations.TIME,
+                    AxisTracker.AxisAnnotations.FEATURE]
+        elif axis_format == cls.AxisFormat.FEATURE:
+            return [AxisTracker.AxisAnnotations.BATCH, AxisTracker.AxisAnnotations.FEATURE]
+        elif axis_format == cls.AxisFormat.NONTRIVIAL:
+            return [AxisTracker.AxisAnnotations.NONTRIVIAL]
+
+        raise ValueError("Unknown axis format {}" % axis_format)
+
+    @classmethod
+    def get_axis_format_from_annotation(cls, axis_annotation):
+        if axis_annotation == [cls.AxisAnnotations.BATCH, cls.AxisAnnotations.CHANNEL,
+                               cls.AxisAnnotations.HEIGHT, cls.AxisAnnotations.WIDTH]:
+            return cls.AxisFormat.NCS
+        elif axis_annotation == [cls.AxisAnnotations.BATCH, cls.AxisAnnotations.HEIGHT,
+                                 cls.AxisAnnotations.WIDTH, cls.AxisAnnotations.CHANNEL]:
+            return cls.AxisFormat.NSC
+        elif axis_annotation == [cls.AxisAnnotations.TIME, cls.AxisAnnotations.BATCH,
+                                 cls.AxisAnnotations.FEATURE]:
+            return cls.AxisFormat.TBF
+        elif axis_annotation == [cls.AxisAnnotations.BATCH, cls.AxisAnnotations.TIME,
+                                 cls.AxisAnnotations.FEATURE]:
+            return cls.AxisFormat.BTF
+        elif axis_annotation == [cls.AxisAnnotations.BATCH, cls.AxisAnnotations.FEATURE]:
+            return cls.AxisFormat.FEATURE
+        else:
+            return cls.AxisFormat.NONTRIVIAL
+
+    @classmethod
     def get_permute_order(cls, src_order, target_order, rank):
         if src_order == cls.AxisFormat.NCS:
             if target_order == cls.AxisFormat.NSC:
@@ -83,12 +124,29 @@ class AxisTracker(object):
             raise ValueError("No permutation from %s to %s" % (src_order, target_order))
 
     @staticmethod
+    def compute_permute_order(current_order, expected_order):
+        snpe_converter_utils.log_debug("Current Axes=" + str(current_order) + " Expected Axes=" + str(expected_order))
+        log_assert(set(current_order) == set(expected_order),
+                   "Error: computing permute order for current and expected axes orders: values do not match;"
+                   " Current order " + str(current_order) + " Expected order:" + str(expected_order) +
+                   ". Make sure you are using correct Axis Annotations for orders.")
+        permute_order = []
+        for axis in expected_order:
+            permute_order.append(current_order.index(axis))
+        return permute_order
+
+    @staticmethod
     def permute_shape(shape, order):
         return [shape[i] for i in order]
 
     @staticmethod
     def inject_implicit_permute(graph, input_name, target_format, permute_order, consumers=None):
         permute_name = input_name + '.' + target_format.lower()
+        input_buf = graph.get_buffer(input_name)
+        snpe_converter_utils.log_assert(input_buf.rank() == len(permute_order),
+                                        "Error: length of buf to permute({}) does not match length of permute order({})"
+                                        " for input name: {}",
+                                        input_buf.rank(), len(permute_order), input_name)
         implicit_permute = op_adapter.PermuteOp(permute_name, permute_order)
         graph.inject(implicit_permute, input_name, permute_name, consumers)
         # since the implicit permute won't be visited in this pass, go
@@ -100,7 +158,12 @@ class AxisTracker(object):
     def enforce_input_format(cls, graph, input_name, target_format, permute_order):
         input_buf = graph.get_buffer(input_name)
         if input_buf.axis_format == cls.AxisFormat.NONTRIVIAL:
-            cls.inject_implicit_permute(graph, input_name, target_format, permute_order)
+            if input_buf.rank() == len(permute_order):
+                cls.inject_implicit_permute(graph, input_name, target_format, permute_order)
+            else:
+                snpe_converter_utils.log_debug2("inject_implicit_permute ignored for NONTRIVIAL axis format due to rank"
+                                                "({}) and permute_order({}) mismatch for input name: {}",
+                                                input_buf.rank(), len(permute_order), input_name)
         elif input_buf.axis_format != target_format:
             raise ValueError(code_to_message.get_error_message('ERROR_INPUT_DATA_ORDER_UNEXPECTED')
                              (input_name, target_format, input_buf.axis_format))
@@ -137,8 +200,11 @@ class AxisTracker(object):
             cls.enforce_input_format(graph, name, cls.AxisFormat.BTF, cls.AxisFormat.TBF_TO_BTF)
 
         for buf in graph.get_output_buffers(node):
-            buf.shape = cls.permute_shape(buf.shape, cls.AxisFormat.TBF_TO_BTF)
-            buf.axis_format = cls.AxisFormat.BTF
+            if buf.rank() == 3:
+                buf.shape = cls.permute_shape(buf.shape, cls.AxisFormat.TBF_TO_BTF)
+                buf.axis_format = cls.AxisFormat.BTF
+            elif buf.rank() == 4:
+                buf.axis_format = cls.AxisFormat.NSC
 
     @classmethod
     def eltwise_to_spatial_first_order(cls, node, graph):
@@ -163,3 +229,4 @@ class AxisTracker(object):
             snpe_converter_utils.log_debug(
                 code_to_message.get_debugging_message("DEBUG_AXES_TO_SPATIAL_FIRST_ORDER_INPUT_SIZE")
                 (input_name, str(graph.get_buffer(input_name).shape)))
+

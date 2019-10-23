@@ -8,6 +8,8 @@
 
 import sys
 
+from snpe.converters.common.utils import code_to_message
+
 try:
     from snpe.dlc_utils import modeltools
 except ImportError as ie:
@@ -16,8 +18,9 @@ except ImportError as ie:
     print("Please ensure that $SNPE_ROOT/lib/python is in your PYTHONPATH")
     sys.exit(1)
 
-from snpe.converters.common.converter_ir import translation
-from snpe.converters.common.converter_ir import op_adapter
+from snpe.converters.common.converter_ir import translation, op_adapter
+from snpe.converters.common.utils import code_to_message
+from snpe.converters.common.utils.snpe_converter_utils import *
 
 
 # ------------------------------------------------------------------------------
@@ -78,12 +81,38 @@ IR_TO_DLC = 'ir_to_dlc'
 DlcTranslations = translation.TranslationBank()
 
 
-def get_dlc_model_from_ir(graph):
+def save(graph, converter):
+
+    # get converter args for saving dlc
+    output_path = converter.output_model_path if converter.output_model_path else converter.input_model_path + '.dlc'
+    converter_command = getattr(converter, "converter_command", "")
+    copyright_str = getattr(converter, "copyright_str", "")
+    validation_target = getattr(converter, "validation_target", [])
+    enable_strict_validation = getattr(converter, "enable_strict_validation", False)
+
     model = modeltools.Model()
+
+    # add validation target
+    if len(validation_target) == 0:
+        log_debug3("no validation target specified. Using defaults.")
+        model.add_validation_targets(model.get_validation_targets())
+    else:
+        log_debug3("validation target :" + str(tuple(validation_target)))
+        model.add_validation_targets(tuple(validation_target))
+
+    # set validation mode
+    if enable_strict_validation:
+        log_debug3("strict validation is enabled.")
+        model.set_strict_validation(True)
+
+    log_info(code_to_message.get_progress_message("INFO_DLC_SAVE_LOCATION")(output_path))
     DlcTranslations.apply_method_to_all_ops(IR_TO_DLC, graph, model)
+
     for buf in graph.list_buffers():
         model.set_buffer_axis_order(buf.name, buf.get_axis_order())
-    return model
+    model.set_converter_command(converter_command)
+    model.set_model_copyright(copyright_str)
+    model.save(output_path)
 
 
 # ------------------------------------------------------------------------------
@@ -181,6 +210,11 @@ class DlcConcatTranslation(DlcTranslationBase):
     TARGET = op_adapter.ConcatOp.TRANSLATION_KEY
 
     def add_ir_node_as_dlc_layer(self, node, graph, model):
+
+        if node.op.axis > 4:
+            raise ValueError(code_to_message.get_error_message('ERROR_SNPE_TILE_AXIS_NOT_SUPPORTED')
+                             (str(node.op.name), node.op.axis))
+
         model.add_concatenation_layer(node.op.name,
                                       node.input_names,
                                       node.output_names[0],
@@ -192,9 +226,11 @@ class DlcConstantTranslation(DlcTranslationBase):
     TARGET = op_adapter.ConstantOp.TRANSLATION_KEY
 
     def add_ir_node_as_dlc_layer(self, node, graph, model):
+        node.op.name = node.output_names[0]
         model.add_const_layer(node.op.name,
                               list(node.op.tensor.shape),
-                              node.op.tensor)
+                              node.op.tensor,
+                              node.op.quantizable)
 
 
 @register
@@ -214,6 +250,7 @@ class DlcCrossCorrelationTranslation(DlcTranslationBase):
     TARGET = op_adapter.CrossCorrelationOp.TRANSLATION_KEY
 
     def add_ir_node_as_dlc_layer(self, node, graph, model):
+        log_assert(len(node.input_names) == 2, "Layer %s: expected exactly two input blobs" % node.op.name)
         model.add_cross_correlation_layer(node.op.name,
                                           node.input_names[0],
                                           node.input_names[1],
@@ -230,12 +267,35 @@ class DlcDeconvolutionTranslation(DlcTranslationBase):
                                       node.op.bias,
                                       node.op.stride,
                                       ir_consts_to_dlc[node.op.padding_size_strategy],
-                                      ir_consts_to_dlc[node.op.padding],
+                                      node.op.padding,
                                       node.input_names[0],
                                       node.output_names[0],
                                       node.op.output_width,
                                       node.op.output_height,
                                       node.op.groups)
+
+
+@register
+class DlcDetectionOutputTranslation(DlcTranslationBase):
+    TARGET = op_adapter.DetectionOutputOp.TRANSLATION_KEY
+
+    def add_ir_node_as_dlc_layer(self, node, graph, model):
+        model.add_ssd_detection_output_layer(node.op.name,
+                                             node.input_names,
+                                             node.output_names,
+                                             node.op.output_dims,
+                                             node.op.num_classes,
+                                             node.op.share_location,
+                                             node.op.background_label_id,
+                                             node.op.nms_threshold,
+                                             node.op.nms_top_k,
+                                             node.op.nms_eta,
+                                             ir_consts_to_dlc[node.op.code_type],
+                                             node.op.priorbox_data,
+                                             node.op.keep_top_k,
+                                             node.op.variance_encoded_in_target,
+                                             node.op.confidence_threshold
+                                             )
 
 
 @register
@@ -247,6 +307,16 @@ class DlcDropoutTranslation(DlcTranslationBase):
                                 node.op.keep,
                                 node.input_names[0],
                                 node.output_names[0])
+
+
+@register
+class DlcElementwiseDivTranslation(DlcTranslationBase):
+    TARGET = op_adapter.ElementwiseDivOp.TRANSLATION_KEY
+
+    def add_ir_node_as_dlc_layer(self, node, graph, model):
+        model.add_elementwise_div_layer(node.op.name,
+                                        node.input_names,
+                                        node.output_names[0])
 
 
 @register
@@ -285,6 +355,86 @@ class DlcElementwiseSumTranslation(DlcTranslationBase):
 
 
 @register
+class DlcElementwiseUnaryAbsTranslation(DlcTranslationBase):
+    TARGET = op_adapter.ElementwiseUnaryAbsOp.TRANSLATION_KEY
+
+    def add_ir_node_as_dlc_layer(self, node, graph, model):
+        model.add_elementwise_unary_abs_layer(node.op.name,
+                                              node.input_names[0],
+                                              node.output_names[0])
+
+
+@register
+class DlcElementwiseUnaryExpTranslation(DlcTranslationBase):
+    TARGET = op_adapter.ElementwiseUnaryExpOp.TRANSLATION_KEY
+
+    def add_ir_node_as_dlc_layer(self, node, graph, model):
+        model.add_elementwise_unary_exp_layer(node.op.name,
+                                              node.input_names[0],
+                                              node.output_names[0])
+
+
+@register
+class DlcElementwiseUnaryFloorTranslation(DlcTranslationBase):
+    TARGET = op_adapter.ElementwiseUnaryFloorOp.TRANSLATION_KEY
+
+    def add_ir_node_as_dlc_layer(self, node, graph, model):
+        model.add_elementwise_unary_floor_layer(node.op.name,
+                                                node.input_names[0],
+                                                node.output_names[0])
+
+
+@register
+class DlcElementwiseUnaryLogTranslation(DlcTranslationBase):
+    TARGET = op_adapter.ElementwiseUnaryLogOp.TRANSLATION_KEY
+
+    def add_ir_node_as_dlc_layer(self, node, graph, model):
+        model.add_elementwise_unary_log_layer(node.op.name,
+                                              node.input_names[0],
+                                              node.output_names[0])
+
+
+@register
+class DlcElementwiseUnaryNegTranslation(DlcTranslationBase):
+    TARGET = op_adapter.ElementwiseUnaryNegOp.TRANSLATION_KEY
+
+    def add_ir_node_as_dlc_layer(self, node, graph, model):
+        model.add_elementwise_unary_neg_layer(node.op.name,
+                                              node.input_names[0],
+                                              node.output_names[0])
+
+
+@register
+class DlcElementwiseUnarySinTranslation(DlcTranslationBase):
+    TARGET = op_adapter.ElementwiseUnarySinOp.TRANSLATION_KEY
+
+    def add_ir_node_as_dlc_layer(self, node, graph, model):
+        model.add_elementwise_unary_sin_layer(node.op.name,
+                                              node.input_names[0],
+                                              node.output_names[0])
+
+
+@register
+class DlcElementwiseSubTranslation(DlcTranslationBase):
+    TARGET = op_adapter.ElementwiseSubOp.TRANSLATION_KEY
+
+    def add_ir_node_as_dlc_layer(self, node, graph, model):
+        model.add_elementwise_sub_layer(node.op.name,
+                                        node.input_names,
+                                        node.output_names[0])
+
+
+@register
+class DlcElementwiseUnarySqrtTranslation(DlcTranslationBase):
+    TARGET = op_adapter.ElementwiseUnarySqrtOp.TRANSLATION_KEY
+
+    def add_ir_node_as_dlc_layer(self, node, graph, model):
+        model.add_elementwise_unary_sqrt_layer(node.op.name,
+                                               node.input_names[0],
+                                               node.output_names[0])
+
+
+@register
 class DlcFullyConnectedTranslation(DlcTranslationBase):
     TARGET = op_adapter.FullyConnectedOp.TRANSLATION_KEY
 
@@ -294,6 +444,18 @@ class DlcFullyConnectedTranslation(DlcTranslationBase):
                            node.op.bias,
                            node.input_names,
                            node.output_names[0])
+
+
+@register
+class DlcGatherTranslation(DlcTranslationBase):
+    TARGET = op_adapter.GatherOp.TRANSLATION_KEY
+
+    def add_ir_node_as_dlc_layer(self, node, graph, model):
+        model.add_gather_layer(node.op.name,
+                               node.input_names[0],
+                               node.input_names[1],
+                               node.output_names[0],
+                               node.op.axis)
 
 
 @register
@@ -334,25 +496,34 @@ class DlcGruTranslation(DlcTranslationBase):
 
 
 @register
+class DlcLrnTranslation(DlcTranslationBase):
+    TARGET = op_adapter.LrnOp.TRANSLATION_KEY
+
+    def add_ir_node_as_dlc_layer(self, node, graph, model):
+        if node.op.norm_region == "ACROSS_CHANNELS":
+            model.add_cmrn_layer(node.op.name,
+                                 node.op.window_size,
+                                 float(node.op.alpha/node.op.window_size),
+                                 node.op.beta,
+                                 node.op.k,
+                                 node.input_names[0],
+                                 node.output_names[0])
+        else:
+            model.add_local_norm_layer(node.op.name,
+                                       node.op.window_size,
+                                       node.op.alpha,
+                                       node.op.beta,
+                                       node.op.k,
+                                       node.input_names[0],
+                                       node.output_names[0])
+
+
+@register
 class DlcLstmTranslation(DlcTranslationBase):
     TARGET = op_adapter.LstmOp.TRANSLATION_KEY
 
     def add_ir_node_as_dlc_layer(self, node, graph, model):
         input_name = node.input_names[0]
-        if len(node.input_names) > 1:
-            sequence_continuation_name = node.input_names[1]
-        else:
-            sequence_continuation_name = ''
-        if len(node.input_names) > 3:
-            c_0_input_name = node.input_names[-2]
-            h_0_input_name = node.input_names[-1]
-        else:
-            c_0_input_name = ''
-            h_0_input_name = ''
-        if len(node.input_names) in (3, 5):
-            x_static_name = node.input_names[2]
-        else:
-            x_static_name = ''
         model.add_lstm_layer(node.op.name,
                              node.op.gate_weights,
                              node.op.gate_bias,
@@ -361,10 +532,10 @@ class DlcLstmTranslation(DlcTranslationBase):
                              node.op.backward,
                              node.op.reset_state_at_time_step_0,
                              input_name,
-                             sequence_continuation_name,
-                             x_static_name,
-                             c_0_input_name,
-                             h_0_input_name,
+                             node.op.sequence_continuation_name,
+                             node.op.x_static_name,
+                             node.op.c_0_input_name,
+                             node.op.h_0_input_name,
                              node.output_names)
 
 
@@ -398,10 +569,13 @@ class DlcPadTranslation(DlcTranslationBase):
     TARGET = op_adapter.PadOp.TRANSLATION_KEY
 
     def add_ir_node_as_dlc_layer(self, node, graph, model):
+        supported_modes = {'constant': ir_consts_to_dlc['PADDING_CONSTANT'],
+                           'reflect': ir_consts_to_dlc['PADDING_REFLECT']}
+        node.op.mode = supported_modes[node.op.mode]
         model.add_pad_layer(node.op.name,
                             node.input_names[0],
                             node.op.pads,
-                            ir_consts_to_dlc[node.op.mode],
+                            node.op.mode,
                             node.op.constant_value,
                             node.output_names[0])
 
@@ -437,12 +611,29 @@ class DlcPermuteTranslation(DlcTranslationBase):
 
 
 @register
+class DlcPowerTranslation(DlcTranslationBase):
+    TARGET = op_adapter.PowerOp.TRANSLATION_KEY
+
+    def add_ir_node_as_dlc_layer(self, node, graph, model):
+        model.add_power_layer(node.op.name,
+                              node.op.scale,
+                              node.op.shift,
+                              node.op.power,
+                              node.input_names[0],
+                              node.output_names[0])
+
+
+@register
 class DlcPreluTranslation(DlcTranslationBase):
     TARGET = op_adapter.PreluOp.TRANSLATION_KEY
 
     def add_ir_node_as_dlc_layer(self, node, graph, model):
+        if node.op.channel_shared:
+            raise ValueError(code_to_message.get_error_message('ERROR_PRELU_NON_CHANNEL_SHARED_SUPPORT_ONLY')
+                             (str(node.op.name)))
+
         model.add_prelu_layer(node.op.name,
-                              node.op.coeff.tolist(),
+                              node.op.coeff,
                               node.input_names[0],
                               node.output_names[0])
 
@@ -463,6 +654,30 @@ class DlcProposalTranslation(DlcTranslationBase):
                                  node.op.iou_threshold_nms,
                                  node.input_names,
                                  node.output_names[0])
+
+
+@register
+class DlcReduceMaxTranslation(DlcTranslationBase):
+    TARGET = op_adapter.ReduceMaxOp.TRANSLATION_KEY
+
+    def add_ir_node_as_dlc_layer(self, node, graph, model):
+        model.add_reduction_max_layer(node.op.name,
+                                      node.input_names[0],
+                                      node.output_names[0],
+                                      node.op.axes,
+                                      node.op.keepdims)
+
+
+@register
+class DlcReduceSumTranslation(DlcTranslationBase):
+    TARGET = op_adapter.ReduceSumOp.TRANSLATION_KEY
+
+    def add_ir_node_as_dlc_layer(self, node, graph, model):
+        model.add_reduction_sum_layer(node.op.name,
+                                      node.input_names[0],
+                                      node.output_names[0],
+                                      node.op.axes,
+                                      node.op.keepdims)
 
 
 @register
@@ -521,6 +736,9 @@ class DlcRoiPoolingTranslation(DlcTranslationBase):
     TARGET = op_adapter.RoiPoolingOp.TRANSLATION_KEY
 
     def add_ir_node_as_dlc_layer(self, node, graph, model):
+        log_assert(node.op.output_shape[0] == 1,
+                   code_to_message.get_error_message("ERROR_ROI_POOL_BATCH_UNSUPPORTED"))
+
         model.add_roipooling_layer(node.op.name,
                                    node.op.pooled_size_w,
                                    node.op.pooled_size_h,
@@ -535,11 +753,17 @@ class DlcResizeTranslation(DlcTranslationBase):
     TARGET = op_adapter.ResizeOp.TRANSLATION_KEY
 
     def add_ir_node_as_dlc_layer(self, node, graph, model):
+        supported_modes = {'nearest': ir_consts_to_dlc['RESIZE_NEAREST_NEIGHBOR'],
+                           # for now mapping linear to bilinear since pytorch bilinear is
+                           # changing to linear when model gets exported to onnx.
+                           'linear': ir_consts_to_dlc['RESIZE_BILINEAR'],
+                           'bilinear': ir_consts_to_dlc['RESIZE_BILINEAR']}
+        node.op.resize_mode = supported_modes[node.op.resize_mode]
         model.add_scaling_layer(node.op.name,
                                 node.op.output_shape,
                                 node.op.pad_value,
                                 node.op.maintain_aspect_ratio,
-                                ir_consts_to_dlc[node.op.resize_mode],
+                                node.op.resize_mode,
                                 node.op.scale_height,
                                 node.op.scale_width,
                                 node.input_names[0],
@@ -558,6 +782,20 @@ class DlcRnnTransformationTranslation(DlcTranslationBase):
                            node.op.activation,
                            node.input_names[0],
                            node.output_names[0])
+
+
+@register
+class DlcScaleTranslation(DlcTranslationBase):
+    TARGET = op_adapter.ScaleOp.TRANSLATION_KEY
+
+    def add_ir_node_as_dlc_layer(self, node, graph, model):
+        model.add_scale_layer(node.op.name,
+                              node.op.weights,
+                              node.op.bias,
+                              node.input_names,
+                              node.output_names[0],
+                              node.op.axis,
+                              node.op.num_axes,)
 
 
 @register
@@ -591,6 +829,19 @@ class DlcSubtractMeanTranslation(DlcTranslationBase):
                                       node.op.mean_values,
                                       node.input_names[0],
                                       node.output_names[0])
+
+
+@register
+class DlcUdlTranslation(DlcTranslationBase):
+    TARGET = op_adapter.UdlOp.TRANSLATION_KEY
+
+    def add_ir_node_as_dlc_layer(self, node, graph, model):
+        model.add_user_defined_layer(node.op.name,
+                                     node.op.layer_type,
+                                     node.input_names,
+                                     node.output_names,
+                                     node.op.output_dims,
+                                     node.op.blob)
 
 
 @register

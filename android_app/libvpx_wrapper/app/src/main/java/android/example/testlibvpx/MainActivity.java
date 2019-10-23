@@ -9,11 +9,23 @@ import java.io.File;
 import java.io.IOException;
 
 public class MainActivity extends AppCompatActivity {
-    public native void vpxDecodeVideo(String videoSavedPath, String logPath, String framePath, String serializePath, int target_resolution, int scale);
+    public static native void vpxDecodeVideo(String videoSavedPath, String logPath, String framePath, String serializePath, String profilePath, int target_resolution, int scale);
+
     private static final String TAG = MainActivity.class.getSimpleName();
 
     static{
         System.loadLibrary("vpxtestJNI");
+    }
+
+    static void cleanDirectory(File directory) {
+        File[] files = directory.listFiles();
+        for (File file: files)
+        {
+            if (!file.delete())
+            {
+                System.out.println("Failed to delete "+ file);
+            }
+        }
     }
 
     @Override
@@ -21,7 +33,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         final String name = "mobinas";
-        final String content = "starcraft";
+        final String content = "movie";
         final int target_resolution = 1080;
         final int scale = 4;
 
@@ -34,11 +46,15 @@ public class MainActivity extends AppCompatActivity {
         File logDir = getExternalFilesDir(name + File.separator + content + File.separator + "log");
         File frameDir = getExternalFilesDir(name + File.separator + content + File.separator + "frame");
         File serializeDir = getExternalFilesDir(name + File.separator + content + File.separator + "serialize");
+        File profileDir = getExternalFilesDir(name + File.separator + content + File.separator + "profile");
+
 
         try{
             if(!logDir.exists() && logDir.isDirectory()) doCreateDirectory(logDir);
+            if(frameDir.exists() && logDir.isDirectory()) cleanDirectory(frameDir); //remove previous results
             if(!frameDir.exists() && frameDir.isDirectory()) doCreateDirectory(frameDir);
             if(!serializeDir.exists() && serializeDir.isDirectory()) doCreateDirectory(serializeDir);
+            if(!profileDir.exists() && profileDir.isDirectory()) doCreateDirectory(profileDir);
         }
         catch (IOException e)
         {
@@ -49,9 +65,11 @@ public class MainActivity extends AppCompatActivity {
         String logPath = logDir.getAbsolutePath();
         String framePath = frameDir.getAbsolutePath();
         String serializePath = serializeDir.getAbsolutePath();
+        String profilePath = profileDir.getAbsolutePath();
 
         //Execute a libvpx unit test
-        vpxDecodeVideo(videoPath, logPath, framePath, serializePath, target_resolution, scale);
+        vpxDecodeVideo(videoPath, logPath, framePath, serializePath, profilePath, target_resolution, scale);
+        //helloworld();
 
         Log.i(TAG, "MainActivity ends");
     }
@@ -65,5 +83,4 @@ public class MainActivity extends AppCompatActivity {
     private static boolean modelExists(File modelRoot) {
         return modelRoot.listFiles().length > 0;
     }
-
 }

@@ -9,22 +9,21 @@
 from math import ceil, floor
 
 from .onnx_translations import *
+from snpe.converters.common.utils import snpe_translation_utils
 
 
 # ------------------------------------------------------------------------------
 #   AveragePool, MaxPool
 # ------------------------------------------------------------------------------
 class OnnxPoolTranslation(OnnxTranslationBase):
+    def __init__(self):
+        OnnxTranslationBase.__init__(self)
+        self.register_op_schema('AveragePool', [1])
+        self.register_op_schema('MaxPool', [1])
+        self._op_schema.register_method(self.validate_attribute_values)
+
     def extract_parameters(self, src_op, graph):
-        params = extract_attributes(src_op,
-                                    ('auto_pad', 's', ''),
-                                    ('kernel_shape', 'li'),
-                                    ('pads', 'li', [0, 0, 0, 0]),
-                                    ('strides', 'li', [1, 1]))
-
-        log_assert(pads_symmetric(params.pads) or pads_righthanded(params.pads),
-                   code_to_message.get_error_message("ERROR_ASYMMETRIC_PADS_VALUES"))
-
+        params = extract_attributes(src_op, schema=self.op_schema(), validate=True)
         padding_size_strategy = extract_padding_mode(params.auto_pad, src_op.name)
         if pads_righthanded(params.pads):
             padding_size_strategy = "PADDING_SIZE_EXPLICIT_ASYMMETRIC"
@@ -45,55 +44,18 @@ class OnnxPoolTranslation(OnnxTranslationBase):
                                  pool_region_include_padding=False)
 
     def infer_output_shapes(self, op, input_shapes):
-        input_shape = input_shapes[0]
-        input_height = input_shape[2]
-        input_width = input_shape[3]
-        output_height = self.calc_pool_output_dim(input_height,
-                                                  op.size_y,
-                                                  op.pad_y,
-                                                  op.stride_y,
-                                                  op.padding_size_strategy)
-        output_width = self.calc_pool_output_dim(input_width,
-                                                 op.size_x,
-                                                 op.pad_x,
-                                                 op.stride_x,
-                                                 op.padding_size_strategy)
-        output_shape = input_shape[0:2] + [output_height, output_width]
-        log_debug(code_to_message.get_debugging_message("DEBUG_INFERRED_SHAPE")(op.name, output_shape))
-        return [output_shape]
+        return snpe_translation_utils.get_pool_output_shape(op, input_shapes)
 
     @staticmethod
-    def calc_pool_output_dim(input_size, pool_size, padding, stride, padding_size_strategy):
-        padding = -padding
-        full_size = input_size - 2 * padding - pool_size
-
-        if padding_size_strategy == "PADDING_SIZE_IMPLICIT_VALID":
-            output_dim = ceil(1 + full_size) / stride
-        elif padding_size_strategy == "PADDING_SIZE_IMPLICIT_SAME":
-            output_dim = ceil(float(input_size) / stride)
-        elif padding_size_strategy == "PADDING_SIZE_EXPLICIT_FLOOR":
-            output_dim = 1 + floor(full_size/stride)
-        elif padding_size_strategy == "PADDING_SIZE_EXPLICIT_ASYMMETRIC":
-            # this is implemented for EXPLICIT_RIGHTHANDED in snpe c++ but modeltools maps
-            # asymmetric to righthanded so mimicking that here
-            full_size = input_size - padding - pool_size
-            output_dim = 1 + floor(full_size / stride)
-        else:  # EXPLICIT or UNDEFINED
-            output_dim = 1 + ceil(full_size / stride)
-
-        if (output_dim - 1) * stride + padding >= input_size:
-            # don't start a pool beyond the right border of the image
-            output_dim -= 1
-
-        return int(output_dim)
-
-    def get_supported_version(self):
-        return OP_VERSION_SUPPORTED[op_adapter.PoolOp.TRANSLATION_KEY]
+    def validate_attribute_values(src_op, attr_name, attr_value):
+        if attr_name == 'pads':
+            if not (pads_righthanded(attr_value) or pads_symmetric(attr_value)):
+                raise ValueError(code_to_message.get_error_message("ERROR_ASYMMETRIC_PADS_VALUES"))
 
 
 OnnxTranslations.register_translation(OnnxPoolTranslation(),
-                                      onnx_type('AveragePool'),
-                                      onnx_type('MaxPool'),
+                                      converter_type('AveragePool', 'onnx'),
+                                      converter_type('MaxPool', 'onnx'),
                                       op_adapter.PoolOp.TRANSLATION_KEY)
 
 
@@ -103,18 +65,11 @@ OnnxTranslations.register_translation(OnnxPoolTranslation(),
 class OnnxBatchNormalizationTranslation(OnnxTranslationBase):
     def __init__(self):
         OnnxTranslationBase.__init__(self)
+        self.register_op_schema('BatchNormalization', [1, 6, 7])
+        self._op_schema.register_method(self.validate_attribute_values)
 
     def extract_parameters(self, src_op, graph):
-        params = extract_attributes(src_op,
-                                    ('epsilon', 'f', 1e-5),
-                                    ('is_test', 'i', 0),
-                                    ('spatial', 'i', 1))
-
-        # Extract op version to determine if we need to check if test or training
-        # Starting version 7 onnx has dropped the is_test attribute
-        version = OpVersionInfo.onnx_op_ver(src_op, self.get_supported_version())
-        if version < 7:
-            log_assert(params.is_test, code_to_message.get_error_message("ERROR_BATCHNORM_TEST_ONLY"))
+        params = extract_attributes(src_op, schema=self.op_schema(), validate=True)
 
         input_names = list(src_op.input)
         gamma, beta, mu, var = graph.weights.fetch(*input_names[1:])
@@ -132,12 +87,15 @@ class OnnxBatchNormalizationTranslation(OnnxTranslationBase):
     def extract_input_names(self, src_op, graph):
         return [src_op.input[0]]
 
-    def get_supported_version(self):
-        return OP_VERSION_SUPPORTED[op_adapter.BatchnormOp.TRANSLATION_KEY]
+    @staticmethod
+    def validate_attribute_values(self, attr_name, attr_value):
+        # is_test is only supported in test mode, which is_test = 1
+        if attr_name == 'is_test':
+            log_assert(attr_value, code_to_message.get_error_message('ERROR_BATCHNORM_TEST_ONLY'))
 
 
 OnnxTranslations.register_translation(OnnxBatchNormalizationTranslation(),
-                                      onnx_type('BatchNormalization'),
+                                      converter_type('BatchNormalization', 'onnx'),
                                       op_adapter.BatchnormOp.TRANSLATION_KEY)
 
 
@@ -145,6 +103,11 @@ OnnxTranslations.register_translation(OnnxBatchNormalizationTranslation(),
 #   Conv
 # ------------------------------------------------------------------------------
 class OnnxConvTranslation(OnnxTranslationBase):
+    def __init__(self):
+        OnnxTranslationBase.__init__(self)
+        self.register_op_schema('Conv', [1])
+        self._op_schema.register_method(self.validate_attribute_values)
+
     def extract_parameters(self, src_op, graph):
         input_names = list(map(str, src_op.input))
 
@@ -156,15 +119,7 @@ class OnnxConvTranslation(OnnxTranslationBase):
             input_buf = graph.get_buffer(input_names[0])
             bias = numpy.zeros(weights.shape[0], dtype=numpy.float32)
 
-        params = extract_attributes(src_op,
-                                    ('auto_pad', 's', ''),
-                                    ('dilations', 'li', [1, 1]),
-                                    ('group', 'i', 1),
-                                    ('kernel_shape', 'li', []),
-                                    ('pads', 'li', [0, 0, 0, 0]),
-                                    ('strides', 'li', [1, 1]))
-
-        log_assert(pads_symmetric(params.pads), code_to_message.get_error_message("ERROR_ASYMMETRIC_PADS_VALUES"))
+        params = extract_attributes(src_op, schema=self.op_schema(), validate=True)
 
         if params.kernel_shape:
             log_assert(tuple(params.kernel_shape) == weights.shape[2:],
@@ -188,51 +143,17 @@ class OnnxConvTranslation(OnnxTranslationBase):
         return [src_op.input[0]]
 
     def infer_output_shapes(self, op, input_shapes):
-        input_height = input_shapes[0][2]
-        input_width = input_shapes[0][3]
-
-        output_height = self.calc_conv_output_dim(input_height,
-                                                  op.weights.shape[2],
-                                                  op.pady,
-                                                  op.stridey,
-                                                  op.dilationy,
-                                                  op.padding_size_strategy)
-        output_width = self.calc_conv_output_dim(input_width,
-                                                 op.weights.shape[3],
-                                                 op.padx,
-                                                 op.stridex,
-                                                 op.dilationx,
-                                                 op.padding_size_strategy)
-        output_depth = op.bias.shape[0]
-        batch = input_shapes[0][0]
-        output_shape = [batch, output_depth, output_height, output_width]
-        log_debug(code_to_message.get_debugging_message("DEBUG_INFERRED_SHAPE")(op.name, output_shape))
-        return [output_shape]
+        return snpe_translation_utils.get_conv_output_shape(op, input_shapes)
 
     @staticmethod
-    def calc_conv_output_dim(input_size, filter_size, padding, stride, dilation, padding_size_strategy):
-
-        kernel_extent = dilation * (filter_size - 1) + 1
-        full_size = float(2 * padding) + input_size - kernel_extent
-
-        if padding_size_strategy == "PADDING_SIZE_IMPLICIT_VALID":
-            filter_ = int(filter_size + ((filter_size - 1) * (dilation - 1)))
-            output_dim = ceil(float(input_size - filter_ + 1) / float(stride))
-        elif padding_size_strategy == "PADDING_SIZE_IMPLICIT_SAME":
-            output_dim = ceil(float(input_size) / float(stride))
-        elif padding_size_strategy == "PADDING_SIZE_EXPLICIT_FLOOR":
-            output_dim = 1 + floor(full_size/float(stride))
-        else:  # EXPLICIT or UNDEFINED
-            output_dim = 1 + (full_size / float(stride))
-
-        return int(output_dim)
-
-    def get_supported_version(self):
-        return OP_VERSION_SUPPORTED[op_adapter.ConvolutionOp.TRANSLATION_KEY]
+    def validate_attribute_values(src_op, attr_name, attr_value):
+        if attr_name == 'pads':
+            log_assert(pads_symmetric(attr_value),
+                       code_to_message.get_error_message("ERROR_ASYMMETRIC_PADS_VALUES"))
 
 
 OnnxTranslations.register_translation(OnnxConvTranslation(),
-                                      onnx_type('Conv'),
+                                      converter_type('Conv', 'onnx'),
                                       op_adapter.ConvolutionOp.TRANSLATION_KEY)
 
 
@@ -240,6 +161,12 @@ OnnxTranslations.register_translation(OnnxConvTranslation(),
 #   ConvTranspose
 # ------------------------------------------------------------------------------
 class OnnxConvTransposeTranslation(OnnxTranslationBase):
+    def __init__(self):
+        OnnxTranslationBase.__init__(self)
+        self.register_op_schema('ConvTranspose', [1], [['output_padding']])
+        self._op_schema.register_method(self.validate_attribute_values)
+        self._op_schema.replace_default_values(output_shape=[0, 0])
+
     def extract_parameters(self, src_op, graph):
         input_names = list(map(str, src_op.input))
         weights = graph.weights.fetch(input_names[1])
@@ -247,26 +174,14 @@ class OnnxConvTransposeTranslation(OnnxTranslationBase):
             bias = graph.weights.fetch(input_names[2])
         else:
             input_buf = graph.get_buffer(input_names[0])
-            bias = numpy.zeros(weights.shape[0], dtype=numpy.float32)
-
-        params = extract_attributes(src_op,
-                                    ('auto_pad', 's', ''),
-                                    ('dilations', 'li', [1, 1]),
-                                    ('group', 'i', 1),
-                                    ('kernel_shape', 'li', []),
-                                    ('output_padding', 'li', []),
-                                    ('output_shape', 'li', [0, 0]),
-                                    ('pads', 'li', [0, 0, 0, 0]),
-                                    ('strides', 'li', [1, 1, ]))
-
+            bias = numpy.zeros(weights.shape[1], dtype=numpy.float32)  # take the second dim because Onnx weights for
+                                                                       # convtranspose is CMHW
+        params = extract_attributes(src_op, schema=self.op_schema(), validate=True)
         padding_mode = extract_padding_mode(params.auto_pad, src_op.name)
-        log_assert(pads_symmetric(params.pads), code_to_message.get_error_message("ERROR_ASYMMETRIC_PADS_VALUES"))
+
         if params.kernel_shape:
             log_assert(tuple(params.kernel_shape) == weights.shape[2:],
                        code_to_message.get_error_message("ERROR_KERNEL_SHAPE_DIFFERS_FROM_WEIGHTS"))
-
-        log_assert(params.strides[0] == params.strides[1],
-                   code_to_message.get_error_message("ERROR_DECONV_RECTANGULAR_STRIDE_UNSUPPORTED"))
 
         op = op_adapter.DeconvolutionOp(src_op.name,
                                         weights,
@@ -277,50 +192,26 @@ class OnnxConvTransposeTranslation(OnnxTranslationBase):
                                         output_height=params.output_shape[0],
                                         output_width=params.output_shape[1],
                                         groups=params.group)
-
-        log_assert(not params.output_padding,
-                   code_to_message.get_error_message("ERROR_DECONV_OUTPUT_PADDING_UNSUPPORTED"))
         return op
 
     def extract_input_names(self, src_op, graph):
         return [src_op.input[0]]
 
-    def infer_output_shape(self, op, input_shapes):
-        if op.output_height == 0:
-            # calculate according to provided formula
-            input_shape = input_shapes[0]
-            input_height = input_shape[2]
-            input_width = input_shape[3]
+    def infer_output_shapes(self, op, input_shapes):
+        return snpe_translation_utils.get_deconv_output_shape(op, input_shapes)
 
-            def calc_output_dim(input_size,
-                                filter_size,
-                                stride,
-                                pad):
-                return stride*(input_size-1) + filter_size - 2*pad # + output_pad
-
-            output_height = calc_output_dim(input_height,
-                                            op.weights.shape[2],
-                                            op.stride,
-                                            op.padding)
-            op['output_height'] = output_height
-
-            output_width = calc_output_dim(input_width,
-                                           op.weights.shape[3],
-                                           op.stride,
-                                           op.padding)
-            op['output_width'] = output_width
-        else:
-            output_height = op.output_height
-            output_width = op.output_width
-
-        return [input_shape[0:2] + [output_height, output_width]]
-
-    def get_supported_version(self):
-        return OP_VERSION_SUPPORTED[op_adapter.DeconvolutionOp.TRANSLATION_KEY]
+    @staticmethod
+    def validate_attribute_values(src_op, attr_name, attr_value):
+        if attr_name == 'pads':
+            log_assert(pads_symmetric(attr_value),
+                       code_to_message.get_error_message("ERROR_ASYMMETRIC_PADS_VALUES"))
+        elif attr_name == 'strides':
+            log_assert(attr_value[0] == attr_value[1],
+                       code_to_message.get_error_message("ERROR_DECONV_RECTANGULAR_STRIDE_UNSUPPORTED"))
 
 
 OnnxTranslations.register_translation(OnnxConvTransposeTranslation(),
-                                      onnx_type('ConvTranspose'),
+                                      converter_type('ConvTranspose', 'onnx'),
                                       op_adapter.DeconvolutionOp.TRANSLATION_KEY)
 
 
@@ -328,12 +219,16 @@ OnnxTranslations.register_translation(OnnxConvTransposeTranslation(),
 #   FC
 # ------------------------------------------------------------------------------
 class OnnxFCTranslation(OnnxTranslationBase):
+    def __init__(self):
+        OnnxTranslationBase.__init__(self)
+
     def extract_parameters(self, src_op, graph):
-        params = extract_attributes(src_op,
-                                    ('axis', 'i', 1),
-                                    ('axis_w', 'i', 1))
+        # Note: Schema is not used here since this op is not part of the Onnx spec.
+        params = extract_attributes(src_op, attr_infos=
+                                    [('axis', 'i', 1),
+                                    ('axis_w', 'i', 1)])
         log_assert(params.axis == 1, code_to_message.get_error_message("ERROR_FC_AXIS_UNSUPPORTED"))
-        log_assert(params.axis == 1, code_to_message.get_error_message("ERROR_FC_AXIS_W_UNSUPPORTED"))
+        log_assert(params.axis_w == 1, code_to_message.get_error_message("ERROR_FC_AXIS_W_UNSUPPORTED"))
 
         input_names = graph.get_input_names(src_op)
         weights, bias = graph.weights.fetch(*input_names[1:3])
@@ -347,12 +242,9 @@ class OnnxFCTranslation(OnnxTranslationBase):
         M = input_shapes[0][0]
         return [[M, N]]
 
-    def get_supported_version(self):
-        return OP_VERSION_SUPPORTED[op_adapter.FullyConnectedOp.TRANSLATION_KEY]
-
 
 OnnxTranslations.register_translation(OnnxFCTranslation(),
-                                      onnx_type('FC'),
+                                      converter_type('FC', 'onnx'),
                                       op_adapter.FullyConnectedOp.TRANSLATION_KEY)
 
 
@@ -360,6 +252,11 @@ OnnxTranslations.register_translation(OnnxFCTranslation(),
 #   GlobalAveragePool, GlobalMaxPool
 # ------------------------------------------------------------------------------
 class OnnxGlobalPoolTranslation(OnnxTranslationBase):
+    def __init__(self):
+        OnnxTranslationBase.__init__(self)
+        self.register_op_schema('GlobalAveragePool', [1])
+        self.register_op_schema('GlobalMaxPool', [1])
+
     def extract_parameters(self, src_op, graph):
         input_buf = graph.get_buffer(str(src_op.input[0]))
 
@@ -375,19 +272,20 @@ class OnnxGlobalPoolTranslation(OnnxTranslationBase):
                                  stride_x=input_buf.shape[3],
                                  stride_y=input_buf.shape[2])
 
-    def get_supported_version(self):
-        return OP_VERSION_SUPPORTED[op_adapter.PoolOp.TRANSLATION_KEY]
-
 
 OnnxTranslations.register_translation(OnnxGlobalPoolTranslation(),
-                                      onnx_type('GlobalAveragePool'),
-                                      onnx_type('GlobalMaxPool'))
+                                      converter_type('GlobalAveragePool', 'onnx'),
+                                      converter_type('GlobalMaxPool', 'onnx'))
 
 
 # ------------------------------------------------------------------------
 #   InstanceNormalization
 # ------------------------------------------------------------------------------
 class OnnxInstanceNormalizationTranslation(OnnxTranslationBase):
+    def __init__(self):
+        OnnxTranslationBase.__init__(self)
+        self.register_op_schema('InstanceNormalization', [1])
+
     def extract_parameters(self, src_op, graph):
         input_names = list(map(str, src_op.input))
         weights, bias = graph.weights.fetch(*input_names[1:])
@@ -404,11 +302,12 @@ class OnnxInstanceNormalizationTranslation(OnnxTranslationBase):
 #   MaxRoiPool
 # ------------------------------------------------------------------------------
 class OnnxMaxRoiPoolTranslation(OnnxTranslationBase):
-    def extract_parameters(self, src_op, graph):
-        params = extract_attributes(src_op,
-                                    ('spatial_scale', 'f', 1.0),
-                                    ('pooled_shape', 'li'))
+    def __init__(self):
+        OnnxTranslationBase.__init__(self)
+        self.register_op_schema('MaxRoiPool', [1])
 
+    def extract_parameters(self, src_op, graph):
+        params = extract_attributes(src_op, schema=self.op_schema(), validate=True)
         input_names = list(map(str, src_op.input))
         input_buf = graph.get_buffer(input_names[0])
         roi_buf = graph.get_buffer(input_names[1])
@@ -426,12 +325,9 @@ class OnnxMaxRoiPoolTranslation(OnnxTranslationBase):
     def infer_output_shapes(self, op, input_shapes):
         return [op.output_shape]
 
-    def get_supported_version(self):
-        return OP_VERSION_SUPPORTED[op_adapter.RoiPoolingOp.TRANSLATION_KEY]
-
 
 OnnxTranslations.register_translation(OnnxMaxRoiPoolTranslation(),
-                                      onnx_type('MaxRoiPool'),
+                                      converter_type('MaxRoiPool', 'onnx'),
                                       op_adapter.RoiPoolingOp.TRANSLATION_KEY)
 
 
@@ -440,12 +336,17 @@ OnnxTranslations.register_translation(OnnxMaxRoiPoolTranslation(),
 # ------------------------------------------------------------------------------
 # Also handles LeakyRelu as a bonus.
 class OnnxPreluTranslation(OnnxTranslationBase):
+    def __init__(self):
+        OnnxTranslationBase.__init__(self)
+        self.register_op_schema('PRelu', [1, 6, 7])
+        self.register_op_schema('LeakyRelu', [1, 6, 7])
+
     def extract_parameters(self, src_op, graph):
         input_names = list(map(str, src_op.input))
         input_buf = graph.get_buffer(input_names[0])
 
         if str(src_op.op_type) == 'LeakyRelu':
-            params = extract_attributes(src_op, ('alpha', 'f', 0.01))
+            params = extract_attributes(src_op, schema=self.op_schema(), validate=True)
             bias = numpy.ones(input_buf.shape[1], dtype=numpy.float32)
             bias *= params.alpha
         else:
@@ -456,18 +357,15 @@ class OnnxPreluTranslation(OnnxTranslationBase):
             else:
                 bias = numpy.require(slope, dtype=numpy.float32)
 
-        return op_adapter.PreluOp(src_op.name, bias)
+        return op_adapter.PreluOp(src_op.name, coeff=bias.tolist())
 
     def extract_input_names(self, src_op, graph):
         return [src_op.input[0]]
 
-    def get_supported_version(self):
-        return OP_VERSION_SUPPORTED[op_adapter.PreluOp.TRANSLATION_KEY]
-
 
 OnnxTranslations.register_translation(OnnxPreluTranslation(),
-                                      onnx_type('Prelu'),
-                                      onnx_type('LeakyRelu'),
+                                      converter_type('Prelu', 'onnx'),
+                                      converter_type('LeakyRelu', 'onnx'),
                                       op_adapter.PreluOp.TRANSLATION_KEY)
 
 
@@ -475,13 +373,12 @@ OnnxTranslations.register_translation(OnnxPreluTranslation(),
 #   Lrn
 # ------------------------------------------------------------------------------
 class OnnxLrnTranslation(OnnxTranslationBase):
-    def extract_parameters(self, src_op, graph):
-        params = extract_attributes(src_op,
-                                    ('alpha', 'f'),
-                                    ('beta', 'f'),
-                                    ('bias', 'f', 1.0),
-                                    ('size', 'i'))
+    def __init__(self):
+        OnnxTranslationBase.__init__(self)
+        self.register_op_schema('LRN', [1])
 
+    def extract_parameters(self, src_op, graph):
+        params = extract_attributes(src_op, schema=self.op_schema())
         return op_adapter.RNormOp(src_op.name,
                                   params.size,
                                   params.alpha / params.size,
@@ -489,11 +386,8 @@ class OnnxLrnTranslation(OnnxTranslationBase):
                                   params.bias,
                                   across_channels=True)
 
-    def get_supported_version(self):
-        return OP_VERSION_SUPPORTED[op_adapter.RNormOp.TRANSLATION_KEY]
-
 
 OnnxTranslations.register_translation(OnnxLrnTranslation(),
-                                      onnx_type('LRN'),
+                                      converter_type('LRN', 'onnx'),
                                       op_adapter.RNormOp.TRANSLATION_KEY)
 

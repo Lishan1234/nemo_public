@@ -2,7 +2,7 @@ SNPE SDK
 
 SNPE is a software development kit for building machine learning based applications.
 
-SNPE 1.25.0
+SNPE 1.29.0
 
 Dependencies:
 
@@ -13,8 +13,6 @@ Dependencies:
   * optional Android NDK (android-ndk-r17c-linux-x86)
   * optional Android SDK (sdk version 23 and build tools version 23.0.2)
   * Java 8 JDK
-* for Android platforms
-  * libgnustl_shared.so android native library for armeabi-v7a platform (obtained from android ndk)
 * for Linux Embedded (LE) platform
   * libatomic.so.1
 
@@ -23,13 +21,62 @@ Contents:
 * Model conversion tools to convert trained models from Caffe and TensorFlow to SNPE DLC format
 * SNPE neural network accelerated runtime
 * Sample Native C++ and Android applications
-* SNPE C++ library x86_64-linux-clang, arm-android-gcc4.9, arm-linux-gcc4.9sf, aarch64-linux-gcc4.9
+* SNPE C++ library x86_64-linux-clang, arm-android-clang6.0, aarch64-android-clang6.0,
+  arm-linux-gcc4.9sf, aarch64-linux-gcc4.9, arm-oe-linux-gcc8.2hf, aarch64-oe-linux-gcc8.2
 * Android archive (aar) to facilitate Android application integration using SNPE
 * Snapdragon Neural Processing Engine SDK Reference Guide
 
 Known Issues:
 
 * Please refer to the "Limitations and Issues" chapter of the SNPE User and Reference Guide
+
+Changelog:
+
+1.29.0
+* Added support for dlc reorder tool
+* Optimization of HTA d32 conversions
+* Added tf space_to_depth op for SNPE CPU and DSP runtime
+* Benchmarking scripts enhanced for showing further break down of execution time, across various components
+* Added support for additional ONNX binary element-wise ops
+* Optimized deconv layer for improving performance
+* Fixed an issue related to runtime error in DSP runtime
+* Performance Optimization of SNPE GPU Runtime for Shufflenet V2 by using profiling level config
+
+1.28.0
+* Added an optional argument to isRuntimeAvailable for the DSP runtime so that it doesn't activate the DSP
+* Allow UB_T8 and UB_FLOAT output for snpe-net-run
+* Added a new command line option for snpe-dlc-diff to check layer names
+* Updated the --dlc argument to --output_path for snpe-caffe-to-dlc to align with the ONNX converter
+* Added --dry_run argument to snpe-onnx-to-dlc to allow evaluation for successful conversion on an ONNX model
+* Added support for the gather op in the DSP runtime
+* Added support to convert the TF MobileNet-V1-FPN-SSD model
+* Fixed a memory leak in the DSP runtime that is seen when repeatedly loading and unloading a network
+* Addressed issues on V66 DSPs related to acquiring VTCM memory
+* Fixed an issue related to multiple inputs for the Caffe converter
+* Fixed an issue in the TF converter related to element-wise sun and the atrous parameter
+* Fixed an issue in the TF converter related to tf.crop_and_resize when there are only 2 inputs.
+* Fixed additional cases of uncaught exceptions with the aarch64-android-clang6.0 platform
+
+1.27.0
+* Added new APIs support for setting output tensor names to snpeBuilder and to fetch output tensor names for a given output layer name.
+* Improved the peak memory usage with DLC v3 format.
+* Fixed few issues with performance and runtime failures on DSP runtime.
+* Fixed few issues and improved error handling for platform validator.
+* Fixed the issues with Pooling and Instance norm layers of Tensorflow converter
+* Removed *-android-gcc4.9 platform support. This compiler has been retired for the Android NDK,
+  so all support is transitioning to using Clang for Android.
+* Remove the arm-linux-gcc4.8hf platform. The development platform has been retired.
+
+Changelog:
+1.26.0
+* Added support for the ONNX Gather Op in the ONNX Converter and CPU runtime
+* Optimized DeConvolution Layer for the DSP runtime
+* Support for tf.nn.moments in the TF converter, CPU and DSP runtimes
+* Added TF Reflect Pad support for the DSP runtime
+* Add symmetric quantizer option in snpe-dlc-quantize
+* Add support for batch > 1 when using the Scale Layer on the DSP runtime
+* Updated Platform Validator python script to be OS-independent
+* Added additional optimizations for HTA input conversion
 
 Changelog:
 1.25.0

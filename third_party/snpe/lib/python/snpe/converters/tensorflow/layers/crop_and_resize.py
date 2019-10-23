@@ -7,6 +7,7 @@
 #
 # =============================================================================
 
+from snpe.converters.tensorflow.layers.constant import ConstantLayerResolver
 from snpe.converters.tensorflow.common import LayerDescriptor, LayerResolver, LayerBuilder
 from snpe.converters.tensorflow.util import GraphHelper
 from snpe.converters.tensorflow.graph_matcher import (
@@ -49,7 +50,7 @@ class CropAndResizeLayerResolver(LayerResolver, object):
                 crop_and_resize = match['crop_and_resize']
 
                 try:
-                   _, _, _, crop_size = GraphHelper.get_op_input_tensors(crop_and_resize, ('?', '?', '?', 'Const'))
+                   _, _, box_ind, crop_size = GraphHelper.get_op_input_tensors(crop_and_resize, ('?', '?', '?', 'Const'))
                 except TensorNotFoundError:
                     raise ConverterError(
                         code_to_message.get_message('ERROR_TF_RESOLVE_CROP_AND_RESIZE_SIZE_NOT_CONST'))
@@ -64,10 +65,21 @@ class CropAndResizeLayerResolver(LayerResolver, object):
                 interpolation_method = str(crop_and_resize.get_attr('method'))
                 extrapolation_value = float(crop_and_resize.get_attr('extrapolation_value'))
 
-                potential_descriptors.append(
-                    CropAndResizeLayerResolver.Descriptor(str(crop_and_resize.name), consumed_nodes,
-                                          crop_size_value[1], crop_size_value[0], interpolation_method,
-                                          extrapolation_value))
+                crop_and_resize_descriptor = CropAndResizeLayerResolver.Descriptor(
+                    str(crop_and_resize.name), consumed_nodes, crop_size_value[1],
+                    crop_size_value[0], interpolation_method, extrapolation_value)
+                potential_descriptors.append(crop_and_resize_descriptor)
+
+                if box_ind.op.type == 'Const':
+                    box_ind_value = graph_helper.evaluate_tensor_output(box_ind)
+                    box_ind_shape = graph_helper.get_op_output_shape(box_ind.op)
+                    constant_descriptor = ConstantLayerResolver.Descriptor(str(box_ind.op),
+                                                                           [box_ind.op],
+                                                                           box_ind_value,
+                                                                           box_ind_shape,
+                                                                           crop_and_resize_descriptor)
+                    potential_descriptors.append(constant_descriptor)
+
         return potential_descriptors
 
 

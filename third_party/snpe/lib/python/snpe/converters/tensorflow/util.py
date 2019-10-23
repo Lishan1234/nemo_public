@@ -121,18 +121,20 @@ class GraphHelper(object):
     @classmethod
     def _create_placeholders_tensors(cls, session, inputs):
         placeholders_stubs_map = dict()
-        for op in session.graph.get_operations():
-            if op.type == 'Placeholder' and op.name not in inputs:
-                dtype = np.float32
-                if op.get_attr('dtype') == tf.uint8:
-                    dtype = np.uint8
+        # run in isolated session so that the memory gets cleared out after retrieving the output
+        with tf.Session(graph=session.graph) as sess:
+            for op in sess.graph.get_operations():
+                if op.type == 'Placeholder' and op.name not in inputs:
+                    dtype = np.float32
+                    if op.get_attr('dtype') == tf.uint8:
+                        dtype = np.uint8
 
-                tensor = session.graph.get_tensor_by_name(GraphHelper.indexed_tensor_name(op.name))
-                shape = tensor.get_shape().as_list()
-                shape = [d if d is not None else 1 for d in shape]
-                tensor = np.zeros(shape, dtype=dtype)
-                placeholders_stubs_map[str(op.name)] = tensor
-        return placeholders_stubs_map
+                    tensor = sess.graph.get_tensor_by_name(GraphHelper.indexed_tensor_name(op.name))
+                    shape = tensor.get_shape().as_list()
+                    shape = [d if d is not None else 1 for d in shape]
+                    tensor = np.zeros(shape, dtype=dtype)
+                    placeholders_stubs_map[str(op.name)] = tensor
+            return placeholders_stubs_map
 
     def dump(self):
         for n, s in list(self._tensor_shape_cache.items()):
@@ -239,7 +241,9 @@ class GraphHelper(object):
 
         if len(requiring_evaluation) > 0:
             try:
-                outputs = self._session.run(fetches=requiring_evaluation, feed_dict=input_tensors)
+                # run in isolated session so that the memory gets cleared out after retrieving the output
+                with tf.Session(graph=self._graph) as sess:
+                    outputs = sess.run(fetches=requiring_evaluation, feed_dict=input_tensors)
                 outputs = dict(list(zip(requiring_evaluation, outputs)))
                 for t, o in list(outputs.items()):
                     self._tensor_value_cache[t.name] = o
@@ -250,7 +254,10 @@ class GraphHelper(object):
 
         for t in requiring_evaluation:
             try:
-                outputs = self._session.run(fetches=[t], feed_dict=input_tensors)
+                # run in isolated session so that the memory gets cleared out after retrieving the output
+                with tf.Session(graph=self._graph) as sess:
+                    outputs = sess.run(fetches=[t], feed_dict=input_tensors)
+                # outputs = self._session.run(fetches=[t], feed_dict=input_tensors)
                 self._tensor_value_cache[t.name] = outputs[0]
                 outputs_map[t] = outputs[0]
             except InvalidArgumentError:
@@ -562,4 +569,4 @@ class OperationExecutionSorter(object):
     def _flag_unvisited_nodes(self):
         for op in list(self.ops_map.values()):
             if op.order == -1:
-                op.order = sys.maxint
+                op.order = sys.maxsize

@@ -58,15 +58,30 @@ for video_file in video_files:
 print('filtered_video_files: {}'.format(filtered_video_files))
 assert len(filtered_video_files) == 5
 
-#create a root dir if not existing
+#remove a previous dataset (frame, serialize, video)
 src_data_dir = os.path.join(args.data_dir, args.dataset, args.dataset)
 dst_data_root = '/storage/emulated/0/Android/data/android.example.testlibvpx/files/mobinas'
 dst_data_dir = os.path.join(dst_data_root, args.dataset)
 dst_video_dir = os.path.join(dst_data_dir, 'video')
-cmd = 'adb shell "mkdir -p {}"'.format(dst_data_root)
-os.system(cmd)
-cmd = 'adb shell "mkdir -p {}"'.format(dst_video_dir)
-os.system(cmd)
+
+if args.device_id is None:
+    cmd = 'adb shell rm -rf {} {} {}'.format(os.path.join(dst_data_dir, 'frame'), os.path.join(dst_data_dir, 'serialize'), os.path.join(dst_data_dir, 'video'))
+    os.system(cmd)
+else:
+    cmd = 'adb -s {} shell rm -rf {} {} {}'.format(args.device_id, os.path.join(dst_data_dir, 'frame'), os.path.join(dst_data_dir, 'serialize'), os.path.join(dst_data_dir, 'video'))
+    os.system(cmd)
+
+#create a root dir if not existing
+if args.device_id is None:
+    cmd = 'adb shell "mkdir -p {}"'.format(dst_data_root)
+    os.system(cmd)
+    cmd = 'adb shell "mkdir -p {}"'.format(dst_video_dir)
+    os.system(cmd)
+else:
+    cmd = 'adb -s {} shell "mkdir -p {}"'.format(args.device_id, dst_data_root)
+    os.system(cmd)
+    cmd = 'adb -s {} shell "mkdir -p {}"'.format(args.device_id, dst_video_dir)
+    os.system(cmd)
 
 #copy a new dataset
 for video_file in filtered_video_files:

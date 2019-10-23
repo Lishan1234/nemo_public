@@ -65,4 +65,5 @@ class FillLayerBuilder(LayerBuilder):
 
         return converter_context.model.add_const_layer(descriptor.output_names[0],
                                                        list(np.shape(tensor)),
-                                                       tensor)
+                                                       tensor,
+                                                       True)

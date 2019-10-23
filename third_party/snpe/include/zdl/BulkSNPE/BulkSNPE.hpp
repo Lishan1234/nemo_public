@@ -41,6 +41,8 @@ struct ZDL_EXPORT BuildConfig final{
 class ZDL_EXPORT BulkSNPE {
 public:
 
+   ~BulkSNPE();
+
    /**
     * @brief Build snpe instance objects in parallel.
     *
