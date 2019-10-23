@@ -91,8 +91,8 @@ def findFPS(video_path):
     ffprobeOutput = subprocess.check_output(args).decode("utf-8")
     ffprobeOutput = json.loads(ffprobeOutput)
 
-    fps = ffprobeOutput['streams'][0]['r_frame_rate']
-    fps = int(fps.split('/')[0])
+    _fps = ffprobeOutput['streams'][0]['r_frame_rate'].split('/')
+    fps = float(_fps[0]) / float(_fps[1])
 
     return fps
 

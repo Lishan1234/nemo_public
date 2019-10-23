@@ -60,9 +60,10 @@ class Tester():
         start = int(valid_datatype[2])
         original_video_path = os.path.join(self.args.data_dir, self.args.valid_data, 'video', '{}p.webm'.format(self.args.original_resolution))
         sr_video_path = os.path.join(self.args.data_dir, self.args.valid_data, 'video', '{}p_{}p_{}sec_{}st_{}.webm'.format(self.args.target_resolution, self.args.target_resolution // self.args.scale, length, start, self.model_name))
-        fps = util.findFPS(original_video_path) / 1000
+        fps = util.findFPS(original_video_path)
         height = args.target_resolution // args.scale
         width = WIDTH[height]
+        print(fps, height, width)
 
         #TODO: temporally set key interval to 30
         cmd = '/usr/bin/ffmpeg -framerate {} -s 1920x1080 -pix_fmt rgb24 -i {}/%04d.raw -vcodec libvpx-vp9 -threads 4 -speed 4 -pix_fmt yuv420p -lossless 1 -keyint_min {} -g {} -y {}'.format(fps, self.output_image_dir, KEY_INTERVAL, KEY_INTERVAL, sr_video_path)
@@ -79,5 +80,5 @@ if __name__ == '__main__':
 
     tester = Tester(args, model_builder)
     tester.load_model()
-    #tester.process()
+    tester.process()
     tester.encode()
