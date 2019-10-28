@@ -40,11 +40,12 @@ class Downloader():
         os.makedirs(self.content_dir, exist_ok=True)
         os.makedirs(self.video_dir, exist_ok=True)
 
-    def download(self):
         youtube_dl_path = shutil.which("youtube-dl")
         if youtube_dl_path is None:
             logging.error("youtube-dl does not exist")
+            sys.exit()
 
+    def download(self):
         cmd = '{} -f "bestvideo[height=2160][fps=30]" -o "{}/2160p.%(ext)s" {}'.format(youtube_dl_path, self.video_dir, self.url)
         logging.info("cmd: {}".format(cmd))
         os.system(cmd)
