@@ -6,24 +6,6 @@ import sys
 from option import args
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-"""
-dataset-[content name]-[video]-(video data, manifest file)
-       -[content-video name metadata]
-e.g., content name: game-lol, game-dota2
-e.g., video name: 2160p.webm
-"""
-#Downloader
-
-#Input: (video link, content name) - save in a file & load, parse to read
-
-#Check: youtube-dl
-
-#1. Download a 4K video (if not exist) with name "2160p.webm"
-
-#2. Write a content-video name pair in a file
-#   (Update for each download to handle deletion)
-
-#Q. Should we use 24fps or 30fps? 많은 종류가 있는 쪽으로 / Youtube 전문 통계로 확인 가능
 
 def get_download_cmd(url):
     return cmd

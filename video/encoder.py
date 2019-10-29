@@ -9,25 +9,6 @@ from option import args
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
-#Encoder
-#Input: content name, start time, end time, GOP size
-
-#Check: ffmpeg, support for libvpx
-
-#0. Crop a 2160p video
-
-#1. Encode a 1080p video with lossless mode
-
-#2. Encode 2160p, 1440p, 1080p videos with 1. video with name "{}p_{}s_{}e.webm"
-
-#3. Encode 240p, 360p, 480p, 720p with 2. video
-
-#4. Prepare a manifest file
-
-#5. Provide information for DNN trainer
-
-#6. (optional) Setup for a Apache server- Do this for another file
-
 class Encoder():
     def __init__(self, args):
         self.dataset_dir = args.dataset_dir
@@ -230,10 +211,7 @@ class Encoder():
         self.encode_2160p()
 
     def prepare_manifest(self):
-        cmd = get_manifest_cmd()
-
-    def prepare_json(self):
-        #for a DNN trainer
+        #TODO
         pass
 
 if __name__ == '__main__':
