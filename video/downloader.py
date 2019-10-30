@@ -2,8 +2,15 @@ import os
 import logging
 import shutil
 import sys
+import argparse
 
-from option import args
+parser = argparse.ArgumentParser()
+parser.add_argument('--dataset_dir', type=str, required=True)
+parser.add_argument('--content_name', type=str, required=True)
+parser.add_argument('--youtubedl_path', type=str, required=True)
+parser.add_argument('--url', type=str, required=True)
+
+args = parser.parse_args()
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
