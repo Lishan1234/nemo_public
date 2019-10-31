@@ -1,7 +1,6 @@
 #!/bin/bash
 
-python encoder.py --dataset_dir /home/hyunho/dataset-sigcomm2020 \
-        --content_name game-lol \
+python encoder.py --video_dir /home/hyunho/dataset-sigcomm2020/game-lol/video \
         --gop 120 \
         --num_threads 4 \
         --start_time 0 \

@@ -5,8 +5,7 @@ import sys
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset_dir', type=str, required=True)
-parser.add_argument('--content_name', type=str, required=True)
+parser.add_argument('--video_dir', type=str, required=True)
 parser.add_argument('--youtubedl_path', type=str, required=True)
 parser.add_argument('--url', type=str, required=True)
 
@@ -19,14 +18,9 @@ def get_download_cmd(url):
 
 class Downloader():
     def __init__(self, args):
-        self.dataset_dir = args.dataset_dir
-        self.content_name = args.content_name
-        self.content_dir = os.path.join(self.dataset_dir, self.content_name)
-        self.video_dir = os.path.join(self.content_dir, "video")
+        self.video_dir = args.video_dir
         self.url = args.url
 
-        os.makedirs(self.dataset_dir, exist_ok=True)
-        os.makedirs(self.content_dir, exist_ok=True)
         os.makedirs(self.video_dir, exist_ok=True)
 
         youtube_dl_path = shutil.which("youtube-dl")

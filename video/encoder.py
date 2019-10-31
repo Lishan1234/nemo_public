@@ -11,8 +11,7 @@ import argparse
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset_dir', type=str, required=True)
-parser.add_argument('--content_name', type=str, required=True)
+parser.add_argument('--video_dir', type=str, required=True)
 parser.add_argument('--ffmpeg_path', type=str, required=True)
 
 parser.add_argument('--gop', type=str, required=True)
@@ -26,10 +25,7 @@ args = parser.parse_args()
 
 class Encoder():
     def __init__(self, args):
-        self.dataset_dir = args.dataset_dir
-        self.content_name = args.content_name
-        self.content_dir = os.path.join(self.dataset_dir, self.content_name)
-        self.video_dir = os.path.join(self.content_dir, "video")
+        self.video_dir = args.video_dir
         self.ffmpeg_path = args.ffmpeg_path
 
         self.gop = args.gop

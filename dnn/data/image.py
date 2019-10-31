@@ -6,22 +6,7 @@ import shlex
 import json
 import math
 
-#path: [dataset_dir]-[content_name]-[dataset]-[image]-[240p-{}]-[%04d.png]
-
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-
-parser = argparse.ArgumentParser()
-parser.add_argument('--dataset_dir', type=str, required=True)
-parser.add_argument('--content_name', type=str,  required=True)
-parser.add_argument('--start_time', type=int, required=True)
-parser.add_argument('--duration', type=int, required=True)
-parser.add_argument('--resolution_pairs', nargs='+', type=str, required=True)
-parser.add_argument('--video_fmt', type=str, required=True)
-parser.add_argument('--ffmpeg_path', type=str, required=True)
-parser.add_argument('--filter_frames', type=str, choices=['uniform', 'keyframes',], required=True)
-parser.add_argument('--filter_fps', type=float, default=1.0)
-parser.add_argument('--upsample', type=str, default='bilinear')
-args = parser.parse_args()
 
 # Source: https://gist.githubusercontent.com/oldo/dc7ee7f28851922cca09/raw/3238ad3ad64eeacfcafe7c18e7e57d28b73cb007/video-metada-finder.py
 def findVideoMetadata(video_path):
@@ -43,56 +28,28 @@ def findVideoMetadata(video_path):
 
     return width, height
 
-class SRConfig():
-    def __init__(self, input_width, input_height, output_width, output_height):
-        self.input_width = input_width
-        self.input_height = input_height
-        self.output_width = output_width
-        self.output_height = output_height
-
-    def __str__(self):
-        return "input_width: {}, input_height: {}, output_width: {}, output_height{}".format(self.input_width, self.input_height, self.output_width, self.output_height)
-
-    def require_preprocess(self):
-        if self.output_height % self.input_height != 0:
-            return True
-        else:
-            return False
-
 class ImageData():
     def __init__(self, args):
-        self.dataset_dir = args.dataset_dir
-        self.content_name = args.content_name
-        self.video_dir = os.path.join(self.dataset_dir, self.content_name, 'video')
+        self.video_dir = args.video_dir
+        self.image_dir = args.image_dir
+        self.lr_video_name = args.lr_video_name
+        self.hr_video_name = args.hr_video_name
         self.ffmpeg_path = args.ffmpeg_path
-        self.start_time = args.start_time
-        self.duration = args.duration
         self.video_fmt = args.video_fmt
+
         self.filter_frames = args.filter_frames
         self.filter_fps = args.filter_fps
         self.upsample = args.upsample
 
         #check videos & find metadata (width, height)
-        self.sr_configs = []
-        for resolution_pair in args.resolution_pairs:
-            input_resolution = int(resolution_pair.split(',')[0])
-            output_resolution = int(resolution_pair.split(',')[1])
-
-            input_video_path = os.path.join(self.video_dir, '{}p_s{}_d{}_encoded.{}'.format(input_resolution, self.start_time, self.duration, self.video_fmt))
-            if not os.path.exists(input_video_path):
-                logging.error('{} does not exist'.format(video_path))
-                sys.exit()
-
-            output_video_path = os.path.join(self.video_dir, '{}p_s{}_d{}_encoded.{}'.format(output_resolution, self.start_time, self.duration, self.video_fmt))
-            if not os.path.exists(output_video_path):
-                logging.error('{} does not exist'.format(video_path))
-                sys.exit()
-
-            input_width, input_height = findVideoMetadata(input_video_path)
-            output_width, output_height = findVideoMetadata(output_video_path)
-            sr_config = SRConfig(input_width, input_height, output_width, output_height)
-            self.sr_configs.append(sr_config)
-            logging.info(sr_config)
+        lr_video_path = os.path.join(self.video_dir, '{}.{}'.format(self.lr_video_name, self.video_fmt))
+        if not os.path.exists(lr_video_path):
+            logging.error('{} does not exist'.format(lr_video_path))
+            sys.exit()
+        hr_video_path = os.path.join(self.video_dir, '{}.{}'.format(self.hr_video_name, self.video_fmt))
+        if not os.path.exists(hr_video_path):
+            logging.error('{} does not exist'.format(hr_video_path))
+            sys.exit()
 
         #check ffmpeg
         if self.ffmpeg_path is None:
@@ -137,31 +94,60 @@ class ImageData():
             cmd = '{} -i {} {} {}/%04d.png'.format(self.ffmpeg_path, video_path, ffmpeg_filter, image_dir)
             os.system(cmd)
 
-    def save(self):
-        for sr_config in self.sr_configs:
-            #input (encoded) frames
-            video_name = '{}p_s{}_d{}_encoded'.format(sr_config.input_height, self.start_time, self.duration)
-            video_path = os.path.join(self.video_dir, '{}.{}'.format(video_name, self.video_fmt))
-            image_dir = os.path.join(self.dataset_dir, self.content_name, 'image', '{}_{}'.format(video_name, self.get_postfix()))
-            self.execute_ffmpeg(video_path, image_dir, self.get_ffmpeg_filter())
+    def save_lr_images(self):
+        video_path = os.path.join(self.video_dir, '{}.{}'.format(self.lr_video_name, self.video_fmt))
+        image_dir = os.path.join(self.image_dir, '{}_{}'.format(self.lr_video_name, self.get_postfix()))
+        self.execute_ffmpeg(video_path, image_dir, self.get_ffmpeg_filter())
 
-            #output (raw) frames
-            video_name = '{}p_s{}_d{}'.format(sr_config.output_height, self.start_time, self.duration)
-            video_path = os.path.join(self.video_dir, '{}.{}'.format(video_name, self.video_fmt))
-            image_dir = os.path.join(self.dataset_dir, self.content_name, 'image', '{}_{}'.format(video_name, self.get_postfix()))
-            self.execute_ffmpeg(video_path, image_dir, self.get_ffmpeg_filter())
+    def save_rescaled_lr_images(self):
+        lr_video_path = os.path.join(self.video_dir, '{}.{}'.format(self.lr_video_name, self.video_fmt))
+        lr_width, lr_height = findVideoMetadata(lr_video_path)
+        hr_video_path = os.path.join(self.video_dir, '{}.{}'.format(self.hr_video_name, self.video_fmt))
+        hr_width, hr_height = findVideoMetadata(hr_video_path)
 
-            #preprocess (encoded) frames
-            if sr_config.require_preprocess():
-                scale = math.floor(sr_config.output_height / sr_config.input_height)
-                assert sr_config.output_height % scale == 0 and sr_config.output_height % scale == 0 and scale != 1
-                target_width = int(sr_config.output_width / scale)
-                target_height = int(sr_config.output_height / scale)
-                video_name = '{}p_s{}_d{}_encoded'.format(sr_config.input_height, self.start_time, self.duration)
-                video_path = os.path.join(self.video_dir, '{}.{}'.format(video_name, self.video_fmt))
-                image_dir = os.path.join(self.dataset_dir, self.content_name, 'image', '{}p_s{}_d{}_{}'.format(target_height, self.start_time, self.duration, self.get_postfix()))
-                self.execute_ffmpeg(video_path, image_dir, self.get_ffmpeg_filter_rescale(target_width, target_height))
+        if hr_height % lr_height == 0 and hr_width % hr_width == 0:
+            logging.info('does not require rescaled lr images')
+            return
+        else:
+            scale = math.floor(hr_height / lr_height)
+            if scale == 1:
+                logging.error('scale is 1')
+                return
+            elif hr_width % scale != 0 or hr_height % scale != 0:
+                logging.error('unsupported high resolution')
+                return
+
+        target_width = int(hr_width / scale)
+        target_height = int(hr_height / scale)
+
+        video_path = os.path.join(self.video_dir, '{}.{}'.format(self.lr_video_name, self.video_fmt))
+        target_video_name = self.lr_video_name.replace(str(lr_height), str(target_height))
+        image_dir = os.path.join(self.image_dir, '{}_{}'.format(target_video_name, self.get_postfix()))
+        self.execute_ffmpeg(video_path, image_dir, self.get_ffmpeg_filter_rescale(target_width, target_height))
+
+    def save_hr_images(self):
+        video_path = os.path.join(self.video_dir, '{}.{}'.format(self.hr_video_name, self.video_fmt))
+        image_dir = os.path.join(self.image_dir, '{}_{}'.format(self.hr_video_name, self.get_postfix()))
+        self.execute_ffmpeg(video_path, image_dir, self.get_ffmpeg_filter())
+
+    def save_all(self):
+        self.save_lr_images()
+        self.save_hr_images()
+        self.save_rescaled_lr_images()
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--video_dir', type=str, required=True)
+    parser.add_argument('--image_dir', type=str, required=True)
+    parser.add_argument('--lr_video_name', type=str, required=True)
+    parser.add_argument('--hr_video_name', type=str, required=True)
+    parser.add_argument('--ffmpeg_path', type=str, required=True)
+    parser.add_argument('--video_fmt', type=str, required=True)
+
+    parser.add_argument('--filter_frames', type=str, choices=['uniform', 'keyframes',], required=True)
+    parser.add_argument('--filter_fps', type=float, default=1.0)
+    parser.add_argument('--upsample', type=str, default='bilinear')
+    args = parser.parse_args()
+
     imagedata = ImageData(args)
-    imagedata.save()
+    imagedata.save_all()
