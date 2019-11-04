@@ -32,24 +32,12 @@ class ImageData():
     def __init__(self, args):
         self.video_dir = args.video_dir
         self.image_dir = args.image_dir
-        self.lr_video_name = args.lr_video_name
-        self.hr_video_name = args.hr_video_name
         self.ffmpeg_path = args.ffmpeg_path
         self.video_fmt = args.video_fmt
 
         self.filter_frames = args.filter_frames
         self.filter_fps = args.filter_fps
         self.upsample = args.upsample
-
-        #check videos & find metadata (width, height)
-        lr_video_path = os.path.join(self.video_dir, '{}.{}'.format(self.lr_video_name, self.video_fmt))
-        if not os.path.exists(lr_video_path):
-            logging.error('{} does not exist'.format(lr_video_path))
-            sys.exit()
-        hr_video_path = os.path.join(self.video_dir, '{}.{}'.format(self.hr_video_name, self.video_fmt))
-        if not os.path.exists(hr_video_path):
-            logging.error('{} does not exist'.format(hr_video_path))
-            sys.exit()
 
         #check ffmpeg
         if self.ffmpeg_path is None:
@@ -67,6 +55,18 @@ class ImageData():
             logging.error('ffmpeg does not support libvpx')
             sys.exit()
 
+    def ffmpeg_filter_options(self):
+        if self.filter_frames == 'keyframes':
+            return '-vf "select=eq(pict_type\,I)" -vsync vfr'
+        elif self.filter_frames == 'uniform':
+            return '-vf fps={}'.format(self.filter_fps)
+
+    def ffmpeg_filter_rescale_option(self, width, height):
+        if self.filter_frames == 'keyframes':
+            return '-vf "select=eq(pict_type\,I)",scale={}:{} -vsync vfr -sws_flags {}'.format(width, height, self.upsample)
+        elif self.filter_frames == 'uniform':
+            return '-vf fps={},scale={}:{} -sws_flags {}'.format(self.filter_fps, width, height, self.upsample)
+
     def get_ffmpeg_filter(self):
         if self.filter_frames == 'keyframes':
             return '-vf "select=eq(pict_type\,I)" -vsync vfr'
@@ -81,11 +81,15 @@ class ImageData():
 
     def get_postfix(self):
         if self.filter_frames == 'keyframes':
-            return 'eyframes'
+            return 'keyframes'
         elif self.filter_frames == 'uniform':
             return '{0:.2f}fps'.format(self.filter_fps)
 
     def execute_ffmpeg(self, video_path, image_dir, ffmpeg_filter):
+        if not os.path.exists(video_path):
+            logging.error('{} does not exist'.format(lr_video_path))
+            sys.exit()
+
         if os.path.exists(image_dir):
             logging.info('{} already exists'.format(image_dir))
             return
@@ -94,15 +98,15 @@ class ImageData():
             cmd = '{} -i {} {} {}/%04d.png'.format(self.ffmpeg_path, video_path, ffmpeg_filter, image_dir)
             os.system(cmd)
 
-    def save_lr_images(self):
-        video_path = os.path.join(self.video_dir, '{}.{}'.format(self.lr_video_name, self.video_fmt))
-        image_dir = os.path.join(self.image_dir, '{}_{}'.format(self.lr_video_name, self.get_postfix()))
+    def save_lr_images(self, lr_video_name):
+        video_path = os.path.join(self.video_dir, '{}.{}'.format(lr_video_name, self.video_fmt))
+        image_dir = os.path.join(self.image_dir, '{}_{}'.format(lr_video_name, self.get_postfix()))
         self.execute_ffmpeg(video_path, image_dir, self.get_ffmpeg_filter())
 
-    def save_rescaled_lr_images(self):
-        lr_video_path = os.path.join(self.video_dir, '{}.{}'.format(self.lr_video_name, self.video_fmt))
+    def save_rescaled_lr_images(self, lr_video_name, hr_video_name):
+        lr_video_path = os.path.join(self.video_dir, '{}.{}'.format(lr_video_name, self.video_fmt))
         lr_width, lr_height = findVideoMetadata(lr_video_path)
-        hr_video_path = os.path.join(self.video_dir, '{}.{}'.format(self.hr_video_name, self.video_fmt))
+        hr_video_path = os.path.join(self.video_dir, '{}.{}'.format(hr_video_name, self.video_fmt))
         hr_width, hr_height = findVideoMetadata(hr_video_path)
 
         if hr_height % lr_height == 0 and hr_width % hr_width == 0:
@@ -120,20 +124,20 @@ class ImageData():
         target_width = int(hr_width / scale)
         target_height = int(hr_height / scale)
 
-        video_path = os.path.join(self.video_dir, '{}.{}'.format(self.lr_video_name, self.video_fmt))
-        target_video_name = self.lr_video_name.replace(str(lr_height), str(target_height))
+        video_path = os.path.join(self.video_dir, '{}.{}'.format(lr_video_name, self.video_fmt))
+        target_video_name = lr_video_name.replace(str(lr_height), str(target_height))
         image_dir = os.path.join(self.image_dir, '{}_{}'.format(target_video_name, self.get_postfix()))
         self.execute_ffmpeg(video_path, image_dir, self.get_ffmpeg_filter_rescale(target_width, target_height))
 
-    def save_hr_images(self):
-        video_path = os.path.join(self.video_dir, '{}.{}'.format(self.hr_video_name, self.video_fmt))
-        image_dir = os.path.join(self.image_dir, '{}_{}'.format(self.hr_video_name, self.get_postfix()))
+    def save_hr_images(self, hr_video_name):
+        video_path = os.path.join(self.video_dir, '{}.{}'.format(hr_video_name, self.video_fmt))
+        image_dir = os.path.join(self.image_dir, '{}_{}'.format(hr_video_name, self.get_postfix()))
         self.execute_ffmpeg(video_path, image_dir, self.get_ffmpeg_filter())
 
-    def save_all(self):
-        self.save_lr_images()
-        self.save_hr_images()
-        self.save_rescaled_lr_images()
+    def save_all(self, lr_video_name, hr_video_name):
+        self.save_lr_images(lr_video_name)
+        self.save_hr_images(hr_video_name)
+        self.save_rescaled_lr_images(lr_video_name, hr_video_name)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -150,4 +154,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     imagedata = ImageData(args)
-    imagedata.save_all()
+    imagedata.save_all(args.lr_video_name, args.hr_video_name)
