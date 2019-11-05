@@ -4,62 +4,45 @@ from tensorflow.keras import Model
 
 from common import NormalizeConfig
 
-#TODO: remove a class
+NETWORK_NAME = 'EDSR_S'
 
-class EDSR_S:
-    def __init__(self, num_blocks, num_filters, scale, normalize_config=None):
-        self.num_blocks = num_blocks
-        self.num_filters = num_filters
-        self.scale = scale
-        self.normalize_config = normalize_config
+def residual_block(x_in, num_filters):
+    x = layers.Conv2D(num_filters, 3, padding='same', activation='relu')(x_in)
+    x = layers.Conv2D(num_filters, 3, padding='same')(x)
+    x = layers.Add()([x_in, x])
+    return x
 
-    #depracataed
-    def summary(self):
-        name = type(self).__name__
-        name += '_B{}'.format(self.num_blocks)
-        name += '_F{}'.format(self.num_filters)
-        name += '_S{}'.format(self.scale)
-        return name
+def model(num_blocks, num_filters, scale, normalize_config=None):
+    #name
+    name = NETWORK_NAME
+    name += '_B{}'.format(num_blocks)
+    name += '_F{}'.format(num_filters)
+    name += '_S{}'.format(scale)
 
-    @staticmethod
-    def _residual_block(x_in, num_filters):
-        x = layers.Conv2D(num_filters, 3, padding='same', activation='relu')(x_in)
-        x = layers.Conv2D(num_filters, 3, padding='same')(x)
-        x = layers.Add()([x_in, x])
-        return x
+    #model
+    x_in = layers.Input(shape=(None, None, 3))
+    if normalize_config : x = layers.Lambda(normalize_config.normalize)(x_in)
+    else: x = x_in
 
-    def model(self):
-        #name
-        name = type(self).__name__
-        name += '_B{}'.format(self.num_blocks)
-        name += '_F{}'.format(self.num_filters)
-        name += '_S{}'.format(self.scale)
+    x = b = layers.Conv2D(num_filters, 3, padding='same')(x_in)
+    for i in range(num_blocks):
+        b = residual_block(b, num_filters)
+    b = layers.Conv2D(num_filters, 3, padding='same')(b)
+    x = layers.Add()([x, b])
 
-        #model
-        x_in = layers.Input(shape=(None, None, 3))
-        if self.normalize_config : x = layers.Lambda(self.normalize_config.normalize)(x_in)
-        else: x = x_in
+    x = layers.Conv2DTranspose(3, 5, scale, padding='same')(x)
 
-        x = b = layers.Conv2D(self.num_filters, 3, padding='same')(x_in)
-        for i in range(self.num_blocks):
-            b = self._residual_block(b, self.num_filters)
-        b = layers.Conv2D(self.num_filters, 3, padding='same')(b)
-        x = layers.Add()([x, b])
+    if normalize_config : x = layers.Lambda(normalize_config.denormalize)(x)
 
-        x = layers.Conv2DTranspose(3, 5, self.scale, padding='same')(x)
+    model = Model(inputs=x_in, outputs=x, name=name)
 
-        if self.normalize_config : x = layers.Lambda(self.normalize_config.denormalize)(x)
-
-        model = Model(inputs=x_in, outputs=x, name=name)
-
-        return model
+    return model
 
 if __name__ == '__main__':
     tf.enable_eager_execution()
     with tf.device('/gpu:0'):
         normalize_config = NormalizeConfig('normalize_01', 'denormalize_01')
-        edsr_s = EDSR_S(4, 32, 4, normalize_config)
-        edsr_s_model = edsr_s.model()
+        model = model(4, 32, 4, normalize_config)
         input_tensor = tf.random.uniform((1, 200, 200, 3), 0, 255)
-        output_tensor = edsr_s_model(input_tensor)
+        output_tensor = model(input_tensor)
         print(output_tensor.shape)
