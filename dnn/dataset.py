@@ -193,6 +193,6 @@ if __name__ == '__main__':
             for i in range(100):
                 start_time = time.time()
                 batch = next(it)
-                #print(batch)
                 end_time = time.time()
                 print('1 batch elasped time: {}sec'.format(end_time - start_time))
+
