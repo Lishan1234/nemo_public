@@ -1,18 +1,14 @@
 import os, glob, sys, time
-import numpy as np
 import logging
 import math
 import shlex
 import subprocess
 import json
 
-from PIL import Image
 import tensorflow as tf
-import tensorflow.contrib.eager as tfe
 from tensorflow.python.framework import tensor_shape
 from tensorflow.python.data.experimental import AUTOTUNE
 
-from option import args
 from utility import FFmpegOption, VideoMetadata
 
 #TODO: check memory usage for multiple resolutions (e.g., share target resolution frames)
@@ -83,8 +79,10 @@ class ImageDataset():
     @staticmethod
     def _test_image_dataset(lr_image_dataset, hr_image_dataset, load_on_memory, repeat_count=1):
         ds = tf.data.Dataset.zip((lr_image_dataset, hr_image_dataset))
-        if load_on_memory: ds = ds.cache()
+        #if load_on_memory: ds = ds.cache()
         #ds = tf.data.Dataset.from_tensor_slices((lr_image_dataset, hr_image_dataset))
+        ds = ds.batch(1)
+        ds = ds.repeat(1)
         ds = ds.prefetch(buffer_size=AUTOTUNE)
         return ds
 
@@ -161,6 +159,8 @@ class ImageDataset():
             lr_image_dataset = self._image_dataset(lr_image_files)
             self.image_datasets[lr] = lr_image_dataset
 
+            #TODO: profile average RGB values
+
             if self.buffer_size is None:
                 self.buffer_size = len(lr_image_files)
 
@@ -174,10 +174,10 @@ class ImageDataset():
         train_ds = self._train_patch_dataset(self.image_datasets[lr], self.image_datasets[hr], batch_size, patch_size, self.buffer_size, scale, load_on_memory)
         test_ds = self._test_image_dataset(self.image_datasets[lr], self.image_datasets[hr], load_on_memory)
 
-        return train_ds, test_ds
+        return train_ds, test_ds, scale
 
 if __name__ == '__main__':
-    tfe.enable_eager_execution()
+    tf.enable_eager_execution()
 
     with tf.device('/cpu:0'):
         video_dir = args.video_dir
