@@ -60,22 +60,8 @@ trainer_module = import_module('trainer_s')
 model_builder = getattr(model_module, 'model')
 trainer_builder = getattr(trainer_module, args.trainer_type)
 
-#1. creat datasets
-video_metadata = VideoMetadata(args.video_format, args.start_time, args.duration)
-ffmpeg_option = FFmpegOption(args.filter_type, args.filter_fps, args.upsample)
-dataset = ImageDataset(video_dir,
-                            image_dir,
-                            video_metadata,
-                            ffmpeg_option,
-                            args.ffmpeg_path)
-
-with tf.device('cpu:0'):
-    print(args.load_on_memory)
-    train_ds, valid_ds, scale = dataset.dataset(args.input_resolution,
-                                            args.target_resolution,
-                                            args.batch_size,
-                                            args.patch_size,
-                                            args.load_on_memory)
+#1. get scale
+scale = ImageDataset.scale(args.input_resolution, args.target_resolution)
 
 #2. create a DNN
 with tf.Graph().as_default(), tf.Session() as sess:

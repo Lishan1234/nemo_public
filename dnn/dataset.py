@@ -4,6 +4,7 @@ import math
 import shlex
 import subprocess
 import json
+import struct
 
 import tensorflow as tf
 from tensorflow.python.framework import tensor_shape
@@ -107,6 +108,11 @@ class ImageDataset():
 
         return width, height
 
+    @staticmethod
+    def scale(lr, hr):
+        scale = math.floor(hr/lr)
+        return scale
+
     def _execute_ffmpeg(self, video_path, image_dir, ffmpeg_option):
         if not os.path.exists(video_path):
             raise ValueError('file does not exist: {}'.format(video_path))
@@ -144,25 +150,49 @@ class ImageDataset():
         self._execute_ffmpeg(hr_video_path, hr_image_dir, self.ffmpeg_option.filter())
         return hr_image_dir
 
+    def rgb_mean(self, image_dataset, image_dir):
+        rgb_mean_log= os.path.join(image_dir, 'rgb_mean.log')
+        if not os.path.exists(rgb_mean_log):
+            images = []
+            for image in image_dataset.repeat(1):
+                image = tf.cast(image, tf.float32)
+                images.append(image)
+            images_batch = tf.stack(images, axis=0)
+            images_batch_mean = tf.reduce_mean(images_batch, axis=0)
+            r_mean = tf.reduce_mean(images_batch_mean[:,:,0]).numpy()
+            g_mean = tf.reduce_mean(images_batch_mean[:,:,1]).numpy()
+            b_mean = tf.reduce_mean(images_batch_mean[:,:,2]).numpy()
+
+            with open(rgb_mean_log, 'wb') as f:
+                f.write(struct.pack('=d', r_mean.item()))
+                f.write(struct.pack('=d', g_mean.item()))
+                f.write(struct.pack('=d', b_mean.item()))
+        else:
+            with open(rgb_mean_log, 'rb') as f:
+                r_mean = struct.unpack('=d', f.read(8))[0]
+                g_mean = struct.unpack('=d', f.read(8))[0]
+                b_mean = struct.unpack('=d', f.read(8))[0]
+        return [r_mean, g_mean, b_mean]
+
     def dataset(self, lr, hr, batch_size, patch_size, load_on_memory):
-        scale = math.floor(hr/lr)
+        scale = self.scale(lr, hr)
         if scale == 1:
             raise ValueError('scale is not valid: {}'.format(scale))
 
         #check if image dataset is already made
         if lr not in self.image_datasets.keys():
             lr_image_dir, lr_rescaled_image_dir = self._save_lr_images(lr, hr, scale)
+
             if lr_rescaled_image_dir is not None:
-                lr_image_files = sorted(glob.glob('{}/*.png'.format(lr_rescaled_image_dir)))
+                lr_rescaled_image_files = sorted(glob.glob('{}/*.png'.format(lr_rescaled_image_dir)))
+                lr_rescaled_image_dataset = self._image_dataset(lr_rescaled_image_files)
+                rgb_mean = self.rgb_mean(lr_rescaled_image_dataset, lr_rescaled_image_dir)
+                self.image_datasets[lr] = lr_rescaled_image_dataset
             else:
                 lr_image_files = sorted(glob.glob('{}/*.png'.format(lr_image_dir)))
-            lr_image_dataset = self._image_dataset(lr_image_files)
-            self.image_datasets[lr] = lr_image_dataset
-
-            #TODO: profile average RGB values
-
-            if self.buffer_size is None:
-                self.buffer_size = len(lr_image_files)
+                lr_image_dataset = self._image_dataset(lr_image_files)
+                rgb_mean = self.rgb_mean(lr_image_dataset, lr_image_dir)
+                self.image_datasets[lr] = lr_image_dataset
 
         if hr not in self.image_datasets.keys():
             hr_image_dir= self._save_hr_images(hr)
@@ -170,11 +200,14 @@ class ImageDataset():
             hr_image_dataset = self._image_dataset(hr_image_files)
             self.image_datasets[hr] = hr_image_dataset
 
+            if self.buffer_size is None:
+                self.buffer_size = len(hr_image_files)
+
         #prepare Tensorflow dataset
         train_ds = self._train_patch_dataset(self.image_datasets[lr], self.image_datasets[hr], batch_size, patch_size, self.buffer_size, scale, load_on_memory)
         test_ds = self._test_image_dataset(self.image_datasets[lr], self.image_datasets[hr], load_on_memory)
 
-        return train_ds, test_ds, scale
+        return train_ds, test_ds, rgb_mean, scale
 
 if __name__ == '__main__':
     tf.enable_eager_execution()

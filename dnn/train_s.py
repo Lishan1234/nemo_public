@@ -69,16 +69,14 @@ dataset = ImageDataset(video_dir,
 
 with tf.device('cpu:0'):
     print(args.load_on_memory)
-    train_ds, valid_ds, scale = dataset.dataset(args.input_resolution,
+    train_ds, valid_ds, rgb_mean, scale = dataset.dataset(args.input_resolution,
                                             args.target_resolution,
                                             args.batch_size,
                                             args.patch_size,
                                             args.load_on_memory)
 
 #2. create a DNN
-#TODO: rgb_mean = dataset.rgb_mean()
-#TODO: normalize_config = NormalizeConfig('normalize', 'denormalize', rgb_mean)
-normalize_config = None
+normalize_config = NormalizeConfig('normalize', 'denormalize', rgb_mean)
 model = model_builder(args.num_blocks, args.num_filters, scale, normalize_config)
 
 #3. create a trainer

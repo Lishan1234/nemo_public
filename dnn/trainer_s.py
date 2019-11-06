@@ -61,6 +61,8 @@ class Trainer:
                 with self.writer.as_default(), tf.contrib.summary.always_record_summaries():
                     tf.contrib.summary.scalar('Training_Loss', loss_value, step=self.checkpoint.step.numpy())
                     tf.contrib.summary.scalar('Validation_PSNR', psnr_value, step=self.checkpoint.step.numpy())
+                    #TODO: also print learning rate
+                    #tf.contrib.summary.scalar('Learning_Rate', self.checkpoint.optimizer.lr.numpy(), step=self.checkpoint.step.numpy())
                     tf.contrib.summary.flush(self.writer)
 
                 self.now = time.perf_counter()
@@ -94,8 +96,8 @@ class EDSRTrainer(Trainer):
                     learning_rate=PiecewiseConstantDecay(boundaries=[200000], values=[1e-4, 5e-5])):
         super().__init__(model, loss=MeanAbsoluteError(), learning_rate=learning_rate, checkpoint_dir=checkpoint_dir, log_dir=log_dir)
 
-    #def train(self, train_dataset, valid_dataset, steps=300000, evaluate_every=1000, save_best_only=False):
-    def train(self, train_dataset, valid_dataset, steps=20, evaluate_every=10, save_best_only=False):
+    def train(self, train_dataset, valid_dataset, steps=300000, evaluate_every=1000, save_best_only=False):
+    #def train(self, train_dataset, valid_dataset, steps=20, evaluate_every=10, save_best_only=False):
         super().train(train_dataset, valid_dataset, steps, evaluate_every, save_best_only)
 
 if __name__ == '__main__':
