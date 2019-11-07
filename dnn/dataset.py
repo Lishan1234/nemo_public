@@ -57,7 +57,6 @@ class ImageDataset():
 
         self.image_datasets = {}
 
-
     @staticmethod
     def _image_dataset(image_files):
         ds = tf.data.Dataset.from_tensor_slices(image_files)
@@ -83,7 +82,7 @@ class ImageDataset():
         #if load_on_memory: ds = ds.cache()
         #ds = tf.data.Dataset.from_tensor_slices((lr_image_dataset, hr_image_dataset))
         ds = ds.batch(1)
-        ds = ds.repeat(1)
+        ds = ds.repeat(repeat_count)
         ds = ds.prefetch(buffer_size=AUTOTUNE)
         return ds
 

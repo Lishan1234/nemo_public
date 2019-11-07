@@ -11,6 +11,14 @@ def resolve(model, lr_batch):
     sr_batch = tf.cast(sr_batch, tf.uint8)
     return sr_batch
 
+def resolve_bilinear(lr_batch, width, height):
+    lr_batch = tf.cast(lr_batch, tf.float32)
+    bilinear_batch = tf.image.resize_bilinear(lr_batch, (width, height))
+    bilinear_batch = tf.clip_by_value(bilinear_batch, 0, 255)
+    bilinear_batch = tf.round(bilinear_batch)
+    bilinear_batch = tf.cast(bilinear_batch, tf.uint8)
+    return bilinear_batch
+
 def evaluate(model, dataset):
     psnr_values = []
     for lr, hr in dataset:

@@ -23,8 +23,6 @@ class Trainer:
         self.restore() #caution: use for testing or finetuning
         self.writer = tf.contrib.summary.create_file_writer(log_dir)
 
-        #TODO: Visualize a) training error, b) validation psnr, c) images using Tensorboard
-
     @property
     def model(self):
         return self.checkpoint.model
