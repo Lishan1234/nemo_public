@@ -206,7 +206,12 @@ class ImageDataset():
         train_ds = self._train_patch_dataset(self.image_datasets[lr], self.image_datasets[hr], batch_size, patch_size, self.buffer_size, scale, load_on_memory)
         test_ds = self._test_image_dataset(self.image_datasets[lr], self.image_datasets[hr], load_on_memory)
 
-        return train_ds, test_ds, rgb_mean, scale
+        #TODO: refactor
+
+        if lr_rescaled_image_dir is not None:
+            return train_ds, test_ds, lr_rescaled_image_dir, hr_image_dir, rgb_mean, scale
+        else:
+            return train_ds, test_ds, lr_image_dir, hr_image_dir, rgb_mean, scale
 
 if __name__ == '__main__':
     tf.enable_eager_execution()

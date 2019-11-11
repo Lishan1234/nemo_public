@@ -31,12 +31,6 @@ def model(num_blocks, num_filters, scale, normalize_config=None):
     x = layers.Add()([x, b])
 
     x = layers.Conv2DTranspose(3, 5, scale, padding='same')(x)
-    """
-    x = layers.Conv2DTranspose(filters=3,
-                            kernel_size=(5, 5), #should be bigger than (stride) in Qualcomm SNPE
-                            strides=(4, 4),
-                            padding='same')(x)
-    """
 
     if normalize_config : x = layers.Lambda(normalize_config.denormalize)(x)
 

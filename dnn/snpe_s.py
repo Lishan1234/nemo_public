@@ -72,7 +72,7 @@ dataset = ImageDataset(video_dir,
                             ffmpeg_option,
                             args.ffmpeg_path)
 with tf.device('cpu:0'):
-    train_ds, valid_ds, rgb_mean, scale = dataset.dataset(args.input_resolution,
+    train_ds, valid_ds, train_dir, valid_dir, rgb_mean, scale = dataset.dataset(args.input_resolution,
                                             args.target_resolution,
                                             args.batch_size,
                                             args.patch_size,
@@ -89,9 +89,10 @@ model_tag = '{}'.format(model.name)
 checkpoint_dir = os.path.join(checkpoint_dir, dataset_tag, model_tag)
 image_dir = os.path.join(checkpoint_dir, dataset_tag)
 log_dir = os.path.join(log_dir, dataset_tag)
-snpe = SNPE(model, checkpoint_dir, image_dir, log_dir, args.snpe_dir, args.hwc)
+snpe = SNPE(args.snpe_dir)
 
 #4. convert a model
-snpe.convert_model()
+#dlc_name = snpe.convert_model(model, checkpoint_dir, args.hwc)
 
 #5. evaluate
+snpe.convert_dataset(train_dir, True)
