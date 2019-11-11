@@ -8,11 +8,23 @@ import numpy as np
 from PIL import Image
 import tensorflow as tf
 
-from tool.common import freeze_session, optimize_for_inference
+from tool.common import freeze_session, optimize_for_inference, check_attached_devices
 
 class SNPE():
+    device_rootdir = '/data/local/tmp/mobinas'
+    device_imagedir = os.path.join(device_rootdir, 'image')
+    device_checkpointdir =os.path.join(device_rootdir, 'checkpoint')
+    device_logdir = os.path.join(device_rootdir, 'log')
+    output_filename = 'raw_list.txt'
+
     def __init__(self, snpe_dir):
+        if not os.path.exists(snpe_dir):
+            raise ValueError('snpe_dir does not exist: {}'.format(snpe_dir))
+
         self.snpe_dir = snpe_dir
+        #TODO: extract snpe verison
+        #TODO: setup snpe prerequisite for each SNPE version
+
 
         #check python version
         python_version = sys.version_info
@@ -68,6 +80,9 @@ class SNPE():
         print(proc_stdout)
 
     def convert_model(self, model, checkpoint_dir, hwc):
+        if not os.path.exists(checkpoint_dir):
+            raise ValueError('checkpoint_dir does not exist: {}'.format(checkpoint_dir))
+
         #restore
         ckpt = tf.train.Checkpoint(model=model)
         latest_ckpt = tf.train.latest_checkpoint(checkpoint_dir)
@@ -119,6 +134,9 @@ class SNPE():
         return image_ndarray
 
     def convert_dataset(self, image_dir, save_uint8):
+        if not os.path.exists(image_dir):
+            raise ValueError('image_dir does not exist: {}'.format(image_dir))
+
         image_filepaths = sorted(glob.glob('{}/*.png'.format(image_dir)))
         for image_filepath in image_filepaths:
             image_raw = self._get_image_raw(image_filepath)
@@ -136,20 +154,46 @@ class SNPE():
             snpe_raw_filename += '.raw'
             snpe_raw.tofile(snpe_raw_filename)
 
-    def setup(image_dir):
-        #TODO: 1. copy images, models to a target device, 2.write a dataset list (txt file)
-        #TODO: check whether data is already loaded on a device
+    #TODO
+    def setup_library(self):
+        pass
+
+    def setup_dataset(self, image_dir, checkpoint_dir, device_id=None):
+        if not os.path.exists(checkpoint_dir):
+            raise ValueError('checkpoint_dir does not exist: {}'.format(checkpoint_dir))
+        if not os.path.exists(image_dir):
+            raise ValueError('image_dir does not exist: {}'.format(image_dir))
+        if not check_attached_devices(device_id):
+            raise RuntimeError('device is not attached: {}'.format(device_id))
+
+        #1. create a image list file
+        image_host_filepaths = sorted(glob.glob('{}/*.raw'.format(image_dir)))
+        image_device_filepaths = list(map(lambda x: os.path.join(self.device_imagedir, os.path.basename(x)), image_host_filepaths))
+        output_filepath = os.path.join(image_dir, self.output_filename)
+        with open(output_filepath, 'w') as f:
+            f.write('\n'.join(image_device_filepaths))
+
+        #2. remove exisiting device directory (.../checkpoint/, .../image)
+        adb_cmd = 'adb shell rm -r "{}"a'.format(self.device_rootdir)
+        os.system(adb_cmd)
+        adb_cmd = 'adb shell "mkdir -p {}"'.format(self.device_imagedir)
+        os.system(adb_cmd)
+        adb_cmd = 'adb shell "mkdir -p {}"'.format(self.device_logdir)
+        os.system(adb_cmd)
+        adb_cmd = 'adb shell "mkdir -p {}"'.format(self.device_checkpointdir)
+        os.system(adb_cmd)
+
+        #3. copy checkpoint and images
+        adb_cmd = ''
 
         #data
         #host (images, model): model, checkpoint_dir, image_dir
         #host (image list): {image_dir}/snpe/target_raw_list.txt
         #device: {checkpoint_dir}/model, {image_dir}/model
 
-        pass
-
-
     def evaluate(self):
         #TODO: 1. copy resulted images, 2. convert to png files, 3. calculate psnr
+        #TODO: check quality (normalized_config: None)
         #note: support all runtimes and quantization and power modes
 
         #result
@@ -158,6 +202,10 @@ class SNPE():
 
         #result (quality)
         #host (logs): {log_dir}/{model_name}/snpe/qualiaty_{soc name}_{runtime}_{etc}.log
+
+        #quality
+
+        #latency
         pass
 
 if __name__ == '__main__':

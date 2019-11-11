@@ -96,3 +96,4 @@ snpe = SNPE(args.snpe_dir)
 
 #5. evaluate
 snpe.convert_dataset(train_dir, True)
+snpe.setup(train_dir, checkpoint_dir)

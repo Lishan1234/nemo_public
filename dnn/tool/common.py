@@ -63,3 +63,24 @@ def optimize_for_inference(pb_name, opt_pb_name, input_name, output_name, checkp
                '--input_names', input_name,
                '--output_names', output_name]
         subprocess.call(cmd)
+
+def check_attached_devices(target_device_id=None):
+    cmd = 'adb devices'
+    proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    lines = proc.stdout.readlines()
+    count = 0
+
+    for idx, line in enumerate(lines):
+        if idx == 0 or idx == len(lines) - 1:
+            continue
+        line = line.decode().rstrip('\r\n')
+        device_id = line.split('\t')[0]
+        device_status = line.split('\t')[1]
+        if device_id == target_device_id and device_status == 'device':
+            return True
+        count += 1
+
+    if target_device_id is None and count == 1:
+        return True
+
+    return False
