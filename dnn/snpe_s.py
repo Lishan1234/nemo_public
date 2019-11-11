@@ -7,8 +7,8 @@ from importlib import import_module
 
 from model.common import NormalizeConfig
 from dataset import ImageDataset
-from trainer_s import EDSRTrainer
 from utility import VideoMetadata, FFmpegOption
+from tool.snpe import SNPE
 
 import tensorflow as tf
 
@@ -16,8 +16,9 @@ parser = argparse.ArgumentParser()
 
 #directory, path
 parser.add_argument('--dataset_dir', type=str, required=True)
+parser.add_argument('--snpe_dir', type=str, required=True)
 parser.add_argument('--ffmpeg_path', type=str, required=True)
-parser.add_argument('--ffprobe_path', type=str, default='usr/bin/ffprobe')
+parser.add_argument('--ffprobe_path', type=str, default='/usr/bin/ffprobe')
 
 #video metadata
 parser.add_argument('--video_format', type=str, default='webm')
@@ -32,17 +33,22 @@ parser.add_argument('--input_resolution', type=int, required=True)
 parser.add_argument('--target_resolution', type=int, required=True)
 parser.add_argument('--batch_size', type=int, default=64)
 parser.add_argument('--patch_size', type=int, default=64)
-parser.add_argument('--load_on_memory', action='store_true')
 
 #architecture
 parser.add_argument('--num_filters', type=int, required=True)
 parser.add_argument('--num_blocks', type=int, required=True)
+parser.add_argument('--hwc', nargs='+', type=int, required=True)
 
 #module
 parser.add_argument('--model_type', type=str, required=True)
 
+#log
+parser.add_argument('--save_image', action='store_true')
+
 args = parser.parse_args()
 
+if len(args.hwc) != 3:
+    raise ValueError('hwc should be 3 channels: {}'.format(args.hwc))
 if tf.executing_eagerly():
     raise RuntimeError('Eager mode should be turn-off')
 
@@ -57,7 +63,7 @@ if not os.path.exists(video_dir):
 model_module = import_module('model.' + args.model_type)
 model_builder = getattr(model_module, 'model')
 
-#1. get scale
+#1. creat datasets
 video_metadata = VideoMetadata(args.video_format, args.start_time, args.duration)
 ffmpeg_option = FFmpegOption(args.filter_type, args.filter_fps, args.upsample)
 dataset = ImageDataset(video_dir,
@@ -65,7 +71,6 @@ dataset = ImageDataset(video_dir,
                             video_metadata,
                             ffmpeg_option,
                             args.ffmpeg_path)
-
 with tf.device('cpu:0'):
     train_ds, valid_ds, rgb_mean, scale = dataset.dataset(args.input_resolution,
                                             args.target_resolution,
@@ -75,8 +80,18 @@ with tf.device('cpu:0'):
 
 #2. create a DNN
 normalize_config = NormalizeConfig('normalize', 'denormalize', rgb_mean)
-with tf.Graph().as_default(), tf.Session() as sess:
-    init = tf.global_variables_initializer()
-    model = model_builder(args.num_blocks, args.num_filters, scale, normalize_config)
-    sess.run(init)
-    summary_writer = tf.summary.FileWriter(log_dir, sess.graph)
+model = model_builder(args.num_blocks, args.num_filters, scale, normalize_config)
+
+#3. create a snpe object
+dataset_tag = '{}.{}'.format(video_metadata.summary(args.input_resolution, True), ffmpeg_option.summary())
+model_tag = '{}'.format(model.name)
+
+checkpoint_dir = os.path.join(checkpoint_dir, dataset_tag, model_tag)
+image_dir = os.path.join(checkpoint_dir, dataset_tag)
+log_dir = os.path.join(log_dir, dataset_tag)
+snpe = SNPE(model, checkpoint_dir, image_dir, log_dir, args.snpe_dir, args.hwc)
+
+#4. convert a model
+snpe.convert()
+
+#5. evaluate
