@@ -92,6 +92,6 @@ log_dir = os.path.join(log_dir, dataset_tag)
 snpe = SNPE(model, checkpoint_dir, image_dir, log_dir, args.snpe_dir, args.hwc)
 
 #4. convert a model
-snpe.convert()
+snpe.convert_model()
 
 #5. evaluate

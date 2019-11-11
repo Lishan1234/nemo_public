@@ -38,7 +38,6 @@ class SNPE():
         if tensorflow_dir is None:
             raise RuntimeError('Tensorflow is not installed')
 
-    #TODO
     def _snpe_dlc_viewer(self, dlc_name):
         setup_cmd = 'source {}/bin/envsetup.sh -t {}'.format(self.snpe_dir, self.tensorflow_dir)
         snpe_cmd = 'python {}/bin/x86_64-linux-clang/snpe-dlc-viewer\
@@ -65,14 +64,12 @@ class SNPE():
                                 '1,{},{},{}'.format(self.hwc[0], self.hwc[1], self.hwc[2]), \
                                 output_name, \
                                 os.path.join(self.checkpoint_dir, dlc_name))
-        #TODO: allow_unsoncumed_nodes
         cmd = '{}; {}'.format(setup_cmd, snpe_cmd)
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True, executable='/bin/bash')
         proc_stdout = process.communicate()[0].strip()
         print(proc_stdout)
 
-    #TODO: get filename from tf.train.Checkpoint and save as {name}.pb, {name}_opt.pb
-    def convert(self):
+    def convert_model(self):
         #restore
         ckpt = tf.train.Checkpoint(model=self.model)
         latest_ckpt = tf.train.latest_checkpoint(self.checkpoint_dir)
