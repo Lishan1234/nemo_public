@@ -13,11 +13,17 @@ from tool.common import freeze_session, optimize_for_inference, check_attached_d
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
+SNPE_TARGET_ARCH        = 'arm-android-clang6.0'
+SNPE_TARGET_STL         = 'libc++_shared.so'
+
 class SNPE():
     raw_subdir = 'snpe_raw'
     dlc_subdir = 'snpe_dlc'
     log_subdir = 'snpe_log'
     device_rootdir = '/data/local/tmp/mobinas'
+    device_lib_dir = os.path.join(device_rootdir, SNPE_TARGET_ARCH, 'lib')
+    device_dsp_dir = os.path.join(device_rootdir, 'dsp', 'lib')
+    device_bin_dir = os.path.join(device_rootdir, SNPE_TARGET_ARCH, 'bin')
     device_raw_dir = os.path.join(device_rootdir, raw_subdir)
     device_dlc_dir =os.path.join(device_rootdir, dlc_subdir)
     device_log_dir = os.path.join(device_rootdir, log_subdir)
@@ -209,6 +215,7 @@ class SNPE():
         else:
             cmd = 'adb push {} {}'.format(host_filepath, device_filepath)
         os.system(cmd)
+        print(cmd)
 
     @staticmethod
     def _adb_pull_file(device_filepath, host_filepath, device_id=None):
@@ -219,8 +226,55 @@ class SNPE():
         os.system(cmd)
 
     #TODO
-    def setup_library(self):
-        pass
+    #Note: assume arm64-v8a
+    def setup_library(self, snpe_dir, device_id=None):
+        if not os.path.exists(snpe_dir):
+            raise ValueError('snpe_dir does not exist: {}'.format(snpe_dir))
+
+        host_library_filepath = os.path.join(snpe_dir, self.library_filename) #temporally save at snpe_dir
+        device_library_filepath = os.path.join(self.device_rootdir, self.library_filename)
+        copy_library = True
+
+        #1. check library exists on a target device
+        self._adb_pull_file(device_library_filepath, host_library_filepath)
+        if os.path.exists(host_library_filepath):
+            with open(host_library_filepath, 'r') as f:
+                line = f.readline()
+                line = line.rstrip('\r\n')
+                if line == snpe_dir:
+                    copy_library = False
+                    logging.info('library exists in a target_device')
+            os.remove(host_library_filepath)
+
+        #2. copy library
+        if copy_library:
+            self._adb_make_dir(self.device_rootdir, device_id)
+            self._adb_remove_dir(self.device_lib_dir, device_id)
+            self._adb_make_dir(self.device_lib_dir, device_id)
+            self._adb_remove_dir(self.device_dsp_dir, device_id)
+            self._adb_make_dir(self.device_dsp_dir, device_id)
+            self._adb_remove_dir(self.device_bin_dir, device_id)
+            self._adb_make_dir(self.device_bin_dir, device_id)
+
+            self._adb_push_file(self.device_lib_dir, \
+                                os.path.join(snpe_dir, 'lib', SNPE_TARGET_ARCH, SNPE_TARGET_STL))
+            host_lib_dir = os.path.join(snpe_dir, 'lib', SNPE_TARGET_ARCH)
+            host_filepaths = glob.glob('{}/*.so'.format(host_lib_dir))
+            for host_filepath in host_filepaths:
+                self._adb_push_file(self.device_lib_dir, host_filepath)
+            host_dsp_dir = os.path.join(snpe_dir, 'lib', 'dsp')
+            host_filepaths = glob.glob('{}/*.so'.format(host_dsp_dir))
+            for host_filepath in host_filepaths:
+                self._adb_push_file(self.device_dsp_dir, host_filepath)
+            self._adb_push_file(self.device_bin_dir, \
+                                os.path.join(snpe_dir, 'bin', SNPE_TARGET_ARCH, 'snpe-net-run'))
+
+        #3. write a log file
+        if copy_library:
+            with open(host_library_filepath, 'w') as f:
+                f.write(snpe_dir)
+            self._adb_push_file(self.device_rootdir, host_library_filepath, device_id)
+            os.remove(host_library_filepath)
 
     def setup_dataset(self, raw_dir, dlc_dir, device_id=None):
         if not os.path.exists(dlc_dir):
@@ -256,23 +310,23 @@ class SNPE():
 
         #3. copy checkpoint and images
         if copy_raw:
-            self._adb_remove_dir(self.device_raw_dir)
-            self._adb_make_dir(self.device_raw_dir)
+            self._adb_remove_dir(self.device_raw_dir, device_id)
+            self._adb_make_dir(self.device_raw_dir, device_id)
             self._adb_push_file(self.device_raw_dir, raw_dir, device_id)
         if copy_dlc:
-            self._adb_remove_dir(self.device_dlc_dir)
-            self._adb_make_dir(self.device_dlc_dir)
+            self._adb_remove_dir(self.device_dlc_dir, device_id)
+            self._adb_make_dir(self.device_dlc_dir, device_id)
             self._adb_push_file(self.device_dlc_dir, dlc_dir, device_id)
 
         #4. write a log & push it into a target device
-        if (not copy_raw) or (not copy_dlc):
+        if copy_raw or copy_dlc:
             with open(host_dataset_filepath, 'w') as f:
                 f.write('{}\t{}\n'.format(self.dlc_subdir, dlc_dir))
                 f.write('{}\t{}\n'.format(self.raw_subdir, raw_dir))
-            self._adb_push_file(self.device_rootdir, host_dataset_filepath)
+            self._adb_push_file(self.device_rootdir, host_dataset_filepath, device_id)
             os.remove(host_dataset_filepath)
 
-    def evaluate(self):
+    def execute(self):
         #TODO: 1. copy resulted images, 2. convert to png files, 3. calculate psnr
         #TODO: check quality (normalized_config: None)
         #note: support all runtimes and quantization and power modes

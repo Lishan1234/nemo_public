@@ -100,3 +100,4 @@ dlc_dir = snpe.convert_model(model, checkpoint_dir, args.hwc)
 #5. evaluate
 raw_dir = snpe.convert_dataset(train_dir, True)
 snpe.setup_dataset(raw_dir, dlc_dir, args.device_id)
+snpe.setup_library(args.snpe_dir, args.device_id)
