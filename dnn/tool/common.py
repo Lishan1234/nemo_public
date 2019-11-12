@@ -48,7 +48,7 @@ def find_optimize_for_inference():
             break
     return None
 
-def optimize_for_inference(pb_name, opt_pb_name, input_name, output_name, checkpoint_dir):
+def optimize_for_inference(pb_filepath, opt_pb_filepath, input_name, output_name):
     # Try to optimize the inception v3 PB for inference
     opt_4_inference_file = find_optimize_for_inference()
 
@@ -58,8 +58,8 @@ def optimize_for_inference(pb_name, opt_pb_name, input_name, output_name, checkp
         print('INFO: Optimizing for inference Inception v3 using ' + opt_4_inference_file)
         print('      Please wait. It could take a while...')
         cmd = ['python', opt_4_inference_file,
-               '--input', os.path.join(checkpoint_dir, pb_name),
-               '--output', os.path.join(checkpoint_dir, opt_pb_name),
+               '--input', pb_filepath,
+               '--output', opt_pb_filepath,
                '--input_names', input_name,
                '--output_names', output_name]
         subprocess.call(cmd)

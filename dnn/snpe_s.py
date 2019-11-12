@@ -45,6 +45,9 @@ parser.add_argument('--model_type', type=str, required=True)
 #log
 parser.add_argument('--save_image', action='store_true')
 
+#device
+parser.add_argument('--device_id', type=str, default=None)
+
 args = parser.parse_args()
 
 if len(args.hwc) != 3:
@@ -92,8 +95,8 @@ log_dir = os.path.join(log_dir, dataset_tag)
 snpe = SNPE(args.snpe_dir)
 
 #4. convert a model
-#dlc_name = snpe.convert_model(model, checkpoint_dir, args.hwc)
+dlc_dir = snpe.convert_model(model, checkpoint_dir, args.hwc)
 
 #5. evaluate
-snpe.convert_dataset(train_dir, True)
-snpe.setup(train_dir, checkpoint_dir)
+raw_dir = snpe.convert_dataset(train_dir, True)
+snpe.setup_dataset(raw_dir, dlc_dir, args.device_id)

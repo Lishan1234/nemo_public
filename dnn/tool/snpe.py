@@ -3,6 +3,7 @@ from importlib import import_module
 import subprocess
 import sys
 import glob
+import logging
 
 import numpy as np
 from PIL import Image
@@ -10,12 +11,19 @@ import tensorflow as tf
 
 from tool.common import freeze_session, optimize_for_inference, check_attached_devices
 
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+
 class SNPE():
+    raw_subdir = 'snpe_raw'
+    dlc_subdir = 'snpe_dlc'
+    log_subdir = 'snpe_log'
     device_rootdir = '/data/local/tmp/mobinas'
-    device_imagedir = os.path.join(device_rootdir, 'image')
-    device_checkpointdir =os.path.join(device_rootdir, 'checkpoint')
-    device_logdir = os.path.join(device_rootdir, 'log')
+    device_raw_dir = os.path.join(device_rootdir, raw_subdir)
+    device_dlc_dir =os.path.join(device_rootdir, dlc_subdir)
+    device_log_dir = os.path.join(device_rootdir, log_subdir)
     output_filename = 'raw_list.txt'
+    library_filename = 'snpe.txt' #check for snpe library version
+    dataset_filename = 'dataset.txt' #check for checkpoint, image versions
 
     def __init__(self, snpe_dir):
         if not os.path.exists(snpe_dir):
@@ -24,7 +32,6 @@ class SNPE():
         self.snpe_dir = snpe_dir
         #TODO: extract snpe verison
         #TODO: setup snpe prerequisite for each SNPE version
-
 
         #check python version
         python_version = sys.version_info
@@ -48,20 +55,20 @@ class SNPE():
         if tensorflow_dir is None:
             raise RuntimeError('Tensorflow is not installed')
 
-    def _snpe_dlc_viewer(self, checkpoint_dir, dlc_filename):
+    def _snpe_dlc_viewer(self, dlc_filepath, html_filepath):
         setup_cmd = 'source {}/bin/envsetup.sh -t {}'.format(self.snpe_dir, self.tensorflow_dir)
         snpe_cmd = 'python {}/bin/x86_64-linux-clang/snpe-dlc-viewer\
                 -i {} \
-                -s {}.html'.format(self.snpe_dir, \
-                                os.path.join(checkpoint_dir, dlc_filename), \
-                                os.path.join(checkpoint_dir, dlc_filename))
+                -s {}'.format(self.snpe_dir, \
+                                dlc_filepath, \
+                                html_filepath)
 
         cmd = '{}; {}'.format(setup_cmd, snpe_cmd)
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True, executable='/bin/bash')
         proc_stdout = process.communicate()[0].strip()
         print(proc_stdout)
 
-    def _snpe_tensorflow_to_dlc(self, checkpoint_dir, hwc, pb_filename, input_name, output_name, dlc_filename):
+    def _snpe_tensorflow_to_dlc(self, pb_filepath, dlc_filepath, input_name, output_name, hwc):
         setup_cmd = 'source {}/bin/envsetup.sh -t {}'.format(self.snpe_dir, self.tensorflow_dir)
         snpe_cmd = 'python {}/bin/x86_64-linux-clang/snpe-tensorflow-to-dlc \
                 -i {} \
@@ -69,34 +76,37 @@ class SNPE():
                 --out_node {} \
                 -o {} \
                 --allow_unconsumed_nodes'.format(self.snpe_dir, \
-                                os.path.join(checkpoint_dir, pb_filename), \
+                                pb_filepath, \
                                 input_name, \
                                 '1,{},{},{}'.format(hwc[0], hwc[1], hwc[2]), \
                                 output_name, \
-                                os.path.join(checkpoint_dir, dlc_filename))
+                                dlc_filepath)
         cmd = '{}; {}'.format(setup_cmd, snpe_cmd)
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True, executable='/bin/bash')
         proc_stdout = process.communicate()[0].strip()
         print(proc_stdout)
 
-    def convert_model(self, model, checkpoint_dir, hwc):
-        if not os.path.exists(checkpoint_dir):
-            raise ValueError('checkpoint_dir does not exist: {}'.format(checkpoint_dir))
+    def convert_model(self, model, ckpt_dir, hwc):
+        if not os.path.exists(ckpt_dir):
+            raise ValueError('ckpt_dir does not exist: {}'.format(ckpt_dir))
 
         #restore
         ckpt = tf.train.Checkpoint(model=model)
-        latest_ckpt = tf.train.latest_checkpoint(checkpoint_dir)
+        latest_ckpt = tf.train.latest_checkpoint(ckpt_dir)
         if not latest_ckpt:
-            raise RuntimeError('checkpoint does not exist: {}'.format(checkpoint_dir))
+            raise RuntimeError('checkpoint does not exist: {}'.format(ckpt_dir))
 
         ckpt_filename = os.path.basename(latest_ckpt).split('.')[0]
         pb_filename = '{}.pb'.format(ckpt_filename)
         opt_pb_filename = '{}_opt.pb'.format(ckpt_filename)
         dlc_filename = '{}.dlc'.format(ckpt_filename)
+        dlc_dir = os.path.join(ckpt_dir, self.dlc_subdir)
 
         #check dlc exists
-        if os.path.exists(dlc_filename):
-            return dlc_filename
+        if os.path.exists(dlc_dir):
+            logging.info('dlc exists')
+            return dlc_dir
+        os.makedirs(dlc_dir)
 
         #save a frozen graph (.pb)
         status = ckpt.restore(latest_ckpt)
@@ -104,21 +114,28 @@ class SNPE():
         status.initialize_or_restore(sess)
         graph = tf.get_default_graph()
         frozen_graph = freeze_session(sess, output_names=[out.op.name for out in model.outputs])
-        tf.train.write_graph(frozen_graph, checkpoint_dir, pb_filename, as_text=False)
-        sess.close()
+        tf.train.write_graph(frozen_graph, dlc_dir, pb_filename, as_text=False)
+        #sess.close()
 
         #optimize a frozen graph
         input_name = model.inputs[0].name.split(':')[0]
         output_name = model.outputs[0].name.split(':')[0]
-        optimize_for_inference(pb_filename, opt_pb_filename, input_name, output_name, checkpoint_dir)
+        pb_filepath = os.path.join(dlc_dir, pb_filename)
+        opt_pb_filepath = os.path.join(dlc_dir, opt_pb_filename)
+        optimize_for_inference(pb_filepath, opt_pb_filepath, input_name, output_name)
 
         #convert to a dlc (.dlc)
-        self._snpe_tensorflow_to_dlc(checkpoint_dir, hwc, opt_pb_filename, input_name, output_name, dlc_filename)
+        dlc_filepath = os.path.join(dlc_dir, dlc_filename)
+        self._snpe_tensorflow_to_dlc(pb_filepath, dlc_filepath, input_name, output_name, hwc)
+
+        #convcert to a quantized dlc (.quantized.dlc)
+        #TODO
 
         #visualize a dlc
-        self._snpe_dlc_viewer(checkpoint_dir, dlc_filename)
+        html_filepath = os.path.join(dlc_dir, '{}.html'.format(dlc_filename))
+        self._snpe_dlc_viewer(dlc_filepath, html_filepath)
 
-        return dlc_filename
+        return dlc_dir
 
     #TODO: convert png images into SNPE applicable raw format (8bit 32bit)
     @staticmethod
@@ -137,59 +154,123 @@ class SNPE():
         if not os.path.exists(image_dir):
             raise ValueError('image_dir does not exist: {}'.format(image_dir))
 
+        #1. check dataset exists
+        raw_dir = os.path.join(image_dir, self.raw_subdir)
+        if os.path.exists(raw_dir):
+            logging.info('raw exists')
+            return raw_dir
+        os.makedirs(raw_dir)
+
+        #2. convert png images to raw images
         image_filepaths = sorted(glob.glob('{}/*.png'.format(image_dir)))
         for image_filepath in image_filepaths:
-            image_raw = self._get_image_raw(image_filepath)
-            snpe_raw = image_raw
-            snpe_raw = snpe_raw.astype(np.float32)
+            raw = self._get_image_raw(image_filepath)
+            raw = raw.astype(np.float32)
 
             if save_uint8:
-                snpe_raw = snpe_raw.astype(np.uint8)
+                raw = raw.astype(np.uint8)
             else:
-                snpe_raw = snpe_raw.astype(np.float32)
+                raw = raw.astype(np.float32)
 
             image_filepath = os.path.abspath(image_filepath)
             filename, ext = os.path.splitext(image_filepath)
-            snpe_raw_filename = filename
-            snpe_raw_filename += '.raw'
-            snpe_raw.tofile(snpe_raw_filename)
+            raw_filepath = os.path.basename(filename)
+            raw_filepath += '.raw'
+            raw.tofile(os.path.join(raw_dir, raw_filepath))
+
+        #3. create a image list file
+        device_image_filepaths = list(map(lambda x: os.path.join(self.device_raw_dir, os.path.basename(x)), image_filepaths))
+        output_filepath = os.path.join(raw_dir, self.output_filename)
+        with open(output_filepath, 'w') as f:
+            f.write('\n'.join(device_image_filepaths))
+
+        return raw_dir
+
+    @staticmethod
+    def _adb_remove_dir(device_dir, device_id=None):
+        if device_id:
+            cmd = 'adb -s {} shell "rm -r {}"'.format(device_id, device_dir)
+        else:
+            cmd = 'adb shell "rm -r {}"'.format(device_dir)
+        os.system(cmd)
+
+    @staticmethod
+    def _adb_make_dir(device_dir, device_id=None):
+        if device_id:
+            cmd = 'adb -s {} shell "mkdir -p {}"'.format(device_id, device_dir)
+        else:
+            cmd = 'adb shell "mkdir -p {}"'.format(device_dir)
+        os.system(cmd)
+
+    @staticmethod
+    def _adb_push_file(device_filepath, host_filepath, device_id=None):
+        if device_id:
+            cmd = 'adb -s {} push {} {}'.format(device_id, host_filepath, device_filepath)
+        else:
+            cmd = 'adb push {} {}'.format(host_filepath, device_filepath)
+        os.system(cmd)
+
+    @staticmethod
+    def _adb_pull_file(device_filepath, host_filepath, device_id=None):
+        if device_id:
+            cmd = 'adb -s {} pull {} {}'.format(device_id, device_filepath, host_filepath)
+        else:
+            cmd = 'adb pull {} {}'.format(device_filepath, host_filepath)
+        os.system(cmd)
 
     #TODO
     def setup_library(self):
         pass
 
-    def setup_dataset(self, image_dir, checkpoint_dir, device_id=None):
-        if not os.path.exists(checkpoint_dir):
-            raise ValueError('checkpoint_dir does not exist: {}'.format(checkpoint_dir))
-        if not os.path.exists(image_dir):
-            raise ValueError('image_dir does not exist: {}'.format(image_dir))
+    def setup_dataset(self, raw_dir, dlc_dir, device_id=None):
+        if not os.path.exists(dlc_dir):
+            raise ValueError('dlc_dir does not exist: {}'.format(dlc_dir))
+        if not os.path.exists(raw_dir):
+            raise ValueError('raw_dir does not exist: {}'.format(raw_dir))
         if not check_attached_devices(device_id):
             raise RuntimeError('device is not attached: {}'.format(device_id))
 
-        #1. create a image list file
-        image_host_filepaths = sorted(glob.glob('{}/*.raw'.format(image_dir)))
-        image_device_filepaths = list(map(lambda x: os.path.join(self.device_imagedir, os.path.basename(x)), image_host_filepaths))
-        output_filepath = os.path.join(image_dir, self.output_filename)
-        with open(output_filepath, 'w') as f:
-            f.write('\n'.join(image_device_filepaths))
+        copy_raw = True
+        copy_dlc = True
+        host_dataset_filepath = os.path.join(raw_dir, self.dataset_filename) #temporally save at raw_dir
+        device_dataset_filepath = os.path.join(self.device_rootdir, self.dataset_filename)
+
+        #1. check dataset exists on a target device
+        self._adb_pull_file(device_dataset_filepath, host_dataset_filepath)
+        if os.path.exists(host_dataset_filepath):
+            with open(host_dataset_filepath, 'r') as f:
+                lines = f.readlines()
+                for line in lines:
+                    line = line.rstrip('\r\n')
+                    print(line)
+                    if line.split('\t')[0] == self.dlc_subdir and line.split('\t')[1] == dlc_dir:
+                        logging.info('dlc exists in a target device')
+                        copy_dlc = False
+                    if line.split('\t')[0] == self.raw_subdir and line.split('\t')[1] == raw_dir:
+                        logging.info('raw exists in a target device')
+                        copy_raw = False
+            os.remove(host_dataset_filepath)
 
         #2. remove exisiting device directory (.../checkpoint/, .../image)
-        adb_cmd = 'adb shell rm -r "{}"a'.format(self.device_rootdir)
-        os.system(adb_cmd)
-        adb_cmd = 'adb shell "mkdir -p {}"'.format(self.device_imagedir)
-        os.system(adb_cmd)
-        adb_cmd = 'adb shell "mkdir -p {}"'.format(self.device_logdir)
-        os.system(adb_cmd)
-        adb_cmd = 'adb shell "mkdir -p {}"'.format(self.device_checkpointdir)
-        os.system(adb_cmd)
+        self._adb_make_dir(self.device_rootdir)
 
         #3. copy checkpoint and images
-        adb_cmd = ''
+        if copy_raw:
+            self._adb_remove_dir(self.device_raw_dir)
+            self._adb_make_dir(self.device_raw_dir)
+            self._adb_push_file(self.device_raw_dir, raw_dir, device_id)
+        if copy_dlc:
+            self._adb_remove_dir(self.device_dlc_dir)
+            self._adb_make_dir(self.device_dlc_dir)
+            self._adb_push_file(self.device_dlc_dir, dlc_dir, device_id)
 
-        #data
-        #host (images, model): model, checkpoint_dir, image_dir
-        #host (image list): {image_dir}/snpe/target_raw_list.txt
-        #device: {checkpoint_dir}/model, {image_dir}/model
+        #4. write a log & push it into a target device
+        if (not copy_raw) or (not copy_dlc):
+            with open(host_dataset_filepath, 'w') as f:
+                f.write('{}\t{}\n'.format(self.dlc_subdir, dlc_dir))
+                f.write('{}\t{}\n'.format(self.raw_subdir, raw_dir))
+            self._adb_push_file(self.device_rootdir, host_dataset_filepath)
+            os.remove(host_dataset_filepath)
 
     def evaluate(self):
         #TODO: 1. copy resulted images, 2. convert to png files, 3. calculate psnr
