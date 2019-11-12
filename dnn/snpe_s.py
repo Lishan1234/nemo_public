@@ -47,6 +47,7 @@ parser.add_argument('--save_image', action='store_true')
 
 #device
 parser.add_argument('--device_id', type=str, default=None)
+parser.add_argument('--runtime', type=str, required=True)
 
 args = parser.parse_args()
 
@@ -60,6 +61,7 @@ video_dir = os.path.join(args.dataset_dir, 'video')
 image_dir = os.path.join(args.dataset_dir, 'image')
 checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint')
 log_dir = os.path.join(args.dataset_dir, 'log')
+script_dir = os.path.join(args.dataset_dir, 'script')
 if not os.path.exists(video_dir):
     raise ValueError('directory does not exist: {}'.format(video_dir))
 
@@ -83,7 +85,8 @@ with tf.device('cpu:0'):
 
 #2. create a DNN
 normalize_config = NormalizeConfig('normalize', 'denormalize', rgb_mean)
-model = model_builder(args.num_blocks, args.num_filters, scale, normalize_config)
+#model = model_builder(args.num_blocks, args.num_filters, scale, normalize_config)
+model = model_builder(args.num_blocks, args.num_filters, scale, None)
 
 #3. create a snpe object
 dataset_tag = '{}.{}'.format(video_metadata.summary(args.input_resolution, True), ffmpeg_option.summary())
@@ -95,9 +98,11 @@ log_dir = os.path.join(log_dir, dataset_tag)
 snpe = SNPE(args.snpe_dir)
 
 #4. convert a model
-dlc_dir = snpe.convert_model(model, checkpoint_dir, args.hwc)
+dlc_dir, dlc_dict = snpe.convert_model(model, checkpoint_dir, args.hwc)
 
 #5. evaluate
 raw_dir = snpe.convert_dataset(train_dir, True)
 snpe.setup_dataset(raw_dir, dlc_dir, args.device_id)
 snpe.setup_library(args.snpe_dir, args.device_id)
+os.makedirs(script_dir, exist_ok=True)
+snpe.execute(args.runtime, dlc_dict, script_dir)

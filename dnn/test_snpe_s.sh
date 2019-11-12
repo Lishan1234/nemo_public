@@ -9,4 +9,5 @@ python snpe_s.py --dataset_dir /home/hyunho/dataset-sigcomm2020/game-lol \
                 --num_filters 32 \
                 --num_blocks 4 \
                 --model_type edsr_s \
-                --hwc 240 426 3
+                --hwc 270 480 3 \
+                --runtime GPU_FP16

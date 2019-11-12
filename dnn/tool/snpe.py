@@ -27,6 +27,7 @@ class SNPE():
     device_raw_dir = os.path.join(device_rootdir, raw_subdir)
     device_dlc_dir =os.path.join(device_rootdir, dlc_subdir)
     device_log_dir = os.path.join(device_rootdir, log_subdir)
+    device_output_dir = os.path.join(device_rootdir, 'output')
     output_filename = 'raw_list.txt'
     library_filename = 'snpe.txt' #check for snpe library version
     dataset_filename = 'dataset.txt' #check for checkpoint, image versions
@@ -106,12 +107,14 @@ class SNPE():
         pb_filename = '{}.pb'.format(ckpt_filename)
         opt_pb_filename = '{}_opt.pb'.format(ckpt_filename)
         dlc_filename = '{}.dlc'.format(ckpt_filename)
+        qnt_dlc_filename = '{}_quantized.dlc'.format(ckpt_filename)
         dlc_dir = os.path.join(ckpt_dir, self.dlc_subdir)
+        dlc_dict = {'quantized': qnt_dlc_filename, 'non-quantized': dlc_filename}
 
         #check dlc exists
         if os.path.exists(dlc_dir):
             logging.info('dlc exists')
-            return dlc_dir
+            return dlc_dir, dlc_dict
         os.makedirs(dlc_dir)
 
         #save a frozen graph (.pb)
@@ -121,7 +124,6 @@ class SNPE():
         graph = tf.get_default_graph()
         frozen_graph = freeze_session(sess, output_names=[out.op.name for out in model.outputs])
         tf.train.write_graph(frozen_graph, dlc_dir, pb_filename, as_text=False)
-        #sess.close()
 
         #optimize a frozen graph
         input_name = model.inputs[0].name.split(':')[0]
@@ -141,7 +143,7 @@ class SNPE():
         html_filepath = os.path.join(dlc_dir, '{}.html'.format(dlc_filename))
         self._snpe_dlc_viewer(dlc_filepath, html_filepath)
 
-        return dlc_dir
+        return dlc_dir, dlc_dict
 
     #TODO: convert png images into SNPE applicable raw format (8bit 32bit)
     @staticmethod
@@ -169,6 +171,7 @@ class SNPE():
 
         #2. convert png images to raw images
         image_filepaths = sorted(glob.glob('{}/*.png'.format(image_dir)))
+        raw_filepaths = []
         for image_filepath in image_filepaths:
             raw = self._get_image_raw(image_filepath)
             raw = raw.astype(np.float32)
@@ -183,9 +186,10 @@ class SNPE():
             raw_filepath = os.path.basename(filename)
             raw_filepath += '.raw'
             raw.tofile(os.path.join(raw_dir, raw_filepath))
+            raw_filepaths.append(raw_filepath)
 
         #3. create a image list file
-        device_image_filepaths = list(map(lambda x: os.path.join(self.device_raw_dir, os.path.basename(x)), image_filepaths))
+        device_image_filepaths = list(map(lambda x: os.path.join(self.device_raw_dir, os.path.basename(x)), raw_filepaths))
         output_filepath = os.path.join(raw_dir, self.output_filename)
         with open(output_filepath, 'w') as f:
             f.write('\n'.join(device_image_filepaths))
@@ -326,21 +330,46 @@ class SNPE():
             self._adb_push_file(self.device_rootdir, host_dataset_filepath, device_id)
             os.remove(host_dataset_filepath)
 
-    def execute(self):
-        #TODO: 1. copy resulted images, 2. convert to png files, 3. calculate psnr
-        #TODO: check quality (normalized_config: None)
-        #note: support all runtimes and quantization and power modes
+    def execute(self, runtime, dlc_dict, script_dir):
+        #TODO: CPU, AIP
+        if runtime not in ['GPU_FP32', 'GPU_FP16']:
+            raise ValueError('runtime is not supported: {}'.format(runtime))
 
-        #result
-        #host (images): {image_dir}/{model_name}.dlc/*.raw
-        #host (logs): {log_dir}/{model_name}/snpe/benchmark_{soc name}_{runtime}_{etc}.json
+        if runtime == 'GPU_FP16':
+            dlc_filename = dlc_dict['non-quantized']
+            runtime_opt = '--use_gpu --gpu_mode float16'
+        elif runtime == 'GPU_FP32':
+            dlc_filename = dlc_dict['non-quantized']
+            runtime_opt = '--use_gpu --gpu_mode default'
 
-        #result (quality)
-        #host (logs): {log_dir}/{model_name}/snpe/qualiaty_{soc name}_{runtime}_{etc}.log
+        output_dir = os.path.join(self.device_output_dir, runtime)
+        cmds = ['#!/system/bin/sh',
+                'export SNPE_TARGET_ARCH={}'.format(SNPE_TARGET_ARCH),
+                'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{}/$SNPE_TARGET_ARCH/lib'.format(self.device_rootdir),
+                'export PATH=$PATH:{}/$SNPE_TARGET_ARCH/bin'.format(self.device_rootdir),
+                'rm -r {}'.format(output_dir),
+                'mkdir -p {}'.format(output_dir),
+                #'cd {}'.format(os.path.join(self.device_o, args.train_data, 'data')),
+                #'snpe-net-run -h',
+                'snpe-net-run --container {} {} --input_list {} --output_dir {}'.format(os.path.join(self.device_dlc_dir, dlc_filename), runtime_opt, os.path.join(self.device_raw_dir, self.output_filename), output_dir),
+                'exit']
 
-        #quality
+        cmd_script_filename = '{}.sh'.format(runtime)
+        cmd_script_filepath = os.path.join(script_dir, cmd_script_filename)
+        with open(cmd_script_filepath, 'w') as cmd_script:
+            for ln in cmds:
+                cmd_script.write(ln + '\n')
+        os.system('adb push {} {}'.format(cmd_script_filepath, self.device_rootdir))
+        os.system('adb shell sh {}'.format(os.path.join(self.device_rootdir, cmd_script_filename)))
 
-        #latency
+    def evaluate(self):
+        pass
+        #TODO:measure PSNR
+        #os.makedirs(os.path.join(args.snpe_project_root, 'custom', args.train_data, 'data', output_dir), exist_ok=True)
+        #os.system('adb pull {} {}'.format(os.path.join(dst_root_dir, args.train_data, 'data', output_dir), os.path.join(args.snpe_project_root, 'custom', args.train_data, 'data', output_dir)))
+
+    #TODO
+    def benchmark(self):
         pass
 
 if __name__ == '__main__':
