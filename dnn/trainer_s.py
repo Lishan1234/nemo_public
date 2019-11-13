@@ -20,7 +20,7 @@ class Trainer:
         self.checkpoint_manager = tf.train.CheckpointManager(checkpoint=self.checkpoint,
                                                                 directory=checkpoint_dir,
                                                                 max_to_keep=3)
-        self.restore() #caution: use for testing or finetuning
+        #self.restore() #caution: use for testing or finetuning
         self.writer = tf.contrib.summary.create_file_writer(log_dir)
 
     @property

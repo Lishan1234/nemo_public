@@ -93,16 +93,15 @@ dataset_tag = '{}.{}'.format(video_metadata.summary(args.input_resolution, True)
 model_tag = '{}'.format(model.name)
 
 checkpoint_dir = os.path.join(checkpoint_dir, dataset_tag, model_tag)
-image_dir = os.path.join(checkpoint_dir, dataset_tag)
+image_dir = os.path.join(image_dir, dataset_tag)
 log_dir = os.path.join(log_dir, dataset_tag)
-snpe = SNPE(args.snpe_dir)
+snpe = SNPE(model, scale, args.hwc, train_dir, valid_dir, checkpoint_dir, script_dir, args.snpe_dir)
 
 #4. convert a model
-dlc_dir, dlc_dict = snpe.convert_model(model, checkpoint_dir, args.hwc)
+dlc_dict = snpe.convert_model()
 
 #5. evaluate
-raw_dir = snpe.convert_dataset(train_dir, True)
-snpe.setup_dataset(raw_dir, dlc_dir, args.device_id)
-snpe.setup_library(args.snpe_dir, args.device_id)
-os.makedirs(script_dir, exist_ok=True)
-snpe.execute(args.runtime, dlc_dict, script_dir)
+raw_dir = snpe.convert_dataset(False)
+snpe.setup_dataset(args.device_id)
+snpe.setup_library(args.device_id)
+snpe.execute(args.runtime, dlc_dict, False)

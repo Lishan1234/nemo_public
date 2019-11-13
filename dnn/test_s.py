@@ -71,8 +71,7 @@ dataset = ImageDataset(video_dir,
                             args.ffmpeg_path)
 
 with tf.device('cpu:0'):
-    print(args.load_on_memory)
-    train_ds, valid_ds, rgb_mean, scale = dataset.dataset(args.input_resolution,
+    train_ds, valid_ds, train_dir, valid_dir, rgb_mean, scale = dataset.dataset(args.input_resolution,
                                             args.target_resolution,
                                             args.batch_size,
                                             args.patch_size,

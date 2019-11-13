@@ -67,16 +67,17 @@ dataset = ImageDataset(video_dir,
                             args.ffmpeg_path)
 
 with tf.device('cpu:0'):
-    train_ds, valid_ds, rgb_mean, scale = dataset.dataset(args.input_resolution,
+    train_ds, valid_ds, train_dir, valid_dir, rgb_mean, scale = dataset.dataset(args.input_resolution,
                                             args.target_resolution,
                                             args.batch_size,
                                             args.patch_size,
                                             False)
 
 #2. create a DNN
-normalize_config = NormalizeConfig('normalize', 'denormalize', rgb_mean)
+#normalize_config = NormalizeConfig('normalize', 'denormalize', rgb_mean)
 with tf.Graph().as_default(), tf.Session() as sess:
     init = tf.global_variables_initializer()
-    model = model_builder(args.num_blocks, args.num_filters, scale, normalize_config)
+    #model = model_builder(args.num_blocks, args.num_filters, scale, normalize_config)
+    model = model_builder(args.num_blocks, args.num_filters, scale, None)
     sess.run(init)
     summary_writer = tf.summary.FileWriter(log_dir, sess.graph)
