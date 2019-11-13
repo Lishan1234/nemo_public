@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.keras import layers
 from tensorflow.keras import Model
 
-from model.common import NormalizeConfig
+from dnn.model.common import NormalizeConfig
 
 NETWORK_NAME = 'EDSR_S'
 

@@ -162,7 +162,6 @@ class SNPE():
 
         return dlc_dict
 
-    #TODO: convert png images into SNPE applicable raw format (8bit 32bit)
     @staticmethod
     def _get_image_raw(image_filepath):
         image_filepath = os.path.abspath(image_filepath)
@@ -336,6 +335,7 @@ class SNPE():
             self._adb_push_file(self.device_rootdir, host_dataset_filepath, device_id)
             os.remove(host_dataset_filepath)
 
+    #TODO: let's move to common
     @staticmethod
     def _test_dataset(sr_image_dir, hr_image_dir):
         sr_image_files = sorted(glob.glob('{}/*.png'.format(sr_imgae_dir)))
@@ -355,6 +355,7 @@ class SNPE():
         return ds
 
     def execute(self, runtime, dlc_dict, save_uint8=False):
+        #TODO: test uint8, float images for a quantized model
         #TODO: cover CPU, AIP
         if runtime not in ['GPU_FP32', 'GPU_FP16']:
             raise ValueError('runtime is not supported: {}'.format(runtime))
@@ -404,15 +405,12 @@ class SNPE():
             else:
                 arr = np.fromfile(raw_filepath, dtype=np.float32)
                 arr = np.reshape(arr, (self.hwc[0] * self.scale, self.hwc[1] * self.scale, self.hwc[2]))
-                print(arr)
-                #arr = arr * 255.0
                 arr = np.clip(arr, 0.0, 255.0)
-                #arr = np.round(arr)
-                #arr = arr.astype('uint8')
+                arr = np.round(arr)
             scipy.misc.imsave(os.path.join(self.image_dir, runtime, '{:04d}.png'.format(idx)), arr)
-            #os.rmdir(result_dir)
+            os.rmdir(result_dir)
 
-        #measure psnr
+        #TODO: measure psnr
         """
         sr_image_dir = host_output_dir
         hr_image_dir = self.ref_image_dir
