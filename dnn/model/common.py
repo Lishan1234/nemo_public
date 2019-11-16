@@ -55,6 +55,15 @@ def denormalize_m11(x):
     """Inverse of normalize_m11."""
     return (x + 1) * 127.5
 
+def quantize(x, enc_min, enc_max):
+    x = tf.round(255 * ((x - enc_min) / (enc_max - enc_min)))
+    x = tf.clip_by_value(x, 0, 255)
+    return x
+
+def dequantize(x, enc_min, enc_max):
+    x = (x_feature / 255) * (enc_max - enc_min) + enc_min
+    return x
+
 class NormalizeConfig():
     def __init__(self, normalize_layer, denormalize_layer, rgb_mean=None):
         if not normalize_layer in globals():

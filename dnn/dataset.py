@@ -97,9 +97,11 @@ class ImageDataset():
         ffprobeOutput = json.loads(ffprobeOutput)
 
         # prints all the metadata available:
+        """
         import pprint
         pp = pprint.PrettyPrinter(indent=2)
         pp.pprint(ffprobeOutput)
+        """
 
         # for example, find height and width
         height = ffprobeOutput['streams'][0]['height']

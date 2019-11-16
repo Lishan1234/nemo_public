@@ -5,9 +5,9 @@ import os
 import sys
 
 from model.common import NormalizeConfig
-from model.edsr_s import EDSR_S
+from model.edsr_ed_s import EDSR_ED_S
 from dataset import ImageDataset
-from trainer_s import EDSRTrainer
+from trainer_ed_s import EDSRTrainer
 from utility import VideoMetadata, FFmpegOption
 
 import tensorflow as tf
@@ -34,14 +34,17 @@ parser.add_argument('--target_resolution', type=int, required=True)
 parser.add_argument('--batch_size', type=int, default=64)
 parser.add_argument('--patch_size', type=int, default=64)
 parser.add_argument('--load_on_memory', action='store_true')
-parser.add_argument('--enable_normalization', action='store_true')
 
 #architecture
-parser.add_argument('--num_filters', type=int, required=True)
-parser.add_argument('--num_blocks', type=int, required=True)
+parser.add_argument('--enc_num_filters', type=int, required=True)
+parser.add_argument('--enc_num_blocks', type=int, required=True)
+parser.add_argument('--dec_num_filters', type=int, required=True)
+parser.add_argument('--dec_num_blocks', type=int, required=True)
+parser.add_argument('--enable_normalization', action='store_true')
 
 #log
 parser.add_argument('--custom_tag', type=str, default=None)
+
 
 args = parser.parse_args()
 
@@ -74,8 +77,10 @@ if args.enable_normalization:
     normalize_config = NormalizeConfig('normalize', 'denormalize', rgb_mean)
 else:
     normalize_config = None
-edsr_s = EDSR_S(args.num_blocks, args.num_filters, scale, None)
-model = edsr_s.build_model()
+edsr_ed_s = EDSR_ED_S(args.enc_num_blocks, args.enc_num_filters, \
+                        args.dec_num_blocks, args.dec_num_filters, \
+                        scale, None)
+model = edsr_ed_s.build_model()
 
 #3. create a trainer
 dataset_tag = '{}.{}'.format(video_metadata.summary(args.input_resolution, True), ffmpeg_option.summary())

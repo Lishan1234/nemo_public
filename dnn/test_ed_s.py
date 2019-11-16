@@ -5,9 +5,9 @@ import os
 import sys
 
 from model.common import NormalizeConfig
-from model.edsr_s import EDSR_S
+from model.edsr_ed_s import EDSR_ED_S
+from tester_ed_s import Tester
 from dataset import ImageDataset
-from trainer_s import EDSRTrainer
 from utility import VideoMetadata, FFmpegOption
 
 import tensorflow as tf
@@ -34,14 +34,18 @@ parser.add_argument('--target_resolution', type=int, required=True)
 parser.add_argument('--batch_size', type=int, default=64)
 parser.add_argument('--patch_size', type=int, default=64)
 parser.add_argument('--load_on_memory', action='store_true')
-parser.add_argument('--enable_normalization', action='store_true')
 
 #architecture
-parser.add_argument('--num_filters', type=int, required=True)
-parser.add_argument('--num_blocks', type=int, required=True)
+parser.add_argument('--enc_num_filters', type=int, required=True)
+parser.add_argument('--enc_num_blocks', type=int, required=True)
+parser.add_argument('--dec_num_filters', type=int, required=True)
+parser.add_argument('--dec_num_blocks', type=int, required=True)
+parser.add_argument('--enable_normalization', action='store_true')
 
 #log
+parser.add_argument('--save_image', action='store_true')
 parser.add_argument('--custom_tag', type=str, default=None)
+
 
 args = parser.parse_args()
 
@@ -74,19 +78,20 @@ if args.enable_normalization:
     normalize_config = NormalizeConfig('normalize', 'denormalize', rgb_mean)
 else:
     normalize_config = None
-edsr_s = EDSR_S(args.num_blocks, args.num_filters, scale, None)
-model = edsr_s.build_model()
+edsr_ed_s = EDSR_ED_S(args.enc_num_blocks, args.enc_num_filters, \
+                        args.dec_num_blocks, args.dec_num_filters, \
+                        scale, None)
+model = edsr_ed_s.build_encoder()
 
-#3. create a trainer
+
+#3. create a tester
 dataset_tag = '{}.{}'.format(video_metadata.summary(args.input_resolution, True), ffmpeg_option.summary())
-if args.custom_tag:
-    model_tag = '{}_{}'.format(model.name, args.custom_tag)
-else:
-    model_tag = '{}'.format(model.name)
+model_tag = '{}'.format(model.name)
 
 checkpoint_dir = os.path.join(checkpoint_dir, dataset_tag, model_tag)
-log_dir = os.path.join(log_dir, dataset_tag, model_tag)
+log_dir = os.path.join(log_dir, dataset_tag)
+tester = Tester(model, checkpoint_dir, log_dir, os.path.join(image_dir, dataset_tag))
 
 #4. train a model
-trainer = EDSRTrainer(model, checkpoint_dir, log_dir)
-trainer.train(train_ds, valid_ds)
+#tester.analyze_feature(valid_ds)
+tester.test(valid_ds, False)
