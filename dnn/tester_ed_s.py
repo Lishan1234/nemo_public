@@ -71,46 +71,49 @@ class Tester:
         decoder.load_weights(model_filepath, by_name=True)
         return decoder
 
-    def feature(self, valid_dataset):
-        feature_image_dir = os.path.join(self.image_dir, '{}_feature'.format(self.checkpoint.model.name))
-        os.makedirs(feature_image_dir, exist_ok=True)
+    def feature(self, encoder, valid_dataset, save_image=False):
+        image_dir = os.path.join(self.image_dir, 'feature')
+        log_dir = os.path.join(self.log_dir, 'feature')
+        os.makedirs(image_dir, exist_ok=True)
+        os.makedirs(log_dir, exist_ok=True)
 
-        with open(os.path.join(feature_image_dir, 'distribution.txt'), 'w') as f:
+        with open(os.path.join(log_dir, 'distribution.txt'), 'w') as f:
             for idx, imgs in enumerate(valid_dataset):
                 self.now = time.perf_counter()
                 lr = tf.cast(imgs[0], tf.float32)
-                hr = imgs[1]
-
-                lr_feature, _ = self.checkpoint.model(lr)
+                lr_feature = encoder(lr)
                 lr_feature = lr_feature.numpy()
-
                 lr_feature = lr_feature.flatten()
+
                 result = np.percentile(lr_feature ,[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100], interpolation='nearest')
-                result = [str(np.round(i,2)) for i in result]
-                log = '\t'.join(result)
+                result = [np.round(i,2) for i in result]
+                log = '\t'.join([str(i) for i in result])
+                log += '\n'
                 f.write(log)
 
-                _ = plt.hist(lr_feature, bins='auto')
-                fig_filepath = os.path.join(feature_image_dir, '{:04d}.png'.format(idx))
-                plt.savefig(fig_filepath)
+                if save_image:
+                    _ = plt.hist(lr_feature, bins='auto')
+                    fig_filepath = os.path.join(image_dir, '{:04d}.png'.format(idx))
+                    plt.savefig(fig_filepath)
+                    plt.clf()
 
                 duration = time.perf_counter() - self.now
+                print('0%-percentile={:.2f} 100%-percentile={:.2f} ({:.2f}s)'.format(result[0], result[-1], duration))
 
-                #TODO: reset plot
-                #TODO: print
-                #TODO: how to determine encoding_min, encoding_max?
-                print(log)
+    def quantize():
+        pass
 
     def encode(self, encoder, dataset, qnt_config, save_image=False):
         #TODO: similar to encode_decode
         pass
 
+    #TODO: custom tag for fine-tune
     def decode(self, decoder, dataset, qnt_config, save_image=False):
         #TODO: similar to encode_decode
         pass
 
     def encode_decode(self, encoder, decoder, dataset, qnt_config, save_image=False):
-        subdir = '{}_{}'.format(encoder.name, decoder.name)
+        subdir = 'ed'
         if qnt_config: subdir += '_{}'.format(qnt_config.name)
         image_dir = os.path.join(self.image_dir, subdir)
         log_dir = os.path.join(self.log_dir, subdir)
@@ -246,8 +249,8 @@ if __name__ == '__main__':
     dataset_tag = '{}.{}'.format(video_metadata.summary(args.input_resolution, True), ffmpeg_option.summary())
     model_tag = '{}'.format(edsr_ed_s.name)
     checkpoint_dir = os.path.join(checkpoint_dir, dataset_tag, model_tag)
-    log_dir = os.path.join(log_dir, dataset_tag)
-    image_dir = os.path.join(image_dir, dataset_tag)
+    log_dir = os.path.join(log_dir, dataset_tag, model_tag)
+    image_dir = os.path.join(image_dir, dataset_tag, model_tag)
     tester = Tester(edsr_ed_s, checkpoint_dir, log_dir, image_dir)
 
     #4. get encoder, decoder
@@ -255,4 +258,7 @@ if __name__ == '__main__':
     decoder = tester.decoder()
 
     #5. evaluate encoder-decoder
-    tester.encode_decode(encoder, decoder, valid_ds, None, True)
+    #tester.encode_decode(encoder, decoder, valid_ds, None, True)
+
+    #6. analyze feature
+    tester.feature(encoder, valid_ds, False)
