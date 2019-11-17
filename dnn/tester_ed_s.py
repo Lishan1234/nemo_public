@@ -3,6 +3,7 @@ import time
 import os
 import sys
 import argparse
+import math
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,103 +15,104 @@ from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 
 from model.common import NormalizeConfig, QuantizeConfig, quantize, dequantize
 from model.edsr_ed_s import EDSR_ED_S
-from dataset import ImageDataset, feature_valid_dataset
+from dataset import ImageDataset, image_valid_dataset
 from utility import resolve, resolve_bilinear, VideoMetadata, FFmpegOption
 
 import tensorflow as tf
 tf.enable_eager_execution()
 
 class Tester:
-    def __init__(self, edsr_ed_s, checkpoint_dir, log_dir, image_dir):
-        if not os.path.exists(checkpoint_dir):
-            raise ValueError('checkpoint_dir does not exist: {}'.format(checkpoint_dir))
-        if not os.path.exists(log_dir):
-            raise ValueError('log_dir does not exist: {}'.format(log_dir))
-        if not os.path.exists(image_dir):
-            raise ValueError('image_dir does not exist: {}'.format(image_dir))
+    quantization_subdir = 'feature'
+    quantization_log_name = 'distribution.txt'
+    encode_subdir = 'encode'
+    decode_subdir = 'decode'
 
+    def __init__(self, edsr_ed_s, checkpoint_dir, log_dir, lr_image_dir, hr_image_dir):
         self.edsr_ed_s = edsr_ed_s
-        self.checkpoint_dir = checkpoint_dir
-        self.log_dir = log_dir
-        self.image_dir = image_dir
+        self.lr_image_dir = lr_image_dir
+        self.hr_image_dir = hr_image_dir
+        self.checkpoint_dir = os.path.join(checkpoint_dir, edsr_ed_s.name)
 
-        model = edsr_ed_s.build_model()
-        self.checkpoint = tf.train.Checkpoint(step=tf.Variable(0),
-                                                psnr=tf.Variable(-1.0),
-                                                optimizer=Adam(0),
-                                                model=model)
-        self.checkpoint_manager = tf.train.CheckpointManager(checkpoint=self.checkpoint,
+        self.quantization_image_dir = os.path.join(self.lr_image_dir, edsr_ed_s.name, self.quantization_subdir)
+        self.quantization_log_dir = os.path.join(log_dir, edsr_ed_s.name, self.quantization_subdir)
+        self.encode_image_dir = os.path.join(self.lr_image_dir, edsr_ed_s.name, self.encode_subdir)
+        self.decode_image_dir = os.path.join(self.lr_image_dir, edsr_ed_s.name, self.decode_subdir)
+        self.decode_log_dir = os.path.join(log_dir, edsr_ed_s.name, self.decode_subdir)
+        os.makedirs(self.quantization_image_dir, exist_ok=True)
+        os.makedirs(self.quantization_log_dir, exist_ok=True)
+        os.makedirs(self.encode_image_dir, exist_ok=True)
+        os.makedirs(self.decode_image_dir, exist_ok=True)
+        os.makedirs(self.decode_log_dir, exist_ok=True)
+
+        self.encoder = None
+        self.decoder = None
+        self.quantization_config = None
+
+    def _convert_to_h5(self, checkpoint_dir):
+        model = self.edsr_ed_s.build_model()
+        checkpoint = tf.train.Checkpoint(step=tf.Variable(0),
+                                            psnr=tf.Variable(-1.0),
+                                            optimizer=Adam(0),
+                                            model=model)
+        checkpoint_manager = tf.train.CheckpointManager(checkpoint=checkpoint,
                                                         directory=checkpoint_dir, max_to_keep=3)
-        self.ckpt_name = self._restore()
 
-    def _restore(self):
-        latest_ckpt = self.checkpoint_manager.latest_checkpoint
-        if latest_ckpt:
-            self.checkpoint.restore(latest_ckpt)
-            print(f'Model restored from checkpoint at step {self.checkpoint.step.numpy()}.')
-        else:
-            raise RuntimeError('Cannot restore checkpoint')
+        print(checkpoint_dir)
+        checkpoint_path = checkpoint_manager.latest_checkpoint
+        assert(checkpoint_path is not None)
+        h5_path = '{}.h5'.format(os.path.splitext(checkpoint_path)[0])
 
-        name = os.path.basename(latest_ckpt)
-        name = os.path.splitext(name)[0]
-        return name
+        if not os.path.exists(h5_path):
+            checkpoint.restore(checkpoint_path)
+            checkpoint.model.save_weights(h5_path)
 
-    def encoder(self):
-        model_filepath = os.path.join(self.checkpoint_dir, '{}.h5'.format(self.ckpt_name))
-        if not os.path.exists(model_filepath):
-            self.checkpoint.model.save_weights(model_filepath)
+        return h5_path
+
+    def load_encoder(self, checkpoint_dir):
+        if checkpoint_dir is None: checkpoint_dir = self.checkpoint_dir
+        h5_path = self._convert_to_h5(checkpoint_dir)
         encoder = self.edsr_ed_s.build_encoder()
-        encoder.load_weights(model_filepath, by_name=True)
-        return encoder
+        encoder.load_weights(h5_path, by_name=True)
+        self.encoder = encoder
 
-    def decoder(self):
-        model_filepath = os.path.join(self.checkpoint_dir, '{}.h5'.format(self.ckpt_name))
-        if not os.path.exists(model_filepath):
-            self.checkpoint.model.save_weights(model_filepath)
+    def load_decoder(self, checkpoint_dir):
+        if checkpoint_dir is None: checkpoint_dir = self.checkpoint_dir
+        h5_path = self._convert_to_h5(checkpoint_dir)
         decoder = self.edsr_ed_s.build_decoder()
-        decoder.load_weights(model_filepath, by_name=True)
-        return decoder
+        decoder.load_weights(h5_path, by_name=True)
+        self.decoder = decoder
 
-    def feature(self, encoder, valid_dataset, save_image=False):
-        image_dir = os.path.join(self.image_dir, 'feature')
-        log_dir = os.path.join(self.log_dir, 'feature')
-        os.makedirs(image_dir, exist_ok=True)
-        os.makedirs(log_dir, exist_ok=True)
+    def set_quantization_config(self, policy):
+        assert(policy in ['min_max_0'])
 
-        with open(os.path.join(log_dir, 'distribution.txt'), 'w') as f:
-            for idx, imgs in enumerate(valid_dataset):
-                self.now = time.perf_counter()
-                lr = tf.cast(imgs[0], tf.float32)
-                lr_feature = encoder(lr)
-                lr_feature = lr_feature.numpy()
-                lr_feature = lr_feature.flatten()
+        qnt_log_path = os.path.join(self.quantization_log_dir, self.quantization_log_name)
 
-                result = np.percentile(lr_feature ,[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100], interpolation='nearest')
-                result = [np.round(i,2) for i in result]
-                log = '\t'.join([str(i) for i in result])
-                log += '\n'
-                f.write(log)
+        if not os.path.exists(qnt_log_path):
+            dataset = image_valid_dataset(self.lr_image_dir, hr_image_dir)
+            with open(qnt_log_path, 'w') as f:
+                for idx, imgs in enumerate(dataset):
+                    self.now = time.perf_counter()
+                    lr = tf.cast(imgs[0], tf.float32)
+                    lr_feature = self.encoder(lr)
+                    lr_feature = lr_feature.numpy()
+                    lr_feature = lr_feature.flatten()
 
-                if save_image:
+                    result = np.percentile(lr_feature ,[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100], interpolation='nearest')
+                    result = [np.round(i,2) for i in result]
+                    log = '\t'.join([str(i) for i in result])
+                    log += '\n'
+                    f.write(log)
+
                     _ = plt.hist(lr_feature, bins='auto')
-                    fig_filepath = os.path.join(image_dir, '{:04d}.png'.format(idx))
+                    fig_filepath = os.path.join(self.quantization_image_dir, '{:04d}.png'.format(idx))
                     plt.savefig(fig_filepath)
                     plt.clf()
 
-                duration = time.perf_counter() - self.now
-                print('0%-percentile={:.2f} 100%-percentile={:.2f} ({:.2f}s)'.format(result[0], result[-1], duration))
-
-    def quantize(self, policy):
-        if not policy in ['min_max_0']:
-            raise ValueError('policy does not exist: {}'.format(policy))
-
-        log_dir = os.path.join(self.log_dir, 'feature')
-        log_filepath = os.path.join(log_dir, 'distribution.txt')
-        if not os.path.exists(log_filepath):
-            raise RuntimeError('log file does not exist: {}'.format(log_filepath))
+                    duration = time.perf_counter() - self.now
+                    print('0%-percentile={:.2f} 100%-percentile={:.2f} ({:.2f}s)'.format(result[0], result[-1], duration))
 
         features = []
-        with open(log_filepath, 'r') as f:
+        with open(qnt_log_path, 'r') as f:
             lines = f.readlines()
             for line in lines:
                 line = line.split('\t')
@@ -123,103 +125,37 @@ class Tester:
             enc_max = np.max(features_arr[:,-1])
             qnt_config = QuantizeConfig(enc_min, enc_max)
 
-        return qnt_config
+        self.quantization_config = qnt_config
 
-    def encode(self, encoder, dataset, qnt_config, save_image):
-        if qnt_config is None:
-            raise ValueError('qnt_config is None')
+    def encode(self, dataset, save_image):
+        assert(self.encoder is not None)
 
-        subdir = 'enc_{}'.format(qnt_config.name)
-        image_dir = os.path.join(self.image_dir, subdir)
-        os.makedirs(image_dir, exist_ok=True)
+        if dataset is None: dataset = image_valid_dataset(self.lr_image_dir, self.hr_image_dir)
+
         for idx, imgs in enumerate(dataset):
             self.now = time.perf_counter()
             lr = imgs[0]
 
             #encode images
             lr = tf.cast(lr, tf.float32)
-            feature = encoder(lr)
-            feature = quantize(feature, qnt_config.enc_min, qnt_config.enc_max)
+            feature = self.encoder(lr)
+            if self.quantization_config:
+                feature = quantize(feature, self.quantization_config.enc_min, self.quantization_config.enc_max)
             feature = tf.cast(feature, tf.uint8)
 
             if save_image:
                 #save feature images
                 feature_image = tf.image.encode_png(tf.squeeze(feature))
-                tf.io.write_file(os.path.join(image_dir, '{0:04d}.png'.format(idx)), feature_image)
+                tf.io.write_file(os.path.join(self.encode_image_dir, '{0:04d}.png'.format(idx)), feature_image)
 
             duration = time.perf_counter() - self.now
             print(f'({duration:.2f}s)')
-        return image_dir
 
-    #TODO: custom tag for fine-tune
-    def decode(self, decoder, dataset, qnt_config, save_image=False):
-        if qnt_config is None:
-            raise ValueError('qnt_config is None')
+    #Note: need refactoring when a network outputs LR
+    def decode(self, dataset, save_image):
+        assert(self.decoder is not None)
 
-        subdir = 'dec_{}'.format(qnt_config.name)
-        image_dir = os.path.join(self.image_dir, subdir)
-        image_dir = os.path.join(self.image_dir, subdir)
-        log_dir = os.path.join(self.log_dir, subdir)
-        os.makedirs(image_dir, exist_ok=True)
-        os.makedirs(log_dir, exist_ok=True)
-
-        sr_psnr_values = []
-        bilinear_psnr_values = []
-
-        for idx, imgs in enumerate(dataset):
-            self.now = time.perf_counter()
-
-            lr = imgs[0]
-            feature = imgs[1]
-            hr = imgs[2]
-
-            #measure height, width
-            if idx == 0:
-                hr_shape = tf.shape(hr)[1:3]
-                height = hr_shape[0].numpy()
-                width = hr_shape[1].numpy()
-
-            #meausre sr quality
-            lr = tf.cast(lr, tf.float32)
-            feature = encoder(lr)
-            feature = quantize(feature, qnt_config.enc_min, qnt_config.enc_max)
-            feature = dequantize(feature, qnt_config.enc_min, qnt_config.enc_max)
-            sr = decoder(feature)
-            sr = tf.clip_by_value(sr, 0, 255)
-            sr = tf.round(sr)
-            sr = tf.cast(sr, tf.uint8)
-            sr_psnr_value = tf.image.psnr(hr, sr, max_val=255)[0].numpy()
-            sr_psnr_values.append(sr_psnr_value)
-
-            #measure bilinear quality
-            bilinear = resolve_bilinear(lr, height, width)
-            bilinear_psnr_value = tf.image.psnr(hr, bilinear, max_val=255)[0].numpy()
-            bilinear_psnr_values.append(bilinear_psnr_value)
-
-            if save_image:
-                #save sr images
-                sr_image = tf.image.encode_png(tf.squeeze(sr))
-                tf.io.write_file(os.path.join(image_dir, '{0:04d}.png'.format(idx)), sr_image)
-
-            duration = time.perf_counter() - self.now
-            print(f'PSNR(SR) = {sr_psnr_value:.3f}, PSNR(Bilinear) = {bilinear_psnr_value:3f} ({duration:.2f}s)')
-        print(f'Summary: PSNR(SR) = {np.average(sr_psnr_values):.3f}, PSNR(Bilinear) = {np.average(bilinear_psnr_values):3f}')
-
-        log_filepath = os.path.join(log_dir, 'quality.log')
-        with open(log_filepath, 'w') as f:
-            for psnr_values in list(zip(sr_psnr_values, bilinear_psnr_values)):
-                log = '{:.2f}\t{:.2f}\n'.format(psnr_values[0], psnr_values[1])
-                f.write(log)
-        return image_dir, log_dir
-
-    def encode_decode(self, encoder, decoder, dataset, qnt_config, save_image=False):
-        subdir = 'encdec'
-        if qnt_config: subdir += '_{}'.format(qnt_config.name)
-        image_dir = os.path.join(self.image_dir, subdir)
-        log_dir = os.path.join(self.log_dir, subdir)
-        os.makedirs(image_dir, exist_ok=True)
-        os.makedirs(log_dir, exist_ok=True)
-
+        if dataset is None: dataset = image_valid_dataset(self.lr_image_dir, self.hr_image_dir, self.encode_image_dir)
         sr_psnr_values = []
         bilinear_psnr_values = []
 
@@ -228,6 +164,7 @@ class Tester:
 
             lr = imgs[0]
             hr = imgs[1]
+            feature = imgs[2]
 
             #measure height, width
             if idx == 0:
@@ -236,12 +173,10 @@ class Tester:
                 width = hr_shape[1].numpy()
 
             #meausre sr quality
-            lr = tf.cast(lr, tf.float32)
-            feature = encoder(lr)
-            if qnt_config:
-                feature = Quantize(feature, qnt_config.enc_min, qnt_config.enc_max)
-                feature = Dequantize(feature, qnt_config.enc_min, qnt_config.enc_max)
-            sr = decoder(feature)
+            feature = tf.cast(feature, tf.float32)
+            if self.quantization_config:
+                feature = dequantize(feature, self.quantization_config.enc_min, self.quantization_config.enc_max)
+            sr = self.decoder(feature)
             sr = tf.clip_by_value(sr, 0, 255)
             sr = tf.round(sr)
             sr = tf.cast(sr, tf.uint8)
@@ -249,6 +184,7 @@ class Tester:
             sr_psnr_values.append(sr_psnr_value)
 
             #measure bilinear quality
+            lr = tf.cast(lr, tf.float32)
             bilinear = resolve_bilinear(lr, height, width)
             bilinear_psnr_value = tf.image.psnr(hr, bilinear, max_val=255)[0].numpy()
             bilinear_psnr_values.append(bilinear_psnr_value)
@@ -256,21 +192,17 @@ class Tester:
             if save_image:
                 #save sr images
                 sr_image = tf.image.encode_png(tf.squeeze(sr))
-                tf.io.write_file(os.path.join(image_dir, '{0:04d}.png'.format(idx)), sr_image)
+                tf.io.write_file(os.path.join(self.decode_image_dir, '{0:04d}.png'.format(idx)), sr_image)
 
             duration = time.perf_counter() - self.now
             print(f'PSNR(SR) = {sr_psnr_value:.3f}, PSNR(Bilinear) = {bilinear_psnr_value:3f} ({duration:.2f}s)')
         print(f'Summary: PSNR(SR) = {np.average(sr_psnr_values):.3f}, PSNR(Bilinear) = {np.average(bilinear_psnr_values):3f}')
 
-        log_filepath = os.path.join(log_dir, 'quality.log')
+        log_filepath = os.path.join(self.decode_log_dir, 'quality.log')
         with open(log_filepath, 'w') as f:
             for psnr_values in list(zip(sr_psnr_values, bilinear_psnr_values)):
                 log = '{:.2f}\t{:.2f}\n'.format(psnr_values[0], psnr_values[1])
                 f.write(log)
-
-    def finetune_decoder(self, train_dataset, valid_dataset, save_image=False):
-        #TODO
-        pass
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -301,71 +233,71 @@ if __name__ == '__main__':
     parser.add_argument('--dec_num_filters', type=int, required=True)
     parser.add_argument('--dec_num_blocks', type=int, required=True)
     parser.add_argument('--enable_normalization', action='store_true')
+    parser.add_argument('--enable_quantization', action='store_true')
+    parser.add_argument('--quantization_policy', type=str, default='min_max_0')
 
     #log
     parser.add_argument('--save_image', action='store_true')
     parser.add_argument('--custom_tag', type=str, default=None)
 
+    #task
+    parser.add_argument('--task', type=str, required=True)
+
     args = parser.parse_args()
 
-    #0. setting
-    video_dir = os.path.join(args.dataset_dir, 'video')
-    image_dir = os.path.join(args.dataset_dir, 'image')
-    checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint')
-    log_dir = os.path.join(args.dataset_dir, 'log')
-    assert(os.path.exists(video_dir))
-    assert(os.path.exists(image_dir))
-    assert(os.path.exists(checkpoint_dir))
-    assert(os.path.exists(log_dir))
-
-    #1. creat datasets
+    #setting
+    image_rootdir = os.path.join(args.dataset_dir, 'image')
+    checkpoint_rootdir = os.path.join(args.dataset_dir, 'checkpoint')
+    log_rootdir = os.path.join(args.dataset_dir, 'log')
     video_metadata = VideoMetadata(args.video_format, args.start_time, args.duration)
     ffmpeg_option = FFmpegOption(args.filter_type, args.filter_fps, args.upsample)
-    dataset = ImageDataset(video_dir,
-                                image_dir,
-                                video_metadata,
-                                ffmpeg_option,
-                                args.ffmpeg_path)
 
-    with tf.device('cpu:0'):
-        train_ds, valid_ds, lr_dir, hr_dir, rgb_mean, scale = dataset.dataset(args.input_resolution,
-                                                args.target_resolution,
-                                                args.batch_size,
-                                                args.patch_size,
-                                                args.load_on_memory)
-    #2. create a DNN
+    #dnn
+    scale = math.floor(args.target_resolution / args.input_resolution)
     if args.enable_normalization:
-        normalize_config = NormalizeConfig('normalize', 'denormalize', rgb_mean)
+        #TODO: rgb mean
+        #normalize_config = NormalizeConfig('normalize', 'denormalize', rgb_mean)
+        pass
     else:
         normalize_config = None
     edsr_ed_s = EDSR_ED_S(args.enc_num_blocks, args.enc_num_filters, \
                            args.dec_num_blocks, args.dec_num_filters, \
-                            scale, None)
+                            scale, normalize_config)
 
-    #3. create a tester
-    dataset_tag = '{}.{}'.format(video_metadata.summary(args.input_resolution, True), ffmpeg_option.summary())
-    model_tag = '{}'.format(edsr_ed_s.name)
-    checkpoint_dir = os.path.join(checkpoint_dir, dataset_tag, model_tag)
-    log_dir = os.path.join(log_dir, dataset_tag, model_tag)
-    image_dir = os.path.join(image_dir, dataset_tag, model_tag)
-    tester = Tester(edsr_ed_s, checkpoint_dir, log_dir, image_dir)
+    #tester
+    lr_video_name = video_metadata.summary(args.input_resolution, True)
+    hr_video_name = video_metadata.summary(args.target_resolution, False)
+    lr_image_name = '{}.{}'.format(lr_video_name, ffmpeg_option.summary())
+    hr_image_name = '{}.{}'.format(hr_video_name, ffmpeg_option.summary())
+    lr_image_dir = os.path.join(image_rootdir, lr_image_name)
+    hr_image_dir = os.path.join(image_rootdir, hr_image_name)
+    checkpoint_dir = os.path.join(checkpoint_rootdir, lr_image_name)
+    log_dir = os.path.join(log_rootdir, lr_image_name)
 
-    #4. get encoder, decoder
-    encoder = tester.encoder()
-    decoder = tester.decoder()
+    tester = Tester(edsr_ed_s, checkpoint_dir, log_dir, lr_image_dir, hr_image_dir)
+    tester.load_encoder(None)
+    tester.load_decoder(None)
+    if args.enable_quantization:
+        tester.set_quantization_config(args.quantization_policy)
+    else:
+        qnt_config = None
 
-    #5. evaluate encoder-decoder
-    #encdec_image_dir = tester.encode_decode(encoder, decoder, valid_ds, None, True)
-
-    #6. analyze feature
-    #tester.feature(encoder, valid_ds, False)
-
-    #7. get configuratoin for quantization
-    qnt_config = tester.quantize('min_max_0')
-
-    #8. encode feature images
-    feature_dir = tester.encode(encoder, valid_ds, qnt_config, True)
-    feature_ds = feature_valid_dataset(lr_dir, feature_dir, hr_dir)
-
-    #9. decode feature images
-    tester.decode(decoder, feature_ds, qnt_config, True)
+    #task
+    assert(args.task in ['encode', 'encode_video', 'decode', 'decode_video', 'all', 'all_video'])
+    if args.task == 'encode':
+        tester.encode(None, True)
+    elif args.task == 'encode_video':
+        #TODO
+        pass
+    elif args.task == 'decode':
+        tester.decode(None, args.save_image)
+    elif args.task == 'decode_video':
+        #TODO
+        pass
+    elif args.task == 'all':
+        tester.encode(None, True)
+        tester.decode(None, args.save_image)
+        pass
+    elif args.task == 'all_video':
+        #TODO
+        pass
