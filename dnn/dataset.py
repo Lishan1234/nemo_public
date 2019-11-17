@@ -33,6 +33,25 @@ def _random_crop(lr_image, hr_image, lr_crop_size, scale):
 
     return lr_image_cropped, hr_image_cropped
 
+def image_dataset(image_dir):
+    images = sorted(glob.glob('{}/*.png'.format(image_dir)))
+    print(images)
+    ds = tf.data.Dataset.from_tensor_slices(images)
+    ds = ds.map(tf.io.read_file)
+    ds = ds.map(lambda x: tf.image.decode_png(x, channels=3), num_parallel_calls=AUTOTUNE)
+    return ds, len(images)
+
+def feature_valid_dataset(lr_dir, feature_dir, hr_dir):
+    lr_ds, _ = image_dataset(lr_dir)
+    feature_ds, _ = image_dataset(feature_dir)
+    hr_ds, _ = image_dataset(hr_dir)
+
+    ds = tf.data.Dataset.zip((lr_ds, feature_ds, hr_ds))
+    ds = ds.batch(1)
+    ds = ds.repeat(1)
+    ds = ds.prefetch(buffer_size=AUTOTUNE)
+    return ds
+
 #Reference: https://github.com/krasserm/super-resolution/blob/master/data.py
 #Reference: https://gist.githubusercontent.com/oldo/dc7ee7f28851922cca09/raw/3238ad3ad64eeacfcafe7c18e7e57d28b73cb007/video-metada-finder.py
 class ImageDataset():

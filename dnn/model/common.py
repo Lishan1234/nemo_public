@@ -55,15 +55,6 @@ def denormalize_m11(x):
     """Inverse of normalize_m11."""
     return (x + 1) * 127.5
 
-def quantize(x, enc_min, enc_max):
-    x = tf.round(255 * ((x - enc_min) / (enc_max - enc_min)))
-    x = tf.clip_by_value(x, 0, 255)
-    return x
-
-def dequantize(x, enc_min, enc_max):
-    x = (x_feature / 255) * (enc_max - enc_min) + enc_min
-    return x
-
 class NormalizeConfig():
     def __init__(self, normalize_layer, denormalize_layer, rgb_mean=None):
         if not normalize_layer in globals():
@@ -89,9 +80,31 @@ class NormalizeConfig():
             return self.denormalize_layer(x)
 
 # ---------------------------------------
-#  Metrics
+#  Quantization
 # ---------------------------------------
 
+class QuantizeConfig():
+    def __init__(self, enc_min, enc_max):
+        self.enc_min = enc_min
+        self.enc_max = enc_max
+
+    @property
+    def name(self):
+        name = 'min{}_max{}'.format(round(self.enc_min), round(self.enc_max))
+        return name
+
+def quantize(x, enc_min, enc_max):
+    x = tf.round(255 * ((x - enc_min) / (enc_max - enc_min)))
+    x = tf.clip_by_value(x, 0, 255)
+    return x
+
+def dequantize(x, enc_min, enc_max):
+    x = (x / 255) * (enc_max - enc_min) + enc_min
+    return x
+
+# ---------------------------------------
+#  Metrics
+# ---------------------------------------
 
 def psnr(x1, x2):
     return tf.image.psnr(x1, x2, max_val=255)
@@ -100,7 +113,6 @@ def psnr(x1, x2):
 # ---------------------------------------
 #  See https://arxiv.org/abs/1609.05158
 # ---------------------------------------
-
 
 def pixel_shuffle(scale):
     return lambda x: tf.nn.depth_to_space(x, scale)
