@@ -1,5 +1,8 @@
 #Reference: https://raw.githubusercontent.com/krasserm/super-resolution/master/model/common.py
+import time
+import os
 
+import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 
@@ -84,9 +87,56 @@ class NormalizeConfig():
 # ---------------------------------------
 
 class QuantizeConfig():
-    def __init__(self, enc_min, enc_max):
-        self.enc_min = enc_min
-        self.enc_max = enc_max
+    log_name = 'feature_distribution.txt'
+
+    def __init__(self, policy):
+        assert policy in ['min_max_0']
+
+        self.policy = policy
+        self.enc_min = None
+        self.enc_max = None
+
+    def load(self, log_path):
+        features = []
+        with open(log_path, 'r') as f:
+            lines = f.readlines()
+            for line in lines:
+                line = line.split('\t')
+                feature = [float(i) for i in line]
+                features.append(feature)
+        features_arr = np.array(features)
+
+        if self.policy == 'min_max_0':
+            self.enc_min = np.min(features_arr[:,0])
+            self.enc_max = np.max(features_arr[:,-1])
+
+    def set(self, model, dataset, log_dir, image_dir):
+        log_path = os.path.join(log_dir, self.log_name)
+
+        if not os.path.exists(log_path):
+            with open(log_path, 'w') as f:
+                for idx, imgs in enumerate(dataset):
+                    now = time.perf_counter()
+                    lr = tf.cast(imgs, tf.float32)
+                    lr_feature = model(lr)
+                    lr_feature = lr_feature.numpy()
+                    lr_feature = lr_feature.flatten()
+
+                    result = np.percentile(lr_feature ,[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100], interpolation='nearest')
+                    result = [np.round(i,2) for i in result]
+                    log = '\t'.join([str(i) for i in result])
+                    log += '\n'
+                    f.write(log)
+
+                    _ = plt.hist(lr_feature, bins='auto')
+                    fig_filepath = os.path.join(image_dir, '{:04d}.png'.format(idx))
+                    plt.savefig(fig_filepath)
+                    plt.clf()
+
+                    duration = time.perf_counter() - now
+                    print('0%-percentile={:.2f} 100%-percentile={:.2f} ({:.2f}s)'.format(result[0], result[-1], duration))
+
+        self.load(log_path)
 
     @property
     def name(self):

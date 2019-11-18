@@ -1,3 +1,5 @@
+import os
+
 import tensorflow as tf
 from tensorflow.keras import layers
 from tensorflow.keras import Model, Sequential
@@ -107,25 +109,31 @@ class EDSR_ED_S():
         self.dec_conv_idx = 2 * self.enc_num_blocks + 3
         return model
 
-    def extract_encoder(self, model):
-        print(model.summary())
-        encoder = Sequential()
-        print(self.enc_num_layers)
-        for layer in model.layers[:self.enc_num_layers]:
-            print(layer.name)
-            if layer.name.startswith('conv'):
-                print('encoder: ' + layer.name)
-                encoder.add(layer)
+    def convert_to_h5(self, checkpoint_dir):
+        model = self.build_model()
+        checkpoint = tf.train.Checkpoint(model=model)
+        checkpoint_manager = tf.train.CheckpointManager(checkpoint=checkpoint,
+                                                        directory=checkpoint_dir, max_to_keep=3)
+        checkpoint_path = checkpoint_manager.latest_checkpoint
+        print('checkpoint: {}'.format(checkpoint_path))
+        assert(checkpoint_path is not None)
+        h5_path = '{}.h5'.format(os.path.splitext(checkpoint_path)[0])
+
+        if not os.path.exists(h5_path):
+            checkpoint.restore(checkpoint_path)
+            checkpoint.model.save_weights(h5_path)
+        return h5_path
+
+    def load_encoder(self, checkpoint_dir):
+        h5_path = self.convert_to_h5(checkpoint_dir)
+        encoder = self.build_encoder()
+        encoder.load_weights(h5_path, by_name=True)
         return encoder
 
-    def extract_decoder(self, model):
-        decoder = Sequential()
-        print(self.dec_num_layers)
-        for layer in model.layers[-self.dec_num_layers:]:
-            print(layer.name)
-            if layer.name.startswith('conv'):
-                print('decoder: ' + layer.name)
-                decoder.add(layer)
+    def load_decoder(self, checkpoint_dir):
+        h5_path = self.convert_to_h5(checkpoint_dir)
+        decoder = self.build_decoder()
+        decoder.load_weights(h5_path, by_name=True)
         return decoder
 
 if __name__ == '__main__':

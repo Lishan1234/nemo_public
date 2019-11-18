@@ -17,8 +17,15 @@ from utility import FFmpegOption, VideoMetadata
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
+def setup_images(video_path, image_dir, ffmpeg_path, ffmpeg_option):
+    if not os.path.exists(image_dir):
+        os.makedirs(image_dir)
+        video_name = os.path.basename(video_path)
+        cmd = '{} -i {} {} {}/%04d.png'.format(ffmpeg_path, video_path, ffmpeg_option, image_dir)
+        os.system(cmd)
+
 #TODO: handle 'load_on_memory == False'
-def _random_crop(lr_image, hr_image, lr_crop_size, scale):
+def random_crop(lr_image, hr_image, lr_crop_size, scale):
     lr_image_shape = tf.shape(lr_image)[:2]
 
     lr_w = tf.random.uniform(shape=(), maxval=lr_image_shape[1] - lr_crop_size + 1, dtype=tf.int32)
@@ -33,6 +40,10 @@ def _random_crop(lr_image, hr_image, lr_crop_size, scale):
 
     return lr_image_cropped, hr_image_cropped
 
+def resize(lr_image, hr_image):
+    #TODO
+    pass
+
 def image_dataset(image_dir):
     images = sorted(glob.glob('{}/*.png'.format(image_dir)))
     ds = tf.data.Dataset.from_tensor_slices(images)
@@ -40,13 +51,37 @@ def image_dataset(image_dir):
     ds = ds.map(lambda x: tf.image.decode_png(x, channels=3), num_parallel_calls=AUTOTUNE)
     return ds, len(images)
 
-def image_valid_dataset(lr_dir, hr_dir, feature_dir=None):
+def single_image_dataset(image_dir):
+    ds, _ = image_dataset(image_dir)
+    ds = ds.batch(1)
+    ds = ds.repeat(1)
+    ds = ds.prefetch(buffer_size=AUTOTUNE)
+    return ds
+
+def train_image_dataset():
+    #TODO
+    pass
+
+def valid_image_dataset(lr_dir, hr_dir):
     lr_ds, _ = image_dataset(lr_dir)
     hr_ds, _ = image_dataset(hr_dir)
-    if feature_dir: feature_ds, _ = image_dataset(feature_dir)
 
-    if feature_dir: ds = tf.data.Dataset.zip((lr_ds, hr_ds, feature_ds))
-    else: ds = tf.data.Dataset.zip((lr_ds, hr_ds))
+    ds = tf.data.Dataset.zip((lr_ds, hr_ds))
+    ds = ds.batch(1)
+    ds = ds.repeat(1)
+    ds = ds.prefetch(buffer_size=AUTOTUNE)
+    return ds
+
+def train_feature_dataset():
+    #TODO
+    pass
+
+def valid_feature_dataset(lr_dir, hr_dir, feature_dir):
+    lr_ds, _ = image_dataset(lr_dir)
+    hr_ds, _ = image_dataset(hr_dir)
+    feature_ds, _ = image_dataset(feature_dir)
+
+    ds = tf.data.Dataset.zip((lr_ds, hr_ds, feature_ds))
     ds = ds.batch(1)
     ds = ds.repeat(1)
     ds = ds.prefetch(buffer_size=AUTOTUNE)
@@ -89,7 +124,7 @@ class ImageDataset():
         if load_on_memory: ds = ds.cache()
         #ds = tf.data.Dataset.from_tensor_slices((lr_image_dataset, hr_image_dataset))
         #ds = ds.shuffle(buffer_size=buffer_size)
-        ds = ds.map(lambda lr, hr: _random_crop(lr, hr, patch_size, scale), num_parallel_calls=AUTOTUNE)
+        ds = ds.map(lambda lr, hr: random_crop(lr, hr, patch_size, scale), num_parallel_calls=AUTOTUNE)
         ds = ds.batch(batch_size)
         ds = ds.repeat(repeat_count)
         ds = ds.prefetch(buffer_size=AUTOTUNE)

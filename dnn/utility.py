@@ -40,23 +40,29 @@ class FFmpegOption():
         self.filter_fps = filter_fps
         self.upsample = upsample
 
-    def summary(self):
+    def summary(self, video_name):
         if self.filter_type == 'key':
-            return 'key'
+            return '{}.key'.format(video_name)
         elif self.filter_type == 'uniform':
-            return 'uniform_{0:.2f}'.format(self.filter_fps)
+            return '{}.uniform_{:.2f}'.format(video_name, self.filter_fps)
+        elif self.filter_type == 'none':
+            return video_name
 
     def filter(self):
         if self.filter_type == 'key':
             return '-vf "select=eq(pict_type\,I)" -vsync vfr'
         elif self.filter_type == 'uniform':
             return '-vf fps={}'.format(self.filter_fps)
+        elif self.filter_type == 'none':
+            return ''
 
     def filter_rescale(self, width, height):
         if self.filter_type == 'key':
             return '-vf "select=eq(pict_type\,I)",scale={}:{} -vsync vfr -sws_flags {}'.format(width, height, self.upsample)
         elif self.filter_type == 'uniform':
             return '-vf fps={},scale={}:{} -sws_flags {}'.format(self.filter_fps, width, height, self.upsample)
+        elif self.filter_type == 'none':
+            return '-vf scale={}:{} -sws_flags {}'.format(width, height, self.upsample)
 
 #TODO: filter with a cache profile
 """
@@ -67,12 +73,17 @@ class FFmpegOption():
 link: https://stackoverflow.com/questions/38253406/extract-list-of-specific-frames-using-ffmpeg
 """
 
+# ---------------------------------------
+# Video
+# ---------------------------------------
+
 class VideoMetadata():
     def __init__(self, video_format, start_time, duration):
         self.video_format = video_format
         self.start_time = start_time
         self.duration = duration
 
+    #TODO: add bitrate and vidoe_format
     def summary(self, resolution, is_encoded):
         name = '{}p'.format(resolution)
         if self.start_time is not None:
@@ -82,3 +93,37 @@ class VideoMetadata():
         if is_encoded: name += '_encoded'
         name += '.{}'.format(self.video_format)
         return name
+
+# ---------------------------------------
+# Entropy
+# ---------------------------------------
+
+#TODO
+def measure_entropy(model, dataset, quantization_config):
+    lr_entropy = []
+    feature_entropy = []
+
+    if not os.path.exists(log_path):
+        with open(ent_log_path, 'w') as f:
+            for idx, imgs in enumerate(dataset):
+                now = time.perf_counter()
+                lr = tf.cast(imgs[0], tf.float32)
+                feature = model(lr)
+
+                lr = lr.numpy()
+                feature = feature.numpy()
+
+                lr_gray = rgb2gray(lr)
+                feature_gray= rgb2gray(feature)
+
+                lr_entropy_value = shannon_entropy(lr_gray)
+                feature_entropy_value = shannon_entropy(feature_gray)
+                lr_entropy.append(lr_entropy_value)
+                feature_entorpy.append(feature_entropy_value)
+
+                f.write('{:.2f}\t{:.2f}\n'.format(lr_entropy_value, feature_entropy_value))
+
+                duration = time.perf_counter() - self.now
+                print('lr_entropy={:.2f} feature_entropy={:.2f} ({:.2f}s)'.format(lr_entropy, feature_entropy, duration))
+
+    return lr_entropy, feature_entropy

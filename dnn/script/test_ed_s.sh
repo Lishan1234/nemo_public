@@ -10,5 +10,3 @@ python $DNNDIR/tester_ed_s.py --dataset_dir $DATADIR/game-lol \
                 --enc_num_blocks 8 \
                 --dec_num_filters 8 \
                 --dec_num_blocks 1 \
-                --enable_quantization \
-                --task all
