@@ -31,7 +31,6 @@ class Trainer:
                                                                 max_to_keep=3,
                                                                 checkpoint_name=checkpoint_name)
 
-        #self.restore() #caution: use for testing or finetuning
         self.writer = tf.contrib.summary.create_file_writer(log_dir)
 
     @property
@@ -217,4 +216,4 @@ if __name__ == '__main__':
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
     trainer = EDSRTrainer(model, args.loss_type, checkpoint_dir, log_dir)
-    trainer.train(train_ds, valid_ds)
+    trainer.train(train_ds, valid_ds, steps=100000)
