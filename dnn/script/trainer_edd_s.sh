@@ -10,4 +10,4 @@ python $DNNDIR/trainer_edd_s.py --dataset_dir $DATADIR/game-lol \
                 --dec_sr_num_blocks 1 \
                 --dec_sr_num_filters 8 \
                 --load_on_memory \
-                --loss_type joint
+                --loss_type separate 

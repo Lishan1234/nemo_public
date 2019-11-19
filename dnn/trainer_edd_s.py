@@ -103,24 +103,34 @@ class Trainer:
                 self.now = time.perf_counter()
 
     def train_step(self, lr, hr):
-        with tf.GradientTape() as tape:
-            lr = tf.cast(lr, tf.float32)
-            hr = tf.cast(hr, tf.float32)
+        if self.loss_type == 'separate':
+            with tf.GradientTape(persistent=True) as tape_sr:
+                with tf.GradientTape(persistent=True) as tape_lr:
+                    lr = tf.cast(lr, tf.float32)
+                    hr = tf.cast(hr, tf.float32)
 
-            _, lr_, sr = self.checkpoint.model(lr, training=True)
-            lr_loss_value = self.loss(lr_, lr)
-            sr_loss_value = self.loss(sr, hr)
-            total_loss_value = lr_loss_value + sr_loss_value
+                    _, lr_, sr = self.checkpoint.model(lr, training=True)
+                    lr_loss_value = self.loss(lr_, lr)
+                    sr_loss_value = self.loss(sr, hr)
+                    total_loss_value = lr_loss_value + sr_loss_value
 
-            if self.loss_type == 'separate':
-                lr_gradients = tape.gradient(lr_loss_value, self.checkpoint.model.trainable_variables)
+                lr_gradients = tape_lr.gradient(lr_loss_value, self.checkpoint.model.trainable_variables)
                 self.checkpoint.optimizer.apply_gradients(zip(lr_gradients, self.checkpoint.model.trainable_variables))
-                sr_gradients = tape.gradient(sr_loss_value, self.checkpoint.model.trainable_variables)
-                self.checkpoint.optimizer.apply_gradients(zip(sr_gradients, self.checkpoint.model.trainable_variables))
+            sr_gradients = tape_sr.gradient(sr_loss_value, self.checkpoint.model.trainable_variables)
+            self.checkpoint.optimizer.apply_gradients(zip(sr_gradients, self.checkpoint.model.trainable_variables))
 
-            elif self.loss_type == 'joint':
-                total_gradients = tape.gradient(total_loss_value, self.checkpoint.model.trainable_variables)
-                self.checkpoint.optimizer.apply_gradients(zip(total_gradients, self.checkpoint.model.trainable_variables))
+        elif self.loss_type == 'joint':
+            with tf.GradientTape(persistent=True) as tape:
+                lr = tf.cast(lr, tf.float32)
+                hr = tf.cast(hr, tf.float32)
+
+                _, lr_, sr = self.checkpoint.model(lr, training=True)
+                lr_loss_value = self.loss(lr_, lr)
+                sr_loss_value = self.loss(sr, hr)
+                total_loss_value = lr_loss_value + sr_loss_value
+
+            total_gradients = tape.gradient(total_loss_value, self.checkpoint.model.trainable_variables)
+            self.checkpoint.optimizer.apply_gradients(zip(total_gradients, self.checkpoint.model.trainable_variables))
 
         return lr_loss_value, sr_loss_value, total_loss_value
 
@@ -141,8 +151,7 @@ class EDSRTrainer(Trainer):
                     learning_rate=PiecewiseConstantDecay(boundaries=[200000], values=[1e-4, 5e-5])):
         super().__init__(model, loss=MeanAbsoluteError(), loss_type=loss_type, learning_rate=learning_rate, checkpoint_dir=checkpoint_dir, log_dir=log_dir)
 
-    #def train(self, train_dataset, valid_dataset, steps=300000, evaluate_every=1000, save_best_only=False):
-    def train(self, train_dataset, valid_dataset, steps=300000, evaluate_every=10, save_best_only=False):
+    def train(self, train_dataset, valid_dataset, steps=300000, evaluate_every=1000, save_best_only=False):
         super().train(train_dataset, valid_dataset, steps, evaluate_every, save_best_only)
 
 if __name__ == '__main__':
