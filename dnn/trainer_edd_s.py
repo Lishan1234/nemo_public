@@ -212,7 +212,7 @@ if __name__ == '__main__':
     edsr_ed_s = EDSR_EDD_S(args.enc_num_blocks, args.enc_num_filters, \
                            args.dec_lr_num_blocks, args.dec_lr_num_filters, \
                            args.dec_sr_num_blocks, args.dec_sr_num_filters, \
-                            scale, normalize_config)
+                            scale, normalize_config, args.loss_type)
     model = edsr_ed_s.build_model()
 
     #1. dataset
