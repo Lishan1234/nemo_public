@@ -1,5 +1,10 @@
 #Reference: https://github.com/krasserm/super-resolution/blob/master/model/common.py
 import time
+import shlex
+import subprocess
+import json
+import os
+import math
 
 import tensorflow as tf
 
@@ -93,6 +98,31 @@ class VideoMetadata():
         if is_encoded: name += '_encoded'
         name += '.{}'.format(self.video_format)
         return name
+
+def video_size(video_path):
+    cmd = "ffprobe -v quiet -print_format json -show_streams"
+    args = shlex.split(cmd)
+    args.append(video_path)
+
+    # run the ffprobe process, decode stdout into utf-8 & convert to JSON
+    ffprobeOutput = subprocess.check_output(args).decode('utf-8')
+    ffprobeOutput = json.loads(ffprobeOutput)
+
+    # for example, find height and width
+    height = ffprobeOutput['streams'][0]['height']
+    width = ffprobeOutput['streams'][0]['width']
+
+    return width, height
+
+def upscale_factor(lr_video_path, hr_video_path):
+    assert(os.path.exists(lr_video_path))
+    assert(os.path.exists(hr_video_path))
+
+    _, lr_height = video_size(lr_video_path)
+    _, hr_height = video_size(hr_video_path)
+
+    scale = math.floor(hr_height/lr_height)
+    return scale
 
 # ---------------------------------------
 # Entropy

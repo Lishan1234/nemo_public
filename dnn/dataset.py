@@ -41,7 +41,6 @@ def random_crop(lr_image, hr_image, lr_crop_size, scale):
     return lr_image_cropped, hr_image_cropped
 
 def resize(lr_image, hr_image):
-    #TODO
     pass
 
 def image_dataset(image_dir):
@@ -58,17 +57,27 @@ def single_image_dataset(image_dir):
     ds = ds.prefetch(buffer_size=AUTOTUNE)
     return ds
 
-def train_image_dataset():
-    #TODO
-    pass
+def train_image_dataset(lr_dir, hr_dir, batch_size, patch_size, scale, load_on_memory, repeat_count=None):
+    lr_ds, num_images = image_dataset(lr_dir)
+    hr_ds, num_images = image_dataset(hr_dir)
+    print('number of images: {}'.format(num_images))
 
-def valid_image_dataset(lr_dir, hr_dir):
+    ds = tf.data.Dataset.zip((lr_ds, hr_ds))
+    if load_on_memory: ds = ds.cache()
+    ds = ds.shuffle(buffer_size=num_images)
+    ds = ds.map(lambda lr, hr: random_crop(lr, hr, patch_size, scale), num_parallel_calls=AUTOTUNE)
+    ds = ds.batch(batch_size)
+    ds = ds.repeat(repeat_count)
+    ds = ds.prefetch(buffer_size=AUTOTUNE)
+    return ds
+
+def valid_image_dataset(lr_dir, hr_dir, repeat_count=1):
     lr_ds, _ = image_dataset(lr_dir)
     hr_ds, _ = image_dataset(hr_dir)
 
     ds = tf.data.Dataset.zip((lr_ds, hr_ds))
     ds = ds.batch(1)
-    ds = ds.repeat(1)
+    ds = ds.repeat(repeat_count)
     ds = ds.prefetch(buffer_size=AUTOTUNE)
     return ds
 
