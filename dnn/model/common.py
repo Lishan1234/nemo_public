@@ -96,8 +96,11 @@ class QuantizeConfig():
         self.enc_min = None
         self.enc_max = None
 
-    def load(self, log_path):
+    def load(self, log_dir):
         features = []
+        log_path = os.path.join(log_dir, self.log_name)
+        assert(os.path.exists(log_path))
+
         with open(log_path, 'r') as f:
             lines = f.readlines()
             for line in lines:
@@ -136,7 +139,7 @@ class QuantizeConfig():
                     duration = time.perf_counter() - now
                     print('0%-percentile={:.2f} 100%-percentile={:.2f} ({:.2f}s)'.format(result[0], result[-1], duration))
 
-        self.load(log_path)
+        self.load(log_dir)
 
     @property
     def name(self):

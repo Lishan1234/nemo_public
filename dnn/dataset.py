@@ -76,12 +76,12 @@ def train_feature_dataset():
     #TODO
     pass
 
-def valid_feature_dataset(lr_dir, hr_dir, feature_dir):
+def valid_feature_dataset(lr_dir, feature_dir, hr_dir):
     lr_ds, _ = image_dataset(lr_dir)
-    hr_ds, _ = image_dataset(hr_dir)
     feature_ds, _ = image_dataset(feature_dir)
+    hr_ds, _ = image_dataset(hr_dir)
 
-    ds = tf.data.Dataset.zip((lr_ds, hr_ds, feature_ds))
+    ds = tf.data.Dataset.zip((lr_ds, feature_ds, hr_ds))
     ds = ds.batch(1)
     ds = ds.repeat(1)
     ds = ds.prefetch(buffer_size=AUTOTUNE)

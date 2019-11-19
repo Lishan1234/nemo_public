@@ -111,6 +111,7 @@ class EDSR_ED_S():
 
     def convert_to_h5(self, checkpoint_dir):
         model = self.build_model()
+        print(checkpoint_dir)
         checkpoint = tf.train.Checkpoint(model=model)
         checkpoint_manager = tf.train.CheckpointManager(checkpoint=checkpoint,
                                                         directory=checkpoint_dir, max_to_keep=3)

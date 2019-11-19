@@ -29,7 +29,7 @@ def evaluate(model, dataset):
 
 class FFmpegOption():
     def __init__(self, filter_type, filter_fps, upsample):
-        if filter_type not in ['key', 'uniform']:
+        if filter_type not in ['key', 'uniform', 'none']:
             raise ValueError('filter type is not valid: {}'.format(filter_type))
         if filter_type is 'uniform' and filter_fps is None:
             raise ValueError('filter fps is not set: {}'.format(filter_fps))
