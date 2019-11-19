@@ -79,7 +79,7 @@ class EDSR_ED_S():
         return x
 
     def build_encoder(self):
-        name = '{}_B{}_F{}'.format(self.__class__.__name__, self.enc_num_blocks, self.enc_num_filters)
+        #name = '{}_B{}_F{}'.format(self.__class__.__name__, self.enc_num_blocks, self.enc_num_filters)
         x_in = layers.Input(shape=(None, None, 3))
         if self.normalize_config : x_in = layers.Lambda(self.normalize_config.normalize)(x_in)
         x = self._encoder(x_in, self.enc_num_blocks, self.enc_num_filters)
@@ -88,7 +88,7 @@ class EDSR_ED_S():
         return model
 
     def build_decoder(self):
-        name = '{}_B{}_F{}_S{}'.format(self.__class__.__name__, self.dec_num_blocks, self.dec_num_filters, self.scale)
+        #name = '{}_B{}_F{}_S{}'.format(self.__class__.__name__, self.dec_num_blocks, self.dec_num_filters, self.scale)
         x_in = layers.Input(shape=(None, None, 3))
         x = self._decoder(x_in, self.dec_num_blocks, self.dec_num_filters, self.scale)
         if self.normalize_config : x = layers.Lambda(self.normalize_config.denormalize)(x)
@@ -97,14 +97,14 @@ class EDSR_ED_S():
         return model
 
     def build_model(self):
-        name = '{}_B{},{}_F{},{}_S{}'.format(self.__class__.__name__, self.enc_num_blocks, self.dec_num_blocks, \
-                                            self.enc_num_filters, self.dec_num_filters, self.scale)
+        #name = '{}_B{},{}_F{},{}_S{}'.format(self.__class__.__name__, self.enc_num_blocks, self.dec_num_blocks, \
+        #                                    self.enc_num_filters, self.dec_num_filters, self.scale)
         x_in = layers.Input(shape=(None, None, 3))
         if self.normalize_config : x_in = layers.Lambda(self.normalize_config.normalize)(x_in)
         x_feature = self._encoder(x_in, self.enc_num_blocks, self.enc_num_filters)
         x = self._decoder(x_feature, self.dec_num_blocks, self.dec_num_filters, self.scale)
         if self.normalize_config : x = layers.Lambda(self.normalize_config.denormalize)(x)
-        model = Model(inputs=x_in, outputs=[x_feature, x], name=name)
+        model = Model(inputs=x_in, outputs=[x_feature, x], name=self.name)
         self.enc_conv_idx = 0
         self.dec_conv_idx = 2 * self.enc_num_blocks + 3
         return model

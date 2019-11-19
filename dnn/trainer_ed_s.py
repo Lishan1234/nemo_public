@@ -99,8 +99,7 @@ class EDSRTrainer(Trainer):
                     learning_rate=PiecewiseConstantDecay(boundaries=[200000], values=[1e-4, 5e-5])):
         super().__init__(model, loss=MeanAbsoluteError(), learning_rate=learning_rate, checkpoint_dir=checkpoint_dir, log_dir=log_dir)
 
-    #def train(self, train_dataset, valid_dataset, steps=300000, evaluate_every=1000, save_best_only=False):
-    def train(self, train_dataset, valid_dataset, steps=300000, evaluate_every=1, save_best_only=False):
+    def train(self, train_dataset, valid_dataset, steps=300000, evaluate_every=1000, save_best_only=False):
         super().train(train_dataset, valid_dataset, steps, evaluate_every, save_best_only)
 
 if __name__ == '__main__':

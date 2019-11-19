@@ -20,12 +20,13 @@ class EDSR_S():
         self.scale = scale
         self.normalize_config = normalize_config
 
-    def build_model(self):
         #name
-        name = NETWORK_NAME
-        name += '_B{}'.format(self.num_blocks)
-        name += '_F{}'.format(self.num_filters)
-        name += '_S{}'.format(self.scale)
+        self.name = NETWORK_NAME
+        self.name += '_B{}'.format(self.num_blocks)
+        self.name += '_F{}'.format(self.num_filters)
+        self.name += '_S{}'.format(self.scale)
+
+    def build_model(self):
 
         #model
         x_in = layers.Input(shape=(None, None, 3))
@@ -42,7 +43,7 @@ class EDSR_S():
 
         if self.normalize_config : x = layers.Lambda(self.normalize_config.denormalize)(x)
 
-        model = Model(inputs=x_in, outputs=x, name=name)
+        model = Model(inputs=x_in, outputs=x, name=self.name)
 
         return model
 
