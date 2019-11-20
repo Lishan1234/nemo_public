@@ -50,7 +50,7 @@ class Tester:
         lr_entropy_values, feature_entropy_values = measure_entropy(self.encoder, lr_image_ds, self.qnt_config)
         entropy_log_path = os.path.join(self.log_dir, 'entropy.txt')
         with open(entropy_log_path, 'w') as f:
-            for entropy_values in list(zip(feature_entropy_values, lr_entropy_values)):
+            for entropy_values in list(zip(lr_entropy_values, feature_entropy_values)):
                 f.write('{:.2f}\t{:.2f}\n'.format(entropy_values[0], entropy_values[1]))
 
         #quality
@@ -112,8 +112,8 @@ class Tester:
 
         quality_log_path = os.path.join(self.log_dir, 'quality.txt')
         with open(quality_log_path, 'w') as f:
-            for psnr_values in list(zip(sr_psnr_values, bilinear_psnr_values)):
-                f.write('{:.2f}\t{:.2f}\n'.format(psnr_values[0], psnr_values[1]))
+            for psnr_values in list(zip(sr_psnr_values, sr_qnt_psnr_values, bilinear_psnr_values)):
+                f.write('{:.2f}\t{:.2f}\t{:.2f}\n'.format(psnr_values[0], psnr_values[1], psnr_values[2]))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -140,6 +140,7 @@ if __name__ == '__main__':
 
     #log
     parser.add_argument('--custom_tag', type=str, default=None)
+    parser.add_argument('--save_image', action='store_ture')
 
     args = parser.parse_args()
 
@@ -174,4 +175,4 @@ if __name__ == '__main__':
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
     tester = Tester(edsr_ed_s, args.quantization_policy, checkpoint_dir, log_dir, image_dir)
-    tester.test(lr_image_dir, hr_image_dir, False)
+    tester.test(lr_image_dir, hr_image_dir, args.save_image)

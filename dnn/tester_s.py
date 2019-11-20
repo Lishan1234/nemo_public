@@ -1,6 +1,7 @@
 from importlib import import_module
 import time
 import os
+import argparse
 
 import numpy as np
 import tensorflow as tf
@@ -9,7 +10,11 @@ from tensorflow.keras.metrics import Mean
 from tensorflow.keras.losses import MeanAbsoluteError
 from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 
-from utility import resolve, resolve_bilinear
+from dataset import valid_image_dataset, single_image_dataset, setup_images
+from model.edsr_s import EDSR_S
+from utility import resolve, resolve_bilinear, VideoMetadata, FFmpegOption, upscale_factor, measure_entropy
+
+tf.enable_eager_execution()
 
 class Tester:
     def __init__(self, model, checkpoint_dir, log_dir, image_dir):
@@ -99,6 +104,7 @@ if __name__ == '__main__':
 
     #log
     parser.add_argument('--custom_tag', type=str, default=None)
+    parser.add_argument('--save_image', action='store_true')
 
     args = parser.parse_args()
 
@@ -127,7 +133,6 @@ if __name__ == '__main__':
     model = edsr_s.build_model()
 
     #1. dataset
-    train_ds = train_image_dataset(lr_image_dir, hr_image_dir, args.batch_size, args.patch_size, scale, args.load_on_memory)
     valid_ds = valid_image_dataset(lr_image_dir, hr_image_dir)
 
     #2. create a trainer
@@ -138,4 +143,4 @@ if __name__ == '__main__':
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(image_dir, exist_ok=True)
     tester = Tester(model, checkpoint_dir, log_dir, image_dir)
-    tester.test(valid_ds, False)
+    tester.test(valid_ds, args.save_image)
