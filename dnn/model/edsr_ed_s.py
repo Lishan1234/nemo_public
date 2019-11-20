@@ -83,7 +83,7 @@ class EDSR_ED_S():
         x_in = layers.Input(shape=(None, None, 3))
         if self.normalize_config : x_in = layers.Lambda(self.normalize_config.normalize)(x_in)
         x = self._encoder(x_in, self.enc_num_blocks, self.enc_num_filters)
-        model = Model(inputs=x_in, outputs=x, name=name)
+        model = Model(inputs=x_in, outputs=x, name=self.name)
         self.enc_conv_idx = 0
         return model
 

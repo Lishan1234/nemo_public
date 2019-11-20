@@ -6,7 +6,12 @@ import json
 import os
 import math
 
+import numpy as np
+from skimage.color import rgb2gray
+from skimage.measure import shannon_entropy
 import tensorflow as tf
+
+from model.common import quantize
 
 def resolve(model, lr_batch):
     lr_batch = tf.cast(lr_batch, tf.float32)
@@ -129,31 +134,32 @@ def upscale_factor(lr_video_path, hr_video_path):
 # ---------------------------------------
 
 #TODO
-def measure_entropy(model, dataset, quantization_config):
-    lr_entropy = []
-    feature_entropy = []
+def measure_entropy(model, dataset, qnt_config):
+    lr_entropy_values = []
+    feature_entropy_values = []
 
-    if not os.path.exists(log_path):
-        with open(ent_log_path, 'w') as f:
-            for idx, imgs in enumerate(dataset):
-                now = time.perf_counter()
-                lr = tf.cast(imgs[0], tf.float32)
-                feature = model(lr)
+    for idx, img in enumerate(dataset):
+        now = time.perf_counter()
+        lr = tf.cast(img, tf.float32)
+        feature = model(lr)
+        feature = quantize(feature, qnt_config.enc_min, qnt_config.enc_max)
 
-                lr = lr.numpy()
-                feature = feature.numpy()
+        lr = tf.cast(img, tf.uint8)
+        feature = tf.cast(feature, tf.uint8)
+        lr = lr.numpy()
+        feature = feature.numpy()
 
-                lr_gray = rgb2gray(lr)
-                feature_gray= rgb2gray(feature)
+        lr_gray = rgb2gray(lr)
+        feature_gray= rgb2gray(feature)
 
-                lr_entropy_value = shannon_entropy(lr_gray)
-                feature_entropy_value = shannon_entropy(feature_gray)
-                lr_entropy.append(lr_entropy_value)
-                feature_entorpy.append(feature_entropy_value)
+        lr_entropy_value = shannon_entropy(lr_gray)
+        feature_entropy_value = shannon_entropy(feature_gray)
 
-                f.write('{:.2f}\t{:.2f}\n'.format(lr_entropy_value, feature_entropy_value))
+        lr_entropy_values.append(lr_entropy_value)
+        feature_entropy_values.append(feature_entropy_value)
 
-                duration = time.perf_counter() - self.now
-                print('lr_entropy={:.2f} feature_entropy={:.2f} ({:.2f}s)'.format(lr_entropy, feature_entropy, duration))
+        duration = time.perf_counter() - now
+        print('lr_entropy={:.2f} feature_entropy={:.2f} ({:.2f}s)'.format(lr_entropy_value, feature_entropy_value, duration))
+    print('summary: lr_entropy={:.2f} feature_entropy={:.2f} ({:.2f}s)'.format(np.average(lr_entropy_value), np.average(feature_entropy_value), duration))
 
-    return lr_entropy, feature_entropy
+    return lr_entropy_values, feature_entropy_values

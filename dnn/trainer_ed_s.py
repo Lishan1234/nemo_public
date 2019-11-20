@@ -23,7 +23,7 @@ class Trainer:
                                                 optimizer=Adam(learning_rate),
                                                 model=model)
         self.checkpoint_manager = tf.train.CheckpointManager(checkpoint=self.checkpoint,
-                                                                directory=checkpoint_dir,
+s                                                                directory=checkpoint_dir,
                                                                 max_to_keep=3)
         self.writer = tf.contrib.summary.create_file_writer(log_dir)
 

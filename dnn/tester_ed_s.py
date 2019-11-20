@@ -1,4 +1,3 @@
-from importlib import import_module
 import time
 import os
 import sys
@@ -6,8 +5,6 @@ import argparse
 import math
 
 import numpy as np
-from skimage.color import rgb2gray
-from skimage.measure import shannon_entropy
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.metrics import Mean
@@ -17,53 +14,47 @@ from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 from model.common import NormalizeConfig, QuantizeConfig, quantize, dequantize
 from model.edsr_ed_s import EDSR_ED_S
 from dataset import valid_image_dataset, single_image_dataset, setup_images
-from utility import resolve, resolve_bilinear, VideoMetadata, FFmpegOption
+from utility import resolve, resolve_bilinear, VideoMetadata, FFmpegOption, upscale_factor, measure_entropy
 
-import tensorflow as tf
 tf.enable_eager_execution()
 
 class Tester:
-    decode_log_name = 'quality.txt'
-    quantization_subdir = 'quantization'
-    decode_subdir = 'decode'
-    encode_subdir = 'encode'
-
-    def __init__(self, edsr_ed_s, quantize_config, checkpoint_dir, log_dir, lr_image_dir, hr_image_dir):
-        self.edsr_ed_s = edsr_ed_s
+    def __init__(self, edsr_ed_s, quantization_policy, checkpoint_dir, log_dir, image_dir):
         self.lr_image_dir = lr_image_dir
         self.hr_image_dir = hr_image_dir
-        self.checkpoint_dir = os.path.join(checkpoint_dir, self.edsr_ed_s.name)
-        self.log_dir = os.path.join(log_dir, self.edsr_ed_s.name)
+        self.checkpoint_dir = checkpoint_dir
+        self.log_dir = log_dir
+        self.image_dir = image_dir
 
-        self.encoder = edsr_ed_s.load_encoder(self.checkpoint_dir)
-        self.decoder = edsr_ed_s.load_decoder(self.checkpoint_dir)
-        self.encode_image_dir = os.path.join(lr_image_dir, self.encode_subdir)
-        self.decode_image_dir = os.path.join(lr_image_dir, self.decode_subdir)
-        self.qnt_image_dir = os.path.join(lr_image_dir, self.quantization_subdir)
-        self.qnt_config = quantize_config
+        self.encode_image_dir = os.path.join(self.image_dir, 'encode')
+        self.decode_image_dir = os.path.join(self.image_dir, 'decode')
+        self.qnt_image_dir = os.path.join(self.image_dir, 'quantization')
+        self.qnt_config = QuantizeConfig(quantization_policy)
 
         os.makedirs(self.log_dir, exist_ok=True)
         os.makedirs(self.qnt_image_dir, exist_ok=True)
         os.makedirs(self.decode_image_dir, exist_ok=True)
         os.makedirs(self.encode_image_dir, exist_ok=True)
 
-    def test(self, save_image=False):
+        self.encoder = edsr_ed_s.load_encoder(self.checkpoint_dir)
+        self.decoder = edsr_ed_s.load_decoder(self.checkpoint_dir)
+
+    def test(self, lr_image_dir, hr_image_dir, save_image=False):
         #quantization
-        lr_image_ds = single_image_dataset(self.lr_image_dir)
+        lr_image_ds = single_image_dataset(lr_image_dir)
         self.qnt_config.set(self.encoder, lr_image_ds, self.checkpoint_dir, self.qnt_image_dir)
         print('quantization: min({:.2f}) max({:.2f})'.format(self.qnt_config.enc_min, self.qnt_config.enc_max))
 
         #entropy
-        #TODO: validate entropy values
-        """
-        lr_entropy, feature_entropy = measure_entropy(self.encoder. lr_image_ds, qnt_config)
-        print('lr_entropy: {}, feature_entropy: {}'.format(np.round(np.average(lr_entropy), 2), \
-                                                            np.round(np.average(feature_entropy), 2)))
-        """
+        lr_image_ds = single_image_dataset(lr_image_dir)
+        lr_entropy_values, feature_entropy_values = measure_entropy(self.encoder, lr_image_ds, self.qnt_config)
+        entropy_log_path = os.path.join(self.log_dir, 'entropy.txt')
+        with open(entropy_log_path, 'w') as f:
+            for entropy_values in list(zip(feature_entropy_values, lr_entropy_values)):
+                f.write('{:.2f}\t{:.2f}\n'.format(entropy_values[0], entropy_values[1]))
 
         #quality
-        #TODO: log on file
-        valid_image_ds = valid_image_dataset(self.lr_image_dir, self.hr_image_dir)
+        valid_image_ds = valid_image_dataset(lr_image_dir, hr_image_dir)
         sr_psnr_values = []
         sr_qnt_psnr_values = []
         bilinear_psnr_values = []
@@ -79,8 +70,8 @@ class Tester:
                 width = hr_shape[1].numpy()
 
             feature = self.encoder(lr)
-            feature_qnt = quantize(feature, qnt_config.enc_min, qnt_config.enc_max)
-            feature_qnt = dequantize(feature_qnt, qnt_config.enc_min, qnt_config.enc_max)
+            feature_qnt = quantize(feature, self.qnt_config.enc_min, self.qnt_config.enc_max)
+            feature_qnt = dequantize(feature_qnt, self.qnt_config.enc_min, self.qnt_config.enc_max)
 
             sr = self.decoder(feature)
             sr_qnt = self.decoder(feature_qnt)
@@ -97,7 +88,7 @@ class Tester:
             sr_qnt = tf.round(sr_qnt)
             sr_qnt = tf.cast(sr_qnt, tf.uint8)
             sr_qnt_psnr_value = tf.image.psnr(hr, sr_qnt, max_val=255)[0].numpy()
-            sr_qnt_psnr_values.append(sr_psnr_value)
+            sr_qnt_psnr_values.append(sr_qnt_psnr_value)
 
             #measure bilinear quality
             lr = tf.cast(lr, tf.float32)
@@ -119,28 +110,25 @@ class Tester:
         print(f'Summary: PSNR(SR) = {np.average(sr_psnr_values):.3f}, PNSE(SR-Q) = {np.average(sr_qnt_psnr_values):.3f}, \
             PSNR(Bilinear) = {np.average(bilinear_psnr_values):3f}')
 
+        quality_log_path = os.path.join(self.log_dir, 'quality.txt')
+        with open(quality_log_path, 'w') as f:
+            for psnr_values in list(zip(sr_psnr_values, bilinear_psnr_values)):
+                f.write('{:.2f}\t{:.2f}\n'.format(psnr_values[0], psnr_values[1]))
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     #directory, path
     parser.add_argument('--dataset_dir', type=str, required=True)
+    parser.add_argument('--lr_video_name', type=str, required=True)
+    parser.add_argument('--hr_video_name', type=str, required=True)
     parser.add_argument('--ffmpeg_path', type=str, required=True)
     parser.add_argument('--ffprobe_path', type=str, default='usr/bin/ffprobe')
 
     #video metadata
-    parser.add_argument('--video_format', type=str, default='webm')
-    parser.add_argument('--start_time', type=int, default=None)
-    parser.add_argument('--duration', type=int, default=None)
-    parser.add_argument('--filter_type', type=str, default='uniform')
+    parser.add_argument('--filter_type', type=str, choices=['uniform', 'keyframes',], default='uniform')
     parser.add_argument('--filter_fps', type=float, default=1.0)
     parser.add_argument('--upsample', type=str, default='bilinear')
-
-    #dataset
-    parser.add_argument('--input_resolution', type=int, required=True)
-    parser.add_argument('--target_resolution', type=int, required=True)
-    parser.add_argument('--batch_size', type=int, default=64)
-    parser.add_argument('--patch_size', type=int, default=64)
-    parser.add_argument('--load_on_memory', action='store_true')
 
     #architecture
     parser.add_argument('--enc_num_filters', type=int, required=True)
@@ -148,37 +136,27 @@ if __name__ == '__main__':
     parser.add_argument('--dec_num_filters', type=int, required=True)
     parser.add_argument('--dec_num_blocks', type=int, required=True)
     parser.add_argument('--enable_normalization', action='store_true')
-    parser.add_argument('--quantization_policy', type=str, default='min_max_0')
+    parser.add_argument('--quantization_policy', type=str, required=True)
 
     #log
-    parser.add_argument('--save_image', action='store_true')
     parser.add_argument('--custom_tag', type=str, default=None)
 
     args = parser.parse_args()
 
-    #setting
-    video_metadata = VideoMetadata(args.video_format, args.start_time, args.duration)
-    ffmpeg_option = FFmpegOption(args.filter_type, args.filter_fps, args.upsample)
-    lr_video_name = video_metadata.summary(args.input_resolution, True)
-    hr_video_name = video_metadata.summary(args.target_resolution, False)
-    lr_video_path = os.path.join(args.dataset_dir, 'video', lr_video_name)
-    hr_video_path = os.path.join(args.dataset_dir, 'video', hr_video_name)
+    #0. setting
+    lr_video_path = os.path.join(args.dataset_dir, 'video', args.lr_video_name)
+    hr_video_path = os.path.join(args.dataset_dir, 'video', args.hr_video_name)
     assert(os.path.exists(lr_video_path))
     assert(os.path.exists(hr_video_path))
 
-    lr_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(lr_video_name))
-    hr_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(hr_video_name))
-    log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option.summary(lr_video_name))
-    os.makedirs(log_dir, exist_ok=True)
-
+    ffmpeg_option = FFmpegOption(args.filter_type, args.filter_fps, args.upsample)
+    lr_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(args.lr_video_name))
+    hr_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(args.hr_video_name))
     setup_images(lr_video_path, lr_image_dir, args.ffmpeg_path, ffmpeg_option.filter())
     setup_images(hr_video_path, hr_image_dir, args.ffmpeg_path, ffmpeg_option.filter())
 
-    #dnn
-    checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option.summary(lr_video_name))
-    os.makedirs(checkpoint_dir, exist_ok=True)
-    scale = math.floor(args.target_resolution / args.input_resolution)
-    print(scale)
+    #1. dnn
+    scale = upscale_factor(lr_video_path, hr_video_path)
     if args.enable_normalization:
         #TODO: rgb mean
         #normalize_config = NormalizeConfig('normalize', 'denormalize', rgb_mean)
@@ -189,7 +167,11 @@ if __name__ == '__main__':
                            args.dec_num_blocks, args.dec_num_filters, \
                             scale, normalize_config)
 
-    #test
-    qnt_config = QuantizeConfig(args.quantization_policy)
-    tester = Tester(edsr_ed_s, qnt_config, checkpoint_dir, log_dir, lr_image_dir, hr_image_dir)
-    tester.test()
+    #2. create a trainer
+    checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option.summary(args.lr_video_name), edsr_ed_s.name)
+    log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option.summary(args.lr_video_name), edsr_ed_s.name)
+    image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(args.lr_video_name), edsr_ed_s.name)
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    os.makedirs(log_dir, exist_ok=True)
+    tester = Tester(edsr_ed_s, args.quantization_policy, checkpoint_dir, log_dir, image_dir)
+    tester.test(lr_image_dir, hr_image_dir, False)
