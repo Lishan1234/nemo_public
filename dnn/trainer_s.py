@@ -113,7 +113,7 @@ if __name__ == '__main__':
     parser.add_argument('--ffprobe_path', type=str, default='usr/bin/ffprobe')
 
     #video metadata
-    parser.add_argument('--filter_type', type=str, choices=['uniform', 'keyframes',], default='uniform')
+    parser.add_argument('--filter_type', type=str, default='uniform')
     parser.add_argument('--filter_fps', type=float, default=1.0)
     parser.add_argument('--upsample', type=str, default='bilinear')
 

@@ -61,7 +61,7 @@ class Tester:
             if save_image:
                 #save sr images
                 sr_image = tf.image.encode_png(tf.squeeze(sr))
-                tf.io.write_file(os.path.join(self.image_dir, '{0:04d}.png'.format(idx)), sr_image)
+                tf.io.write_file(os.path.join(self.image_dir, '{0:04d}.png'.format(idx+1)), sr_image)
 
             duration = time.perf_counter() - self.now
             print(f'PSNR(SR) = {sr_psnr_value:.3f}, PSNR(Bilinear) = {bilinear_psnr_value:3f} ({duration:.2f}s)')
@@ -88,7 +88,7 @@ if __name__ == '__main__':
     parser.add_argument('--ffprobe_path', type=str, default='usr/bin/ffprobe')
 
     #video metadata
-    parser.add_argument('--filter_type', type=str, choices=['uniform', 'keyframes',], default='uniform')
+    parser.add_argument('--filter_type', type=str, default='uniform')
     parser.add_argument('--filter_fps', type=float, default=1.0)
     parser.add_argument('--upsample', type=str, default='bilinear')
 

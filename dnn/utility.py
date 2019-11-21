@@ -43,8 +43,8 @@ class FFmpegOption():
             raise ValueError('filter type is not valid: {}'.format(filter_type))
         if filter_type is 'uniform' and filter_fps is None:
             raise ValueError('filter fps is not set: {}'.format(filter_fps))
-        if upsample not in ['bilinear']:
-            raise ValueError('upsample is not valid: {}'.format(upsample))
+        #if upsample not in ['bilinear']:
+        #    raise ValueError('upsample is not valid: {}'.format(upsample))
 
         self.filter_type = filter_type
         self.filter_fps = filter_fps
@@ -118,6 +118,21 @@ def video_size(video_path):
     width = ffprobeOutput['streams'][0]['width']
 
     return width, height
+
+def video_fps(video_path):
+    cmd = "ffprobe -v quiet -print_format json -show_streams"
+    args = shlex.split(cmd)
+    args.append(video_path)
+
+    # run the ffprobe process, decode stdout into utf-8 & convert to JSON
+    ffprobeOutput = subprocess.check_output(args).decode('utf-8')
+    ffprobeOutput = json.loads(ffprobeOutput)
+
+    # for example, find height and width
+    info = ffprobeOutput['streams'][0]['avg_frame_rate']
+    frame_rate = float(info.split('/')[0]) / float(info.split('/')[1])
+
+    return frame_rate
 
 def upscale_factor(lr_video_path, hr_video_path):
     assert(os.path.exists(lr_video_path))
