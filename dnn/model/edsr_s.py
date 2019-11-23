@@ -27,7 +27,6 @@ class EDSR_S():
         self.name += '_S{}'.format(self.scale)
 
     def build_model(self):
-
         #model
         x_in = layers.Input(shape=(None, None, 3))
         if self.normalize_config : x = layers.Lambda(self.normalize_config.normalize)(x_in)
@@ -46,6 +45,18 @@ class EDSR_S():
         model = Model(inputs=x_in, outputs=x, name=self.name)
 
         return model
+
+    def load_checkpoint(self, checkpoint_dir):
+        model = self.build_model()
+        checkpoint = tf.train.Checkpoint(model=model)
+        checkpoint_manager = tf.train.CheckpointManager(checkpoint=checkpoint,
+                                                        directory=checkpoint_dir, max_to_keep=3)
+        checkpoint_path = checkpoint_manager.latest_checkpoint
+        print('checkpoint: {}'.format(checkpoint_path))
+        assert(checkpoint_path is not None)
+        checkpoint.restore(checkpoint_path)
+
+        return checkpoint
 
 if __name__ == '__main__':
     tf.enable_eager_execution()

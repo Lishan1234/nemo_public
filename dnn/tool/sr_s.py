@@ -12,45 +12,37 @@ from tensorflow.keras.losses import MeanAbsoluteError
 from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 
 from model.common import NormalizeConfig, QuantizeConfig, quantize, dequantize
-from model.edsr_ed_s import EDSR_ED_S
-from dataset import valid_feature_dataset, single_image_dataset, setup_images
+from model.edsr_s import EDSR_S
+from dataset import valid_image_dataset, single_image_dataset, setup_images
 from utility import resolve, resolve_bilinear, VideoMetadata, FFmpegOption, upscale_factor, measure_entropy, video_fps
 
 tf.enable_eager_execution()
 
 class Tester:
-    def __init__(self, edsr_ed_s, quantization_policy, checkpoint_dir, log_dir, image_dir, video_dir):
+    def __init__(self, edsr_s, checkpoint_dir, log_dir, image_dir, video_dir):
         self.checkpoint_dir = checkpoint_dir
         self.log_dir = log_dir
         self.image_dir = image_dir
         self.video_dir = video_dir
-
         self.decode_image_dir = os.path.join(self.image_dir, 'decode')
-        self.qnt_config = QuantizeConfig(quantization_policy)
 
         os.makedirs(self.log_dir, exist_ok=True)
         os.makedirs(self.decode_image_dir, exist_ok=True)
         os.makedirs(self.video_dir, exist_ok=True)
 
-        print(self.checkpoint_dir)
-        self.decoder = edsr_ed_s.load_decoder(self.checkpoint_dir)
+        self.checkpoint = edsr_s.load_checkpoint(self.checkpoint_dir)
 
-    def test(self, lr_image_dir, feature_image_dir, hr_image_dir, ffmpeg_path, output_video_name, fps, num_threads=4):
-        assert(self.decoder is not None)
-
-        #quantization
-        self.qnt_config.load(self.checkpoint_dir)
+    def test(self, lr_image_dir, hr_image_dir, ffmpeg_path, output_video_name, fps, num_threads=4):
+        assert(self.checkpoint is not None)
 
         #quality
-        valid_feature_ds = valid_feature_dataset(lr_image_dir, feature_image_dir, hr_image_dir)
+        valid_image_ds = valid_image_dataset(lr_image_dir, hr_image_dir)
         sr_psnr_values = []
         bilinear_psnr_values = []
-        for idx, imgs in enumerate(valid_feature_ds):
+        for idx, imgs in enumerate(valid_image_ds):
             now = time.perf_counter()
-
             lr = imgs[0]
-            feature_qnt = tf.cast(imgs[1], tf.float32)
-            hr = imgs[2]
+            hr = imgs[1]
 
             #measure height, width
             if idx == 0:
@@ -58,8 +50,8 @@ class Tester:
                 height = hr_shape[0].numpy()
                 width = hr_shape[1].numpy()
 
-            feature = dequantize(feature_qnt, self.qnt_config.enc_min, self.qnt_config.enc_max)
-            sr = self.decoder(feature)
+            lr = tf.cast(lr, tf.float32)
+            sr = self.checkpoint.model(lr)
 
             #measure sr quality
             sr = tf.clip_by_value(sr, 0, 255)
@@ -69,7 +61,6 @@ class Tester:
             sr_psnr_values.append(sr_psnr_value)
 
             #measure bilinear quality
-            lr = tf.cast(lr, tf.float32)
             bilinear = resolve_bilinear(lr, height, width)
             bilinear = tf.cast(bilinear, tf.uint8)
             bilinear_psnr_value = tf.image.psnr(hr, bilinear, max_val=255)[0].numpy()
@@ -100,7 +91,6 @@ if __name__ == '__main__':
     #directory, path
     parser.add_argument('--dataset_dir', type=str, required=True)
     parser.add_argument('--lr_video_name', type=str, required=True)
-    parser.add_argument('--feature_video_name', type=str, required=True)
     parser.add_argument('--hr_video_name', type=str, required=True)
     parser.add_argument('--ffmpeg_path', type=str, required=True)
     parser.add_argument('--ffprobe_path', type=str, default='usr/bin/ffprobe')
@@ -111,15 +101,9 @@ if __name__ == '__main__':
     parser.add_argument('--upsample', type=str, default='bilinear')
 
     #architecture
-    parser.add_argument('--enc_num_filters', type=int, required=True)
-    parser.add_argument('--enc_num_blocks', type=int, required=True)
-    parser.add_argument('--dec_num_filters', type=int, required=True)
-    parser.add_argument('--dec_num_blocks', type=int, required=True)
+    parser.add_argument('--num_filters', type=int, required=True)
+    parser.add_argument('--num_blocks', type=int, required=True)
     parser.add_argument('--enable_normalization', action='store_true')
-    parser.add_argument('--quantization_policy', type=str, required=True)
-
-    #log
-    parser.add_argument('--custom_tag', type=str, default=None)
 
     args = parser.parse_args()
 
@@ -143,35 +127,21 @@ if __name__ == '__main__':
         pass
     else:
         normalize_config = None
-    edsr_ed_s = EDSR_ED_S(args.enc_num_blocks, args.enc_num_filters, \
-                           args.dec_num_blocks, args.dec_num_filters, \
+    edsr_s = EDSR_S(args.num_blocks, args.num_filters, \
                             scale, normalize_config)
-
-    #setting (feature)
-    feature_video_path = os.path.join(args.dataset_dir, 'video', edsr_ed_s.name, args.feature_video_name)
-    assert(os.path.exists(feature_video_path))
-    feature_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.feature_video_name))
-    setup_images(feature_video_path, feature_image_dir, args.ffmpeg_path, ffmpeg_option_0.filter())
 
     #tester
     ffmpeg_option_1 = FFmpegOption(args.filter_type, args.filter_fps, args.upsample) #for a test video
-    lr_checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option_1.summary(args.lr_video_name), edsr_ed_s.name)
-    feature_checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option_1.summary(args.feature_video_name), edsr_ed_s.name)
-    if os.path.exists(feature_checkpoint_dir):
-        checkpoint_dir  = feature_checkpoint_dir
-        log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option_0.summary(args.feature_video_name), edsr_ed_s.name)
-        image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.feature_video_name), edsr_ed_s.name)
-    else:
-        checkpoint_dir = lr_checkpoint_dir
-        log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option_0.summary(args.lr_video_name), edsr_ed_s.name)
-        image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.lr_video_name), edsr_ed_s.name)
-    video_dir = os.path.join(args.dataset_dir, 'video', edsr_ed_s.name)
+    checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option_1.summary(args.lr_video_name), edsr_s.name)
+    log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option_0.summary(args.lr_video_name), edsr_s.name)
+    image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.lr_video_name), edsr_s.name)
+    video_dir = os.path.join(args.dataset_dir, 'video', edsr_s.name)
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
 
-    assert('encoder' in args.feature_video_name)
-    new_video = args.feature_video_name.replace('encoder', 'decoder')
-    fps = video_fps(feature_video_path)
+    video_name, video_format = os.path.splitext(args.lr_video_name)
+    new_video = '{}_sr{}'.format(video_name, video_format)
+    fps = video_fps(lr_video_path)
 
-    tester = Tester(edsr_ed_s, args.quantization_policy, checkpoint_dir, log_dir, image_dir, video_dir)
-    tester.test(lr_image_dir, feature_image_dir, hr_image_dir, args.ffmpeg_path, new_video, fps)
+    tester = Tester(edsr_s, checkpoint_dir, log_dir, image_dir, video_dir)
+    tester.test(lr_image_dir, hr_image_dir, args.ffmpeg_path, new_video, fps)

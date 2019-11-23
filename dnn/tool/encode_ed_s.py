@@ -20,7 +20,6 @@ tf.enable_eager_execution()
 
 class Tester:
     def __init__(self, edsr_ed_s, quantization_policy, checkpoint_dir, log_dir, image_dir, video_dir):
-        self.lr_image_dir = lr_image_dir
         self.checkpoint_dir = checkpoint_dir
         self.log_dir = log_dir
         self.image_dir = image_dir
@@ -38,8 +37,7 @@ class Tester:
 
     def test(self, lr_image_dir, ffmpeg_path, output_video_name, fps, num_threads=4):
         #quantization
-        lr_image_ds = single_image_dataset(lr_image_dir)
-        self.qnt_config.set(self.encoder, lr_image_ds, self.checkpoint_dir, None)
+        self.qnt_config.load(self.checkpoint_dir)
 
         #quality
         lr_image_ds = single_image_dataset(lr_image_dir)
@@ -95,7 +93,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    #0. setting
+    #setting
     lr_video_path = os.path.join(args.dataset_dir, 'video', args.lr_video_name)
     hr_video_path = os.path.join(args.dataset_dir, 'video', args.hr_video_name)
     assert(os.path.exists(lr_video_path))
@@ -105,7 +103,7 @@ if __name__ == '__main__':
     lr_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.lr_video_name))
     setup_images(lr_video_path, lr_image_dir, args.ffmpeg_path, ffmpeg_option_0.filter())
 
-    #1. dnn
+    #dnn
     scale = upscale_factor(lr_video_path, hr_video_path)
     if args.enable_normalization:
         #TODO: rgb mean
@@ -117,7 +115,7 @@ if __name__ == '__main__':
                            args.dec_num_blocks, args.dec_num_filters, \
                             scale, normalize_config)
 
-    #2. create a trainer
+    #tester
     ffmpeg_option_1 = FFmpegOption(args.filter_type, args.filter_fps, args.upsample) #for a test video
     checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option_1.summary(args.lr_video_name), edsr_ed_s.name)
     log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option_0.summary(args.lr_video_name), edsr_ed_s.name)
