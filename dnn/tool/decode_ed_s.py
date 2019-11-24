@@ -102,6 +102,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr_video_name', type=str, required=True)
     parser.add_argument('--feature_video_name', type=str, required=True)
     parser.add_argument('--hr_video_name', type=str, required=True)
+    parser.add_argument('--train_video_name', type=str, required=True)
     parser.add_argument('--ffmpeg_path', type=str, required=True)
     parser.add_argument('--ffprobe_path', type=str, default='usr/bin/ffprobe')
 
@@ -123,11 +124,15 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    #setting (lr, hr)
+    assert('encoder' in args.feature_video_name)
+
+    #setting (lr, hr, train)
     lr_video_path = os.path.join(args.dataset_dir, 'video', args.lr_video_name)
     hr_video_path = os.path.join(args.dataset_dir, 'video', args.hr_video_name)
+    train_video_path = os.path.join(args.dataset_dir, 'video', args.train_video_name)
     assert(os.path.exists(lr_video_path))
     assert(os.path.exists(hr_video_path))
+    assert(os.path.exists(train_video_path))
 
     ffmpeg_option_0 = FFmpegOption('none', None, None) #for a pretrained DNN
     lr_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.lr_video_name))
@@ -155,23 +160,22 @@ if __name__ == '__main__':
 
     #tester
     ffmpeg_option_1 = FFmpegOption(args.filter_type, args.filter_fps, args.upsample) #for a test video
-    lr_checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option_1.summary(args.lr_video_name), edsr_ed_s.name)
-    feature_checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option_1.summary(args.feature_video_name), edsr_ed_s.name)
-    if os.path.exists(feature_checkpoint_dir):
-        checkpoint_dir  = feature_checkpoint_dir
+    checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option_1.summary(args.train_video_name), edsr_ed_s.name)
+    video_dir = os.path.join(args.dataset_dir, 'video', edsr_ed_s.name)
+    video_name, video_format = os.path.splitext(args.feature_video_name)
+    video_name = video_name.replace('encoder', 'decoder')
+    fps = video_fps(lr_video_path)
+
+    if args.train_video_name == args.lr_video_name:
+        log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option_0.summary(args.feature_video_name), edsr_ed_s.name, \
+                                ffmpeg_option_1.summary(args.lr_video_name))
+        image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.feature_video_name), edsr_ed_s.name, \
+                                ffmpeg_option_1.summary(args.lr_video_name))
+        new_video = '{}_pretrained{}'.format(video_name, video_format)
+    else:
         log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option_0.summary(args.feature_video_name), edsr_ed_s.name)
         image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.feature_video_name), edsr_ed_s.name)
-    else:
-        checkpoint_dir = lr_checkpoint_dir
-        log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option_0.summary(args.lr_video_name), edsr_ed_s.name)
-        image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.lr_video_name), edsr_ed_s.name)
-    video_dir = os.path.join(args.dataset_dir, 'video', edsr_ed_s.name)
-    os.makedirs(checkpoint_dir, exist_ok=True)
-    os.makedirs(log_dir, exist_ok=True)
-
-    assert('encoder' in args.feature_video_name)
-    new_video = args.feature_video_name.replace('encoder', 'decoder')
-    fps = video_fps(feature_video_path)
+        new_video = '{}{}'.format(video_name, video_format)
 
     tester = Tester(edsr_ed_s, args.quantization_policy, checkpoint_dir, log_dir, image_dir, video_dir)
     tester.test(lr_image_dir, feature_image_dir, hr_image_dir, args.ffmpeg_path, new_video, fps)
