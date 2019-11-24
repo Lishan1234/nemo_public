@@ -128,7 +128,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    assert('encoder' in args.feature_video_name)
+    assert('encode' in args.feature_video_name)
 
     #setting (lr, hr, train)
     lr_video_path = os.path.join(args.dataset_dir, 'video', args.lr_video_name)
@@ -158,26 +158,20 @@ if __name__ == '__main__':
 
     #setting (feature)
     ffmpeg_option_1 = FFmpegOption(args.filter_type, args.filter_fps, args.upsample) #for a test video
-    feature_video_path = os.path.join(args.dataset_dir, 'video', ffmpeg_option_1.summary(args.lr_video_name), edsr_ed_s.name, \
-                            args.quantization_policy)
+    feature_video_path = os.path.join(args.dataset_dir, 'video', edsr_ed_s.name, args.feature_video_name)
     assert(os.path.exists(feature_video_path))
     feature_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.feature_video_name))
     setup_images(feature_video_path, feature_image_dir, args.ffmpeg_path, ffmpeg_option_0.filter())
 
     #tester
-    if 'encoder' in args.train_video_name:
-        checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option_1.summary(args.train_video_name), edsr_ed_s.name, \
-                                    args.quantization_policy)
-    else:
-        checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option_1.summary(args.train_video_name), edsr_ed_s.name)
-
+    checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option_1.summary(args.train_video_name), edsr_ed_s.name)
     log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option_0.summary(args.feature_video_name), edsr_ed_s.name, \
                             args.quantization_policy, ffmpeg_option_1.summary(args.train_video_name))
     image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.feature_video_name), edsr_ed_s.name, \
                             args.quantization_policy, ffmpeg_option_1.summary(args.train_video_name))
-    video_dir = os.path.join(args.dataset_dir, 'video', ffmpeg_option_1.summary(args.train_video_name), edsr_ed_s.name, \
-                            args.quantization_policy)
-    new_video = args.feature_video_name.replace('encoder', 'decoder')
+    video_dir = os.path.join(args.dataset_dir, 'video', edsr_ed_s.name, ffmpeg_option_1.summary(args.train_video_name))
+
+    new_video = args.feature_video_name.replace('encode', 'decode')
     fps = video_fps(lr_video_path)
 
     tester = Tester(edsr_ed_s, args.quantization_policy, checkpoint_dir, log_dir, image_dir, video_dir)

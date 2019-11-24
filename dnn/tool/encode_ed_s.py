@@ -123,13 +123,12 @@ if __name__ == '__main__':
                             args.quantization_policy)
     image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.lr_video_name), edsr_ed_s.name, \
                             args.quantization_policy)
-    video_dir = os.path.join(args.dataset_dir, 'video', ffmpeg_option_1.summary(args.lr_video_name), edsr_ed_s.name, \
-                            args.quantization_policy)
+    video_dir = os.path.join(args.dataset_dir, 'video', edsr_ed_s.name)
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
 
     video_name, video_format = os.path.splitext(args.lr_video_name)
-    new_video = '{}_encoder{}'.format(video_name, video_format)
+    new_video = '{}_{}_encode{}'.format(video_name, args.quantization_policy, video_format)
     fps = video_fps(lr_video_path)
 
     tester = Tester(edsr_ed_s, args.quantization_policy, checkpoint_dir, log_dir, image_dir, video_dir)
