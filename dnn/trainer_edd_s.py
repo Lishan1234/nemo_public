@@ -4,7 +4,7 @@ import os
 
 from utility import FFmpegOption, upscale_factor
 from dataset import train_image_dataset, valid_image_dataset, setup_images
-from model.edsr_edd_s import EDSR_EDD_S
+from model.edsr_edd_s import EDSR_EDD_S, DualLoss
 
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
@@ -15,22 +15,17 @@ from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 tf.enable_eager_execution()
 
 class Trainer:
-    def __init__(self, model, loss, loss_type, learning_rate, checkpoint_dir, log_dir):
-        assert(loss_type in ['separate', 'joint'])
-
+    def __init__(self, model, loss, dual_loss, learning_rate, checkpoint_dir, log_dir):
         self.now = None
         self.loss = loss
-        self.loss_type = loss_type
-        checkpoint_name = 'ckpt_{}'.format(self.loss_type)
+        self.dual_loss = dual_loss
         self.checkpoint = tf.train.Checkpoint(step=tf.Variable(0),
                                                 psnr=tf.Variable(-1.0),
                                                 optimizer=Adam(learning_rate),
                                                 model=model)
         self.checkpoint_manager = tf.train.CheckpointManager(checkpoint=self.checkpoint,
                                                                 directory=checkpoint_dir,
-                                                                max_to_keep=3,
-                                                                checkpoint_name=checkpoint_name)
-
+                                                                max_to_keep=3)
         self.writer = tf.contrib.summary.create_file_writer(log_dir)
 
     @property
@@ -103,7 +98,7 @@ class Trainer:
                 self.now = time.perf_counter()
 
     def train_step(self, lr, hr):
-        if self.loss_type == 'separate':
+        if self.dual_loss.loss_type == 'separate':
             with tf.GradientTape(persistent=True) as tape_sr:
                 with tf.GradientTape(persistent=True) as tape_lr:
                     lr = tf.cast(lr, tf.float32)
@@ -112,14 +107,14 @@ class Trainer:
                     _, lr_, sr = self.checkpoint.model(lr, training=True)
                     lr_loss_value = self.loss(lr_, lr)
                     sr_loss_value = self.loss(sr, hr)
-                    total_loss_value = lr_loss_value + sr_loss_value
+                    total_loss_value = self.dual_loss.lr_weight * lr_loss_value + self.dual_loss.sr_weight * sr_loss_value
 
                 lr_gradients = tape_lr.gradient(lr_loss_value, self.checkpoint.model.trainable_variables)
                 self.checkpoint.optimizer.apply_gradients(zip(lr_gradients, self.checkpoint.model.trainable_variables))
             sr_gradients = tape_sr.gradient(sr_loss_value, self.checkpoint.model.trainable_variables)
             self.checkpoint.optimizer.apply_gradients(zip(sr_gradients, self.checkpoint.model.trainable_variables))
 
-        elif self.loss_type == 'joint':
+        elif self.dual_loss.loss_type == 'joint':
             with tf.GradientTape(persistent=True) as tape:
                 lr = tf.cast(lr, tf.float32)
                 hr = tf.cast(hr, tf.float32)
@@ -127,7 +122,7 @@ class Trainer:
                 _, lr_, sr = self.checkpoint.model(lr, training=True)
                 lr_loss_value = self.loss(lr_, lr)
                 sr_loss_value = self.loss(sr, hr)
-                total_loss_value = lr_loss_value + sr_loss_value
+                total_loss_value = self.dual_loss.lr_weight * lr_loss_value + self.dual_loss.sr_weight * sr_loss_value
 
             total_gradients = tape.gradient(total_loss_value, self.checkpoint.model.trainable_variables)
             self.checkpoint.optimizer.apply_gradients(zip(total_gradients, self.checkpoint.model.trainable_variables))
@@ -145,11 +140,11 @@ class Trainer:
 class EDSRTrainer(Trainer):
     def __init__(self,
                     model,
-                    loss_type,
+                    dual_loss,
                     checkpoint_dir,
                     log_dir,
                     learning_rate=PiecewiseConstantDecay(boundaries=[200000], values=[1e-4, 5e-5])):
-        super().__init__(model, loss=MeanAbsoluteError(), loss_type=loss_type, learning_rate=learning_rate, checkpoint_dir=checkpoint_dir, log_dir=log_dir)
+        super().__init__(model, loss=MeanAbsoluteError(), dual_loss=dual_loss, learning_rate=learning_rate, checkpoint_dir=checkpoint_dir, log_dir=log_dir)
 
     def train(self, train_dataset, valid_dataset, steps=300000, evaluate_every=1000, save_best_only=False):
         super().train(train_dataset, valid_dataset, steps, evaluate_every, save_best_only)
@@ -174,6 +169,8 @@ if __name__ == '__main__':
     parser.add_argument('--patch_size', type=int, default=64)
     parser.add_argument('--load_on_memory', action='store_true')
     parser.add_argument('--loss_type', type=str, required=True)
+    parser.add_argument('--lr_loss_weight', type=float, default=1.0)
+    parser.add_argument('--sr_loss_weight', type=float, default=1.0)
 
     #architecture
     parser.add_argument('--enc_num_filters', type=int, required=True)
@@ -201,6 +198,9 @@ if __name__ == '__main__':
     setup_images(lr_video_path, lr_image_dir, args.ffmpeg_path, ffmpeg_option.filter())
     setup_images(hr_video_path, hr_image_dir, args.ffmpeg_path, ffmpeg_option.filter())
 
+    #loss
+    dual_loss = DualLoss(args.loss_type, args.lr_loss_weight, args.sr_loss_weight)
+
     #dnn
     scale = upscale_factor(lr_video_path, hr_video_path)
     if args.enable_normalization:
@@ -212,7 +212,7 @@ if __name__ == '__main__':
     edsr_ed_s = EDSR_EDD_S(args.enc_num_blocks, args.enc_num_filters, \
                            args.dec_lr_num_blocks, args.dec_lr_num_filters, \
                            args.dec_sr_num_blocks, args.dec_sr_num_filters, \
-                            scale, normalize_config, args.loss_type)
+                            scale, normalize_config, dual_loss.name)
     model = edsr_ed_s.build_model()
 
     #dataset
@@ -224,5 +224,5 @@ if __name__ == '__main__':
     log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option.summary(args.lr_video_name), model.name)
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
-    trainer = EDSRTrainer(model, args.loss_type, checkpoint_dir, log_dir)
+    trainer = EDSRTrainer(model, dual_loss, checkpoint_dir, log_dir)
     trainer.train(train_ds, valid_ds, steps=100000)

@@ -6,13 +6,23 @@ from tensorflow.keras import Model, Sequential
 
 from model.common import NormalizeConfig
 
-NETWORK_NAME = 'EDSR_ED_S'
+NETWORK_NAME = 'EDSR_EDD_S'
 
 def residual_block(x_in, num_filters, name_func):
     x = layers.Conv2D(num_filters, 3, padding='same', activation='relu', name=name_func())(x_in)
     x = layers.Conv2D(num_filters, 3, padding='same', name=name_func())(x)
     x = layers.Add()([x_in, x])
     return x
+
+class DualLoss:
+    def __init__(self, loss_type, lr_weight, sr_weight):
+        self.loss_type = loss_type
+        self.lr_weight = lr_weight
+        self.sr_weight = sr_weight
+
+    @property
+    def name(self):
+        return '{}_{:.2f}_{:.2f}'.format(self.loss_type, self.lr_weight, self.sr_weight)
 
 class EDSR_EDD_S():
     def __init__(self, enc_num_blocks, enc_num_filters, \
