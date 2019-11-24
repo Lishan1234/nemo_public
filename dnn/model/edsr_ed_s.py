@@ -16,7 +16,7 @@ def residual_block(x_in, num_filters, name_func):
 
 class EDSR_ED_S():
     def __init__(self, enc_num_blocks, enc_num_filters, \
-            dec_num_blocks, dec_num_filters, scale, normalize_config):
+            dec_num_blocks, dec_num_filters, scale, normalize_config, tag=None):
         self.enc_num_blocks = enc_num_blocks
         self.enc_num_filters = enc_num_filters
         self.dec_num_blocks = dec_num_blocks
@@ -30,6 +30,8 @@ class EDSR_ED_S():
         self.name += '_B{}'.format(self.dec_num_blocks)
         self.name += '_F{}'.format(self.dec_num_filters)
         self.name += '_S{}'.format(self.scale)
+        if tag is not None:
+            self.name += '_{}'.format(tag)
 
         self.enc_conv_idx = 0
         self.dec_conv_idx = 2 * self.enc_num_blocks + 3

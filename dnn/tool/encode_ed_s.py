@@ -111,6 +111,7 @@ if __name__ == '__main__':
         pass
     else:
         normalize_config = None
+
     edsr_ed_s = EDSR_ED_S(args.enc_num_blocks, args.enc_num_filters, \
                            args.dec_num_blocks, args.dec_num_filters, \
                             scale, normalize_config)
@@ -118,9 +119,12 @@ if __name__ == '__main__':
     #tester
     ffmpeg_option_1 = FFmpegOption(args.filter_type, args.filter_fps, args.upsample) #for a test video
     checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option_1.summary(args.lr_video_name), edsr_ed_s.name)
-    log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option_0.summary(args.lr_video_name), edsr_ed_s.name)
-    image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.lr_video_name), edsr_ed_s.name)
-    video_dir = os.path.join(args.dataset_dir, 'video', edsr_ed_s.name)
+    log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option_0.summary(args.lr_video_name), edsr_ed_s.name, \
+                            args.quantization_policy)
+    image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.lr_video_name), edsr_ed_s.name, \
+                            args.quantization_policy)
+    video_dir = os.path.join(args.dataset_dir, 'video', ffmpeg_option_1.summary(args.lr_video_name), edsr_ed_s.name, \
+                            args.quantization_policy)
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
 

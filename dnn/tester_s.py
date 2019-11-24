@@ -58,8 +58,8 @@ class Tester:
             bilinear_psnr_value = tf.image.psnr(hr, bilinear, max_val=255)[0].numpy()
             bilinear_psnr_values.append(bilinear_psnr_value)
 
+            #save sr images
             if save_image:
-                #save sr images
                 sr_image = tf.image.encode_png(tf.squeeze(sr))
                 tf.io.write_file(os.path.join(self.image_dir, '{0:04d}.png'.format(idx+1)), sr_image)
 
@@ -67,10 +67,12 @@ class Tester:
             print(f'PSNR(SR) = {sr_psnr_value:.3f}, PSNR(Bilinear) = {bilinear_psnr_value:3f} ({duration:.2f}s)')
         print(f'Summary: PSNR(SR) = {np.average(sr_psnr_values):.3f}, PSNR(Bilinear) = {np.average(bilinear_psnr_values):3f}')
 
-        log_path = os.path.join(self.log_dir, 'quality.txt')
-        with open(log_path, 'w') as f:
-            for psnr_values in list(zip(sr_psnr_values, bilinear_psnr_values)):
-                f.write('{:.2f}\t{:.2f}\n'.format(psnr_values[0], psnr_values[1]))
+        #log
+        quality_log_path = os.path.join(self.log_dir, 'quality.txt')
+        with open(quality_log_path, 'w') as f:
+            f.write('Average\t{:.2f}\t{:.2f}\n'.format(np.average(sr_psnr_values), np.average(bilinear_psnr_values)))
+            for idx, psnr_values in enumerate(list(zip(sr_psnr_values, bilinear_psnr_values))):
+                f.write('{}\t{:.2f}\t{:.2f}\n'.format(idx, psnr_values[0], psnr_values[1]))
 
     def restore(self):
         if self.checkpoint_manager.latest_checkpoint:

@@ -32,7 +32,7 @@ class Tester:
 
         self.checkpoint = edsr_s.load_checkpoint(self.checkpoint_dir)
 
-    def test(self, lr_image_dir, hr_image_dir, ffmpeg_path, output_video_name, fps, num_threads=4):
+    def test(self, lr_image_dir, hr_image_dir, ffmpeg_path, output_video_name, fps, save_video, num_threads=4):
         assert(self.checkpoint is not None)
 
         #quality
@@ -67,8 +67,9 @@ class Tester:
             bilinear_psnr_values.append(bilinear_psnr_value)
 
             #save sr images
-            sr_image = tf.image.encode_png(tf.squeeze(sr))
-            tf.io.write_file(os.path.join(self.decode_image_dir, '{0:04d}.png'.format(idx+1)), sr_image)
+            if save_video:
+                sr_image = tf.image.encode_png(tf.squeeze(sr))
+                tf.io.write_file(os.path.join(self.decode_image_dir, '{0:04d}.png'.format(idx+1)), sr_image)
 
             duration = time.perf_counter() - now
             print(f'PSNR(SR) = {sr_psnr_value:.3f}, PSNR(Bilinear) = {bilinear_psnr_value:3f} ({duration:.2f}s)')
@@ -77,13 +78,15 @@ class Tester:
         #log
         quality_log_path = os.path.join(self.log_dir, 'quality.txt')
         with open(quality_log_path, 'w') as f:
-            for psnr_values in list(zip(sr_psnr_values, bilinear_psnr_values)):
-                f.write('{:.2f}\t{:.2f}\n'.format(psnr_values[0], psnr_values[1]))
+            f.write('Average\t{:.2f}\t{:.2f}\n'.format(np.average(sr_psnr_values), np.average(bilinear_psnr_values)))
+            for idx, psnr_values in enumerate(list(zip(sr_psnr_values, bilinear_psnr_values))):
+                f.write('{}\t{:.2f}\t{:.2f}\n'.format(idx, psnr_values[0], psnr_values[1]))
 
         #video
-        output_video_path = os.path.join(self.video_dir, output_video_name)
-        cmd = "{} -framerate {} -i {}/%04d.png -threads {} -c:v libvpx-vp9 -lossless 1 -row-mt 1 -c:a libopus {}".format(ffmpeg_path, fps, self.decode_image_dir, num_threads, output_video_path)
-        os.system(cmd)
+        if save_video:
+            output_video_path = os.path.join(self.video_dir, output_video_name)
+            cmd = "{} -framerate {} -i {}/%04d.png -threads {} -c:v libvpx-vp9 -lossless 1 -row-mt 1 -c:a libopus {}".format(ffmpeg_path, fps, self.decode_image_dir, num_threads, output_video_path)
+            os.system(cmd)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -91,6 +94,7 @@ if __name__ == '__main__':
     #directory, path
     parser.add_argument('--dataset_dir', type=str, required=True)
     parser.add_argument('--lr_video_name', type=str, required=True)
+    parser.add_argument('--train_video_name', type=str, required=True)
     parser.add_argument('--hr_video_name', type=str, required=True)
     parser.add_argument('--ffmpeg_path', type=str, required=True)
     parser.add_argument('--ffprobe_path', type=str, default='usr/bin/ffprobe')
@@ -105,12 +109,17 @@ if __name__ == '__main__':
     parser.add_argument('--num_blocks', type=int, required=True)
     parser.add_argument('--enable_normalization', action='store_true')
 
+    #log
+    parser.add_argument('--save_video', action='store_true')
+
     args = parser.parse_args()
 
     #setting (lr, hr)
     lr_video_path = os.path.join(args.dataset_dir, 'video', args.lr_video_name)
+    train_video_path = os.path.join(args.dataset_dir, 'video', args.train_video_name)
     hr_video_path = os.path.join(args.dataset_dir, 'video', args.hr_video_name)
     assert(os.path.exists(lr_video_path))
+    assert(os.path.exists(train_video_path))
     assert(os.path.exists(hr_video_path))
 
     ffmpeg_option_0 = FFmpegOption('none', None, None) #for a pretrained DNN
@@ -132,10 +141,12 @@ if __name__ == '__main__':
 
     #tester
     ffmpeg_option_1 = FFmpegOption(args.filter_type, args.filter_fps, args.upsample) #for a test video
-    checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option_1.summary(args.lr_video_name), edsr_s.name)
-    log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option_0.summary(args.lr_video_name), edsr_s.name)
-    image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.lr_video_name), edsr_s.name)
-    video_dir = os.path.join(args.dataset_dir, 'video', edsr_s.name)
+    checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option_1.summary(args.train_video_name), edsr_s.name)
+    log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option_0.summary(args.lr_video_name), edsr_s.name, \
+                            ffmpeg_option_1.summary(args.train_video_name))
+    image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.lr_video_name), edsr_s.name, \
+                            ffmpeg_option_1.summary(args.train_video_name))
+    video_dir = os.path.join(args.dataset_dir, 'video', ffmpeg_option_1.summary(args.train_video_name), edsr_s.name)
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
 
@@ -144,4 +155,4 @@ if __name__ == '__main__':
     fps = video_fps(lr_video_path)
 
     tester = Tester(edsr_s, checkpoint_dir, log_dir, image_dir, video_dir)
-    tester.test(lr_image_dir, hr_image_dir, args.ffmpeg_path, new_video, fps)
+    tester.test(lr_image_dir, hr_image_dir, args.ffmpeg_path, new_video, fps, args.save_video)

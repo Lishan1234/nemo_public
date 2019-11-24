@@ -90,7 +90,7 @@ class QuantizeConfig():
     log_name = 'feature_distribution.txt'
 
     def __init__(self, policy):
-        assert policy in ['min_max_0']
+        assert policy in ['linear_0,100']
 
         self.policy = policy
         self.enc_min = None
@@ -109,11 +109,11 @@ class QuantizeConfig():
                 features.append(feature)
         features_arr = np.array(features)
 
-        if self.policy == 'min_max_0':
+        if self.policy == 'linear_0,100':
             self.enc_min = np.min(features_arr[:,0])
             self.enc_max = np.max(features_arr[:,-1])
 
-    def set(self, model, dataset, log_dir, image_dir):
+    def profile(self, model, dataset, log_dir, image_dir):
         log_path = os.path.join(log_dir, self.log_name)
 
         if not os.path.exists(log_path):
@@ -139,12 +139,9 @@ class QuantizeConfig():
                     duration = time.perf_counter() - now
                     print('0%-percentile={:.2f} 100%-percentile={:.2f} ({:.2f}s)'.format(result[0], result[-1], duration))
 
-        self.load(log_dir)
-
     @property
     def name(self):
-        name = 'min{}_max{}'.format(round(self.enc_min), round(self.enc_max))
-        return name
+        return self.policy
 
 def quantize(x, enc_min, enc_max):
     x = tf.round(255 * ((x - enc_min) / (enc_max - enc_min)))

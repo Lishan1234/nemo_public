@@ -42,6 +42,7 @@ class Tester:
     def test(self, lr_image_dir, hr_image_dir, save_image=False):
         #quantization
         lr_image_ds = single_image_dataset(lr_image_dir)
+        self.qnt_config.profile(self.encoder, lr_image_dir, self.checkpoint_dir, self.qnt_image_dir)
         self.qnt_config.load(self.checkpoint_dir)
         print('quantization: min({:.2f}) max({:.2f})'.format(self.qnt_config.enc_min, self.qnt_config.enc_max))
 
@@ -110,10 +111,12 @@ class Tester:
         print(f'Summary: PSNR(SR) = {np.average(sr_psnr_values):.3f}, PNSE(SR-Q) = {np.average(sr_qnt_psnr_values):.3f}, \
             PSNR(Bilinear) = {np.average(bilinear_psnr_values):3f}')
 
+        #log
         quality_log_path = os.path.join(self.log_dir, 'quality.txt')
         with open(quality_log_path, 'w') as f:
-            for psnr_values in list(zip(sr_psnr_values, sr_qnt_psnr_values, bilinear_psnr_values)):
-                f.write('{:.2f}\t{:.2f}\t{:.2f}\n'.format(psnr_values[0], psnr_values[1], psnr_values[2]))
+            f.write('Average\t{:.2f}\t\{:.2f}\t{:.2f}\n'.format(np.average(sr_psnr_values), np.average(sr_qnt_psnr_values), np.average(bilinear_psnr_values)))
+            for idx, psnr_values in enumerate(list(zip(sr_psnr_values, sr_qnt_psnr_values, bilinear_psnr_values))):
+                f.write('{}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(idx, psnr_values[0], psnr_values[1], psnr_values[2]))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -170,8 +173,8 @@ if __name__ == '__main__':
 
     #trainer
     checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option.summary(args.lr_video_name), edsr_ed_s.name)
-    log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option.summary(args.lr_video_name), edsr_ed_s.name)
-    image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(args.lr_video_name), edsr_ed_s.name)
+    log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option.summary(args.lr_video_name), edsr_ed_s.name, args.quantization_policy)
+    image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(args.lr_video_name), edsr_ed_s.name, args.quantization_policy)
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
     tester = Tester(edsr_ed_s, args.quantization_policy, checkpoint_dir, log_dir, image_dir)
