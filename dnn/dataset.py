@@ -24,7 +24,6 @@ def setup_images(video_path, image_dir, ffmpeg_path, ffmpeg_option):
         cmd = '{} -i {} {} {}/%04d.png'.format(ffmpeg_path, video_path, ffmpeg_option, image_dir)
         os.system(cmd)
 
-#TODO: handle 'load_on_memory == False'
 def random_crop(lr_image, hr_image, lr_crop_size, scale):
     lr_image_shape = tf.shape(lr_image)[:2]
 
@@ -39,6 +38,22 @@ def random_crop(lr_image, hr_image, lr_crop_size, scale):
     hr_image_cropped = hr_image[hr_h:hr_h + hr_crop_size, hr_w:hr_w + hr_crop_size]
 
     return lr_image_cropped, hr_image_cropped
+
+def random_crop_feature(lr_image, feature_image, hr_image, lr_crop_size, scale):
+    lr_image_shape = tf.shape(lr_image)[:2]
+
+    lr_w = tf.random.uniform(shape=(), maxval=lr_image_shape[1] - lr_crop_size + 1, dtype=tf.int32)
+    lr_h = tf.random.uniform(shape=(), maxval=lr_image_shape[0] - lr_crop_size + 1, dtype=tf.int32)
+
+    hr_crop_size = lr_crop_size * scale
+    hr_w = lr_w * scale
+    hr_h = lr_h * scale
+
+    lr_image_cropped = lr_image[lr_h:lr_h + lr_crop_size, lr_w:lr_w + lr_crop_size]
+    feature_image_cropped = feature_image[lr_h:lr_h + lr_crop_size, lr_w:lr_w + lr_crop_size]
+    hr_image_cropped = hr_image[hr_h:hr_h + hr_crop_size, hr_w:hr_w + hr_crop_size]
+
+    return lr_image_cropped, feature_image_cropped, hr_image_cropped
 
 def resize(lr_image, hr_image):
     pass
@@ -81,9 +96,20 @@ def valid_image_dataset(lr_dir, hr_dir, repeat_count=1):
     ds = ds.prefetch(buffer_size=AUTOTUNE)
     return ds
 
-def train_feature_dataset():
-    #TODO
-    pass
+def train_feature_dataset(lr_dir, feature_dir, hr_dir, batch_size, patch_size, scale, load_on_memory, repeat_count=None):
+    lr_ds, num_images = image_dataset(lr_dir)
+    feature_ds, num_images = image_dataset(feature_dir)
+    hr_ds, num_images = image_dataset(hr_dir)
+    print('number of images: {}'.format(num_images))
+
+    ds = tf.data.Dataset.zip((lr_ds, feature_ds, hr_ds))
+    if load_on_memory: ds = ds.cache()
+    ds = ds.shuffle(buffer_size=num_images)
+    ds = ds.map(lambda lr, feature, hr: random_crop_feature(lr, feature, hr, patch_size, scale), num_parallel_calls=AUTOTUNE)
+    ds = ds.batch(batch_size)
+    ds = ds.repeat(repeat_count)
+    ds = ds.prefetch(buffer_size=AUTOTUNE)
+    return ds
 
 def valid_feature_dataset(lr_dir, feature_dir, hr_dir):
     lr_ds, _ = image_dataset(lr_dir)
