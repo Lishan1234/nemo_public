@@ -5,21 +5,23 @@ import argparse
 import math
 
 import numpy as np
+from skimage.color import rgb2gray
+from skimage.measure import shannon_entropy
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.metrics import Mean
 from tensorflow.keras.losses import MeanAbsoluteError
 from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 
-from model.common import NormalizeConfig, QuantizeConfig, quantize, dequantize
+from model.common import NormalizeConfig, LinearQuantizer
 from model.edsr_ed_s import EDSR_ED_S
 from dataset import valid_image_dataset, single_image_dataset, setup_images
-from utility import resolve, resolve_bilinear, VideoMetadata, FFmpegOption, upscale_factor, measure_entropy
+from utility import resolve, resolve_bilinear, VideoMetadata, FFmpegOption, upscale_factor
 
 tf.enable_eager_execution()
 
 class Tester:
-    def __init__(self, edsr_ed_s, quantization_policy, checkpoint_dir, log_dir, image_dir):
+    def __init__(self, edsr_ed_s, quantizer, checkpoint_dir, log_dir, image_dir):
         self.lr_image_dir = lr_image_dir
         self.hr_image_dir = hr_image_dir
         self.checkpoint_dir = checkpoint_dir
@@ -28,8 +30,8 @@ class Tester:
 
         self.encode_image_dir = os.path.join(self.image_dir, 'encode')
         self.decode_image_dir = os.path.join(self.image_dir, 'decode')
-        self.qnt_image_dir = os.path.join(self.image_dir, 'quantization')
-        self.qnt_config = QuantizeConfig(quantization_policy)
+        self.qnt_image_dir = os.path.join(self.image_dir, 'quantizer')
+        self.quantizer = quantizer
 
         os.makedirs(self.log_dir, exist_ok=True)
         os.makedirs(self.qnt_image_dir, exist_ok=True)
@@ -39,20 +41,49 @@ class Tester:
         self.encoder = edsr_ed_s.load_encoder(self.checkpoint_dir)
         self.decoder = edsr_ed_s.load_decoder(self.checkpoint_dir)
 
-    def test(self, lr_image_dir, hr_image_dir, save_image=False):
-        #quantization
-        lr_image_ds = single_image_dataset(lr_image_dir)
-        self.qnt_config.profile(self.encoder, lr_image_dir, self.checkpoint_dir, self.qnt_image_dir)
-        self.qnt_config.load(self.checkpoint_dir)
-        print('quantization: min({:.2f}) max({:.2f})'.format(self.qnt_config.enc_min, self.qnt_config.enc_max))
+    def measure_entropy(self, lr_image_dir):
+        dataset = single_image_dataset(lr_image_dir)
+        lr_entropy_values = []
+        feature_entropy_values = []
 
-        #entropy
-        lr_image_ds = single_image_dataset(lr_image_dir)
-        lr_entropy_values, feature_entropy_values = measure_entropy(self.encoder, lr_image_ds, self.qnt_config)
+        for idx, img in enumerate(dataset):
+            now = time.perf_counter()
+            lr = tf.cast(img, tf.float32)
+            feature = self.encoder(lr)
+            feature = self.quantizer.quantize(feature)
+
+            lr = tf.cast(img, tf.uint8)
+            feature = tf.cast(feature, tf.uint8)
+            lr = lr.numpy()
+            feature = feature.numpy()
+
+            lr_gray = rgb2gray(lr)
+            feature_gray= rgb2gray(feature)
+
+            lr_entropy_value = shannon_entropy(lr_gray)
+            feature_entropy_value = shannon_entropy(feature_gray)
+
+            lr_entropy_values.append(lr_entropy_value)
+            feature_entropy_values.append(feature_entropy_value)
+
+            duration = time.perf_counter() - now
+            print('lr_entropy={:.2f} feature_entropy={:.2f} (duration: {:.2f}s)'.format(lr_entropy_value, feature_entropy_value, duration))
+        print('summary: lr_entropy={:.2f} feature_entropy={:.2f}'.format(np.average(lr_entropy_value), np.average(feature_entropy_value)))
+
         entropy_log_path = os.path.join(self.log_dir, 'entropy.txt')
         with open(entropy_log_path, 'w') as f:
-            for entropy_values in list(zip(lr_entropy_values, feature_entropy_values)):
-                f.write('{:.2f}\t{:.2f}\n'.format(entropy_values[0], entropy_values[1]))
+            f.write('Average\t{:.2f}\t{:.2f}\n'.format(np.average(lr_entropy_values), np.average(feature_entropy_values[1])))
+            for idx, entropy_values in enumerate(list(zip(lr_entropy_values, feature_entropy_values))):
+                f.write('{}\t{:.2f}\t{:.2f}\n'.format(idx, entropy_values[0], entropy_values[1]))
+
+    def test(self, lr_image_dir, hr_image_dir, save_image=False):
+        #quantization
+        self.quantizer.profile(self.encoder, lr_image_dir, self.checkpoint_dir)
+        self.quantizer.plot(self.encoder, lr_image_dir, self.qnt_image_dir)
+        self.quantizer.load(self.checkpoint_dir)
+
+        #entropy
+        self.measure_entropy(lr_image_dir)
 
         #quality
         valid_image_ds = valid_image_dataset(lr_image_dir, hr_image_dir)
@@ -71,8 +102,8 @@ class Tester:
                 width = hr_shape[1].numpy()
 
             feature = self.encoder(lr)
-            feature_qnt = quantize(feature, self.qnt_config.enc_min, self.qnt_config.enc_max)
-            feature_qnt = dequantize(feature_qnt, self.qnt_config.enc_min, self.qnt_config.enc_max)
+            feature_qnt = self.quantizer.quantize(feature)
+            feature_qnt = self.quantizer.dequantize(feature_qnt)
 
             sr = self.decoder(feature)
             sr_qnt = self.decoder(feature_qnt)
@@ -139,11 +170,12 @@ if __name__ == '__main__':
     parser.add_argument('--dec_num_filters', type=int, required=True)
     parser.add_argument('--dec_num_blocks', type=int, required=True)
     parser.add_argument('--enable_normalization', action='store_true')
-    parser.add_argument('--quantization_policy', type=str, required=True)
+    parser.add_argument('--min_percentile', type=float, required=True)
+    parser.add_argument('--max_percentile', type=float, required=True)
 
     #log
     parser.add_argument('--custom_tag', type=str, default=None)
-    parser.add_argument('--save_image', action='store_ture')
+    parser.add_argument('--save_image', action='store_true')
 
     args = parser.parse_args()
 
@@ -171,11 +203,14 @@ if __name__ == '__main__':
                            args.dec_num_blocks, args.dec_num_filters, \
                             scale, normalize_config)
 
+    #quantization
+    linear_qnt = LinearQuantizer(args.min_percentile, args.max_percentile)
+
     #trainer
     checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option.summary(args.lr_video_name), edsr_ed_s.name)
-    log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option.summary(args.lr_video_name), edsr_ed_s.name, args.quantization_policy)
-    image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(args.lr_video_name), edsr_ed_s.name, args.quantization_policy)
+    log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option.summary(args.lr_video_name), edsr_ed_s.name, linear_qnt.name)
+    image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(args.lr_video_name), edsr_ed_s.name, linear_qnt.name)
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
-    tester = Tester(edsr_ed_s, args.quantization_policy, checkpoint_dir, log_dir, image_dir)
+    tester = Tester(edsr_ed_s, linear_qnt, checkpoint_dir, log_dir, image_dir)
     tester.test(lr_image_dir, hr_image_dir, args.save_image)

@@ -7,4 +7,5 @@ python $DNNDIR/tester_ed_s.py --dataset_dir $DATADIR/game-lol \
                 --enc_num_filters 64 \
                 --dec_num_blocks 1 \
                 --dec_num_filters 8 \
-                --quantization_policy linear_0,100
+                --min_percentile 0 \
+                --max_percentile 100

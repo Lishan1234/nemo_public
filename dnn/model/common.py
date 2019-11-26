@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 
+from dataset import single_image_dataset
+
 DIV2K_RGB_MEAN = np.array([0.4488, 0.4371, 0.4040]) * 255
 
 def resolve_single(model, lr):
@@ -86,20 +88,34 @@ class NormalizeConfig():
 #  Quantization
 # ---------------------------------------
 
-class QuantizeConfig():
-    log_name = 'feature_distribution.txt'
+class LinearQuantizer():
+    log_name = 'distribution.txt'
+    percentiles = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, \
+                    99.0, 99.1, 99.2, 99.3, 99.4, 99.5, 99.6, 99.7, 99.8, 99.9, 100.0]
 
-    def __init__(self, policy):
-        assert policy in ['linear_0,100']
+    #percentiles = [0, 2.5, 5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0, \
+    #                80.0, 82.5, 85.0, 87.5, 90.0, 92.5, 95.0, 97.5, 100.0]
 
-        self.policy = policy
-        self.enc_min = None
-        self.enc_max = None
+    def __init__(self, min_percentile, max_percentile):
+        assert(min_percentile in self.percentiles)
+        assert(max_percentile in self.percentiles)
 
-    def load(self, log_dir):
-        features = []
+        self.min_percentile = min_percentile
+        self.min_idx = self.percentiles.index(min_percentile)
+        self.max_percentile = max_percentile
+        self.max_idx = self.percentiles.index(max_percentile)
+
+        self.min_value = None
+        self.max_value = None
+
+    @property
+    def name(self):
+        return 'linear_{:.2f},{:.2f}'.format(self.min_percentile, self.max_percentile)
+
+    def load(self, log_dir, min_select=np.min, max_select=np.max):
         log_path = os.path.join(log_dir, self.log_name)
         assert(os.path.exists(log_path))
+        features = []
 
         with open(log_path, 'r') as f:
             lines = f.readlines()
@@ -109,48 +125,64 @@ class QuantizeConfig():
                 features.append(feature)
         features_arr = np.array(features)
 
-        if self.policy == 'linear_0,100':
-            self.enc_min = np.min(features_arr[:,0])
-            self.enc_max = np.max(features_arr[:,-1])
+        self.min_value = min_select(features_arr[:,self.min_idx])
+        self.max_value = max_select(features_arr[:,self.max_idx])
 
-    def profile(self, model, dataset, log_dir, image_dir):
+        print('load: min_value {:.2f}, max_value {:.2f}'.format(self.min_value, self.max_value))
+
+    def profile(self, model, image_dir, log_dir):
         log_path = os.path.join(log_dir, self.log_name)
+        dataset = single_image_dataset(image_dir)
 
-        if not os.path.exists(log_path):
-            with open(log_path, 'w') as f:
-                for idx, imgs in enumerate(dataset):
-                    now = time.perf_counter()
-                    lr = tf.cast(imgs, tf.float32)
-                    lr_feature = model(lr)
-                    lr_feature = lr_feature.numpy()
-                    lr_feature = lr_feature.flatten()
+        with open(log_path, 'w') as f:
+            for idx, img in enumerate(dataset):
+                now = time.perf_counter()
+                lr = tf.cast(img, tf.float32)
+                lr_feature = model(lr)
+                lr_feature = lr_feature.numpy()
+                lr_feature = lr_feature.flatten()
 
-                    result = np.percentile(lr_feature ,[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100], interpolation='nearest')
-                    result = [np.round(i,2) for i in result]
-                    log = '\t'.join([str(i) for i in result])
-                    log += '\n'
-                    f.write(log)
+                result = np.percentile(lr_feature , self.percentiles, interpolation='nearest')
+                result = [np.round(i,2) for i in result]
+                log = '\t'.join([str(i) for i in result])
+                log += '\n'
+                f.write(log)
 
-                    _ = plt.hist(lr_feature, bins='auto')
-                    fig_filepath = os.path.join(image_dir, '{:04d}.png'.format(idx))
-                    plt.savefig(fig_filepath)
-                    plt.clf()
+                duration = time.perf_counter() - now
+                print('0%-percentile={:.2f} 100%-percentile={:.2f} (duration: {:.2f}s)'.format(result[0], result[-1], duration))
 
-                    duration = time.perf_counter() - now
-                    print('0%-percentile={:.2f} 100%-percentile={:.2f} ({:.2f}s)'.format(result[0], result[-1], duration))
+    def plot(self, model, image_dir, log_dir):
+        dataset = single_image_dataset(image_dir)
 
-    @property
-    def name(self):
-        return self.policy
+        for idx, img in enumerate(dataset):
+            now = time.perf_counter()
+            lr = tf.cast(img, tf.float32)
+            lr_feature = model(lr)
+            lr_feature = lr_feature.numpy()
+            lr_feature = lr_feature.flatten()
 
-def quantize(x, enc_min, enc_max):
-    x = tf.round(255 * ((x - enc_min) / (enc_max - enc_min)))
-    x = tf.clip_by_value(x, 0, 255)
-    return x
+            _ = plt.hist(lr_feature, bins='auto')
+            fig_filepath = os.path.join(log_dir, '{:04d}.png'.format(idx))
+            plt.savefig(fig_filepath)
+            plt.clf()
 
-def dequantize(x, enc_min, enc_max):
-    x = (x / 255) * (enc_max - enc_min) + enc_min
-    return x
+            duration = time.perf_counter() - now
+            print('(duration: {:.2f}s)'.format(duration))
+
+    def quantize(self, x):
+        assert(self.min_value is not None)
+        assert(self.max_value is not None)
+
+        x = tf.round(255 * ((x - self.min_value) / (self.max_value - self.min_value)))
+        x = tf.clip_by_value(x, 0, 255)
+        return x
+
+    def dequantize(self, x):
+        assert(self.min_value is not None)
+        assert(self.max_value is not None)
+
+        x = (x / 255) * (self.max_value - self.min_value) + self.min_value
+        return x
 
 # ---------------------------------------
 #  Metrics
