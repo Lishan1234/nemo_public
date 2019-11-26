@@ -11,22 +11,22 @@ from tensorflow.keras.metrics import Mean
 from tensorflow.keras.losses import MeanAbsoluteError
 from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 
-from model.common import NormalizeConfig, QuantizeConfig, quantize, dequantize
+from model.common import NormalizeConfig, LinearQuantizer
 from model.edsr_ed_s import EDSR_ED_S
 from dataset import valid_feature_dataset, single_image_dataset, setup_images
-from utility import resolve, resolve_bilinear, VideoMetadata, FFmpegOption, upscale_factor, measure_entropy, video_fps
+from utility import resolve, resolve_bilinear, VideoMetadata, FFmpegOption, upscale_factor, video_fps
 
 tf.enable_eager_execution()
 
 class Tester:
-    def __init__(self, edsr_ed_s, quantization_policy, checkpoint_dir, log_dir, image_dir, video_dir):
+    def __init__(self, edsr_ed_s, quantizer, checkpoint_dir, log_dir, image_dir, video_dir):
         self.checkpoint_dir = checkpoint_dir
         self.log_dir = log_dir
         self.image_dir = image_dir
         self.video_dir = video_dir
 
         self.decode_image_dir = os.path.join(self.image_dir, 'decode')
-        self.qnt_config = QuantizeConfig(quantization_policy)
+        self.quantizer = quantizer
 
         os.makedirs(self.log_dir, exist_ok=True)
         os.makedirs(self.decode_image_dir, exist_ok=True)
@@ -39,7 +39,7 @@ class Tester:
         assert(self.decoder is not None)
 
         #quantization
-        self.qnt_config.load(self.checkpoint_dir)
+        self.quantizer.load(self.checkpoint_dir)
 
         #quality
         valid_feature_ds = valid_feature_dataset(lr_image_dir, feature_image_dir, hr_image_dir)
@@ -58,7 +58,7 @@ class Tester:
                 height = hr_shape[0].numpy()
                 width = hr_shape[1].numpy()
 
-            feature = dequantize(feature_qnt, self.qnt_config.enc_min, self.qnt_config.enc_max)
+            feature = self.quantizer.dequantize(feature_qnt)
             sr = self.decoder(feature)
 
             #measure sr quality
@@ -103,7 +103,6 @@ if __name__ == '__main__':
     #directory, path
     parser.add_argument('--dataset_dir', type=str, required=True)
     parser.add_argument('--lr_video_name', type=str, required=True)
-    parser.add_argument('--feature_video_name', type=str, required=True)
     parser.add_argument('--hr_video_name', type=str, required=True)
     parser.add_argument('--train_video_name', type=str, required=True)
     parser.add_argument('--ffmpeg_path', type=str, required=True)
@@ -113,6 +112,7 @@ if __name__ == '__main__':
     parser.add_argument('--filter_type', type=str,  default='uniform')
     parser.add_argument('--filter_fps', type=float, default=1.0)
     parser.add_argument('--upsample', type=str, default='bilinear')
+    parser.add_argument('--bitrate', type=int, default=None)
 
     #architecture
     parser.add_argument('--enc_num_filters', type=int, required=True)
@@ -120,15 +120,14 @@ if __name__ == '__main__':
     parser.add_argument('--dec_num_filters', type=int, required=True)
     parser.add_argument('--dec_num_blocks', type=int, required=True)
     parser.add_argument('--enable_normalization', action='store_true')
-    parser.add_argument('--quantization_policy', type=str, required=True)
+    parser.add_argument('--min_percentile', type=float, required=True)
+    parser.add_argument('--max_percentile', type=float, required=True)
 
     #log
     parser.add_argument('--custom_tag', type=str, default=None)
     parser.add_argument('--save_video', action='store_true')
 
     args = parser.parse_args()
-
-    assert('encode' in args.feature_video_name)
 
     #setting (lr, hr, train)
     lr_video_path = os.path.join(args.dataset_dir, 'video', args.lr_video_name)
@@ -155,24 +154,31 @@ if __name__ == '__main__':
     edsr_ed_s = EDSR_ED_S(args.enc_num_blocks, args.enc_num_filters, \
                            args.dec_num_blocks, args.dec_num_filters, \
                             scale, normalize_config)
+    #quantization
+    linear_quantizer = LinearQuantizer(args.min_percentile, args.max_percentile)
 
     #setting (feature)
     ffmpeg_option_1 = FFmpegOption(args.filter_type, args.filter_fps, args.upsample) #for a test video
-    feature_video_path = os.path.join(args.dataset_dir, 'video', edsr_ed_s.name, args.feature_video_name)
+    lr_video_title, lr_video_format = os.path.splitext(args.lr_video_name)
+    feature_video_title = '{}_{}_encode'.format(lr_video_title, linear_quantizer.name)
+    if args.bitrate is not None:
+        feature_video_title += '_{}kbps'.format(args.bitrate)
+    feature_video_name = feature_video_title + lr_video_format
+    feature_video_path = os.path.join(args.dataset_dir, 'video', edsr_ed_s.name, feature_video_name)
     assert(os.path.exists(feature_video_path))
-    feature_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.feature_video_name), edsr_ed_s.name)
+    feature_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(feature_video_name), edsr_ed_s.name)
     setup_images(feature_video_path, feature_image_dir, args.ffmpeg_path, ffmpeg_option_0.filter())
 
     #tester
     checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option_1.summary(args.train_video_name), edsr_ed_s.name)
-    log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option_0.summary(args.feature_video_name), edsr_ed_s.name, \
+    log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option_0.summary(feature_video_name), edsr_ed_s.name, \
                         ffmpeg_option_1.summary(args.train_video_name))
-    image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.feature_video_name), edsr_ed_s.name, \
+    image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(feature_video_name), edsr_ed_s.name, \
                         ffmpeg_option_1.summary(args.train_video_name))
     video_dir = os.path.join(args.dataset_dir, 'video', edsr_ed_s.name, ffmpeg_option_1.summary(args.train_video_name))
 
-    new_video = args.feature_video_name.replace('encode', 'decode')
+    new_video = feature_video_name.replace('encode', 'decode')
     fps = video_fps(lr_video_path)
 
-    tester = Tester(edsr_ed_s, args.quantization_policy, checkpoint_dir, log_dir, image_dir, video_dir)
+    tester = Tester(edsr_ed_s, linear_quantizer, checkpoint_dir, log_dir, image_dir, video_dir)
     tester.test(lr_image_dir, feature_image_dir, hr_image_dir, args.ffmpeg_path, new_video, fps, args.save_video)
