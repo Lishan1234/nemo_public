@@ -8,5 +8,6 @@ python $DNNDIR/tool/decode_ed_s.py --dataset_dir $DATADIR/game-lol \
                 --enc_num_filters 64 \
                 --dec_num_blocks 1 \
                 --dec_num_filters 8 \
+                --bitrate 600 \
                 --min_percentile 0 \
                 --max_percentile 100

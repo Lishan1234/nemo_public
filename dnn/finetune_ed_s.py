@@ -1,6 +1,7 @@
 import time
 import argparse
 import os
+import sys
 
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
@@ -10,20 +11,20 @@ from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 
 from utility import FFmpegOption, upscale_factor
 from dataset import train_feature_dataset, valid_feature_dataset, setup_images
-from model.common import NormalizeConfig, QuantizeConfig, quantize, dequantize
+from model.common import NormalizeConfig, LinearQuantizer
 from model.edsr_ed_s import EDSR_ED_S
 
 tf.enable_eager_execution()
 
 class Trainer:
-    def __init__(self, edsr_ed_s, loss, learning_rate, quantization_policy, pretrained_checkpoint_dir, checkpoint_dir, log_dir):
+    def __init__(self, edsr_ed_s, loss, learning_rate, quantizer, pretrained_checkpoint_dir, checkpoint_dir, log_dir):
         self.now = None
         self.loss = loss
 
         #restore
         self.decoder = edsr_ed_s.load_decoder(pretrained_checkpoint_dir)
-        self.qnt_config = QuantizeConfig(quantization_policy)
-        self.qnt_config.load(pretrained_checkpoint_dir)
+        self.quantizer = quantizer
+        self.quantizer.load(pretrained_checkpoint_dir)
 
         self.checkpoint = tf.train.Checkpoint(step=tf.Variable(0),
                                                 psnr=tf.Variable(-1.0),
@@ -42,7 +43,7 @@ class Trainer:
         psnr_values = []
         for lr, feature_qnt, hr in dataset:
             feature_qnt = tf.cast(feature_qnt, tf.float32)
-            feature = dequantize(feature_qnt, self.qnt_config.enc_min, self.qnt_config.enc_max)
+            feature = self.quantizer.dequantize(feature_qnt)
             sr = self.checkpoint.model(feature)
             sr = tf.clip_by_value(sr, 0, 255)
             sr = tf.round(sr)
@@ -59,7 +60,7 @@ class Trainer:
             self.checkpoint.step.assign_add(1)
             step = self.checkpoint.step.numpy()
 
-            feature = dequantize(feature_qnt, self.qnt_config.enc_min, self.qnt_config.enc_max)
+            feature = self.quantizer.dequantize(feature_qnt)
             loss = self.train_step(feature, hr)
             loss_mean(loss)
 
@@ -99,15 +100,14 @@ class Trainer:
 class EDSRTrainer(Trainer):
     def __init__(self,
                     model,
-                    quantization_policy,
+                    quantizer,
                     pretrained_checkpoint_dir,
                     checkpoint_dir,
                     log_dir,
-                    learning_rate=PiecewiseConstantDecay(boundaries=[200000], values=[1e-4, 5e-5])):
-        super().__init__(model, loss=MeanAbsoluteError(), learning_rate=learning_rate, quantization_policy=quantization_policy, pretrained_checkpoint_dir=pretrained_checkpoint_dir, checkpoint_dir=checkpoint_dir, log_dir=log_dir)
+                    learning_rate):
+        super().__init__(model, loss=MeanAbsoluteError(), learning_rate=learning_rate, quantizer=quantizer, pretrained_checkpoint_dir=pretrained_checkpoint_dir, checkpoint_dir=checkpoint_dir, log_dir=log_dir)
 
-    #def train(self, train_dataset, valid_dataset, steps=300000, evaluate_every=1000, save_best_only=False):
-    def train(self, train_dataset, valid_dataset, steps=300000, evaluate_every=10, save_best_only=False):
+    def train(self, train_dataset, valid_dataset, steps=300000, evaluate_every=1000, save_best_only=False:
         super().train(train_dataset, valid_dataset, steps, evaluate_every, save_best_only)
 
 if __name__ == '__main__':
@@ -116,7 +116,6 @@ if __name__ == '__main__':
     #directory, path
     parser.add_argument('--dataset_dir', type=str, required=True)
     parser.add_argument('--lr_video_name', type=str, required=True)
-    parser.add_argument('--feature_video_name', type=str, required=True)
     parser.add_argument('--hr_video_name', type=str, required=True)
     parser.add_argument('--ffmpeg_path', type=str, required=True)
     parser.add_argument('--ffprobe_path', type=str, default='usr/bin/ffprobe')
@@ -130,6 +129,8 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--patch_size', type=int, default=64)
     parser.add_argument('--load_on_memory', action='store_true')
+    parser.add_argument('--bitrate', type=int, required=True)
+    parser.add_argument('--learning_rate', type=float, required=True)
 
     #architecture
     parser.add_argument('--enc_num_filters', type=int, required=True)
@@ -137,7 +138,8 @@ if __name__ == '__main__':
     parser.add_argument('--dec_num_filters', type=int, required=True)
     parser.add_argument('--dec_num_blocks', type=int, required=True)
     parser.add_argument('--enable_normalization', action='store_true')
-    parser.add_argument('--quantization_policy', type=str, required=True)
+    parser.add_argument('--min_percentile', type=float, required=True)
+    parser.add_argument('--max_percentile', type=float, required=True)
 
     args = parser.parse_args()
 
@@ -163,12 +165,20 @@ if __name__ == '__main__':
         normalize_config = None
     edsr_ed_s = EDSR_ED_S(args.enc_num_blocks, args.enc_num_filters, \
                            args.dec_num_blocks, args.dec_num_filters, \
-                            scale, normalize_config)
+                           scale, normalize_config)
+
+    #quantization
+    linear_quantizer = LinearQuantizer(args.min_percentile, args.max_percentile)
 
     #setting (feature)
-    feature_video_path = os.path.join(args.dataset_dir, 'video', edsr_ed_s.name, args.feature_video_name)
+    lr_video_title, lr_video_format = os.path.splitext(args.lr_video_name)
+    feature_video_title = '{}_{}_encode'.format(lr_video_title, linear_quantizer.name)
+    if args.bitrate is not None:
+        feature_video_title += '_{}kbps'.format(args.bitrate)
+    feature_video_name = feature_video_title + lr_video_format
+    feature_video_path = os.path.join(args.dataset_dir, 'video', edsr_ed_s.name, feature_video_name)
     assert(os.path.exists(feature_video_path))
-    feature_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(args.feature_video_name))
+    feature_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(feature_video_name))
     setup_images(feature_video_path, feature_image_dir, args.ffmpeg_path, ffmpeg_option.filter())
 
     #dataset
@@ -176,10 +186,12 @@ if __name__ == '__main__':
     valid_ds = valid_feature_dataset(lr_image_dir, feature_image_dir, hr_image_dir)
 
     #trainer
+    learning_rate=PiecewiseConstantDecay(boundaries=[200000], values=[args.learning_rate, args.learning_rate / 2])
     pretrained_checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option.summary(args.lr_video_name), edsr_ed_s.name)
-    checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option.summary(args.feature_video_name), edsr_ed_s.name, args.quantization_policy)
-    log_dir = os.path.join('.log', ffmpeg_option.summary(args.feature_video_name), edsr_ed_s.name, args.quantization_policy)
+    checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option.summary(feature_video_name), edsr_ed_s.name, '{:.2E}'.format(args.learning_rate))
+    log_dir = os.path.join('.log', ffmpeg_option.summary(feature_video_name), edsr_ed_s.name, '{:.2E}'.format(args.learning_rate))
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
-    trainer = EDSRTrainer(edsr_ed_s, args.quantization_policy, pretrained_checkpoint_dir, checkpoint_dir, log_dir)
+    trainer = EDSRTrainer(edsr_ed_s, linear_quantizer, pretrained_checkpoint_dir, checkpoint_dir, log_dir, learning_rate)
+
     trainer.train(train_ds, valid_ds, steps=100000)
