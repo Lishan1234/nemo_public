@@ -11,22 +11,22 @@ from tensorflow.keras.metrics import Mean
 from tensorflow.keras.losses import MeanAbsoluteError
 from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 
-from model.common import NormalizeConfig, QuantizeConfig, quantize, dequantize
+from model.common import NormalizeConfig, LinearQuantizer
 from model.edsr_ed_s import EDSR_ED_S
 from dataset import valid_image_dataset, single_image_dataset, setup_images
-from utility import resolve, resolve_bilinear, VideoMetadata, FFmpegOption, upscale_factor, measure_entropy, video_fps
+from utility import resolve, resolve_bilinear, VideoMetadata, FFmpegOption, upscale_factor, video_fps
 
 tf.enable_eager_execution()
 
 class Tester:
-    def __init__(self, edsr_ed_s, quantization_policy, checkpoint_dir, log_dir, image_dir, video_dir):
+    def __init__(self, edsr_ed_s, quantizer, checkpoint_dir, log_dir, image_dir, video_dir):
         self.checkpoint_dir = checkpoint_dir
         self.log_dir = log_dir
         self.image_dir = image_dir
         self.video_dir = video_dir
 
         self.encode_image_dir = os.path.join(self.image_dir, 'encode')
-        self.qnt_config = QuantizeConfig(quantization_policy)
+        self.quantizer = quantizer
 
         os.makedirs(self.log_dir, exist_ok=True)
         os.makedirs(self.encode_image_dir, exist_ok=True)
@@ -37,7 +37,7 @@ class Tester:
 
     def test(self, lr_image_dir, ffmpeg_path, output_video_name, fps, num_threads=4):
         #quantization
-        self.qnt_config.load(self.checkpoint_dir)
+        self.quantizer.load(self.checkpoint_dir)
 
         #quality
         lr_image_ds = single_image_dataset(lr_image_dir)
@@ -49,7 +49,7 @@ class Tester:
             lr = tf.cast(img, tf.float32)
 
             feature = self.encoder(lr)
-            feature_qnt = quantize(feature, self.qnt_config.enc_min, self.qnt_config.enc_max)
+            feature_qnt = self.quantizer.quantize(feature)
 
             #save feature images
             feature_qnt = tf.cast(feature_qnt, tf.uint8)
@@ -86,7 +86,8 @@ if __name__ == '__main__':
     parser.add_argument('--dec_num_filters', type=int, required=True)
     parser.add_argument('--dec_num_blocks', type=int, required=True)
     parser.add_argument('--enable_normalization', action='store_true')
-    parser.add_argument('--quantization_policy', type=str, required=True)
+    parser.add_argument('--min_percentile', type=float, required=True)
+    parser.add_argument('--max_percentile', type=float, required=True)
 
     #log
     parser.add_argument('--custom_tag', type=str, default=None)
@@ -116,20 +117,23 @@ if __name__ == '__main__':
                            args.dec_num_blocks, args.dec_num_filters, \
                             scale, normalize_config)
 
+    #quantization
+    linear_quantizer = LinearQuantizer(args.min_percentile, args.max_percentile)
+
     #tester
     ffmpeg_option_1 = FFmpegOption(args.filter_type, args.filter_fps, args.upsample) #for a test video
     checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option_1.summary(args.lr_video_name), edsr_ed_s.name)
     log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option_0.summary(args.lr_video_name), edsr_ed_s.name, \
-                            args.quantization_policy)
+                            linear_quantizer.name)
     image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.lr_video_name), edsr_ed_s.name, \
-                            args.quantization_policy)
+                            linear_quantizer.name)
     video_dir = os.path.join(args.dataset_dir, 'video', edsr_ed_s.name)
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
 
     video_name, video_format = os.path.splitext(args.lr_video_name)
-    new_video = '{}_{}_encode{}'.format(video_name, args.quantization_policy, video_format)
+    new_video = '{}_{}_encode{}'.format(video_name, linear_quantizer.name, video_format)
     fps = video_fps(lr_video_path)
 
-    tester = Tester(edsr_ed_s, args.quantization_policy, checkpoint_dir, log_dir, image_dir, video_dir)
+    tester = Tester(edsr_ed_s, linear_quantizer, checkpoint_dir, log_dir, image_dir, video_dir)
     tester.test(lr_image_dir, args.ffmpeg_path, new_video, fps)
