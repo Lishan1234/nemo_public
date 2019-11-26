@@ -160,15 +160,15 @@ if __name__ == '__main__':
     ffmpeg_option_1 = FFmpegOption(args.filter_type, args.filter_fps, args.upsample) #for a test video
     feature_video_path = os.path.join(args.dataset_dir, 'video', edsr_ed_s.name, args.feature_video_name)
     assert(os.path.exists(feature_video_path))
-    feature_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.feature_video_name))
+    feature_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.feature_video_name), edsr_ed_s.name)
     setup_images(feature_video_path, feature_image_dir, args.ffmpeg_path, ffmpeg_option_0.filter())
 
     #tester
     checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option_1.summary(args.train_video_name), edsr_ed_s.name)
     log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option_0.summary(args.feature_video_name), edsr_ed_s.name, \
-                            args.quantization_policy, ffmpeg_option_1.summary(args.train_video_name))
+                        ffmpeg_option_1.summary(args.train_video_name))
     image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.feature_video_name), edsr_ed_s.name, \
-                            args.quantization_policy, ffmpeg_option_1.summary(args.train_video_name))
+                        ffmpeg_option_1.summary(args.train_video_name))
     video_dir = os.path.join(args.dataset_dir, 'video', edsr_ed_s.name, ffmpeg_option_1.summary(args.train_video_name))
 
     new_video = args.feature_video_name.replace('encode', 'decode')

@@ -127,24 +127,18 @@ if __name__ == '__main__':
     parser.add_argument('--num_filters', type=int, required=True)
     parser.add_argument('--num_blocks', type=int, required=True)
     parser.add_argument('--enable_normalization', action='store_true')
-    parser.add_argument('--quantization_policy', type=str, required=True)
 
     #log
     parser.add_argument('--custom_tag', type=str, default=None)
 
     args = parser.parse_args()
 
-    #setting
+    #setting (lr)
     ffmpeg_option = FFmpegOption(args.filter_type, args.filter_fps, args.upsample)
-    feature_video_path = os.path.join(args.dataset_dir, 'video', ffmpeg_option.summary(args.lr_video_name), \
-                                    args.encode_model_name, args.quantization_policy, args.feature_video_name)
     lr_video_path = os.path.join(args.dataset_dir, 'video', args.lr_video_name)
-    assert(os.path.exists(feature_video_path))
     assert(os.path.exists(lr_video_path))
 
-    feature_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(args.feature_video_name))
     lr_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(args.lr_video_name))
-    setup_images(feature_video_path, feature_image_dir, args.ffmpeg_path, ffmpeg_option.filter())
     setup_images(lr_video_path, lr_image_dir, args.ffmpeg_path, ffmpeg_option.filter())
 
     #dnn
@@ -158,6 +152,13 @@ if __name__ == '__main__':
                             normalize_config)
     model = edsr_ns.build_model()
 
+    #setting (feature)
+    feature_video_path = os.path.join(args.dataset_dir, 'video', args.encode_model_name, args.feature_video_name)
+    print(feature_video_path)
+    assert(os.path.exists(feature_video_path))
+    feature_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(args.feature_video_name), args.encode_model_name)
+    setup_images(feature_video_path, feature_image_dir, args.ffmpeg_path, ffmpeg_option.filter())
+
     #dataset
     train_ds = train_image_dataset(feature_image_dir, lr_image_dir, args.batch_size, args.patch_size, 1, args.load_on_memory)
     valid_ds = valid_image_dataset(feature_image_dir, lr_image_dir)
@@ -167,5 +168,6 @@ if __name__ == '__main__':
     log_dir = os.path.join('.log', ffmpeg_option.summary(args.feature_video_name), model.name)
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
+
     trainer = EDSRTrainer(model, checkpoint_dir, log_dir)
     trainer.train(train_ds, valid_ds, steps=100000)
