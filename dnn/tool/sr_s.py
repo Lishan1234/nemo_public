@@ -11,10 +11,10 @@ from tensorflow.keras.metrics import Mean
 from tensorflow.keras.losses import MeanAbsoluteError
 from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 
-from model.common import NormalizeConfig, QuantizeConfig, quantize, dequantize
+from model.common import NormalizeConfig
 from model.edsr_s import EDSR_S
 from dataset import valid_image_dataset, single_image_dataset, setup_images
-from utility import resolve, resolve_bilinear, VideoMetadata, FFmpegOption, upscale_factor, measure_entropy, video_fps
+from utility import resolve, resolve_bilinear, VideoMetadata, FFmpegOption, upscale_factor, video_fps
 
 tf.enable_eager_execution()
 
