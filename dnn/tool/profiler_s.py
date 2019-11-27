@@ -15,7 +15,7 @@ from tool.common import freeze_session, optimize_for_inference, check_attached_d
 class Profiler():
     model_name = 'mock'
     json_name = 'snpe_benchmark.json'
-    total_run = 100
+    total_run = 1
     total_num = 1
 
     def __init__(self, model, nhwc, log_dir, snpe_dir):
@@ -54,7 +54,7 @@ class Profiler():
 
     def _snpe_benchmark(self, json_path):
         setup_cmd = 'source {}/bin/envsetup.sh -t {}'.format(self.snpe_dir, self.tensorflow_dir)
-        snpe_cmd = 'python {}/benchmarks/snpe_bench.py -c {}'.format(self.snpe_dir, json_path)
+        snpe_cmd = 'python {}/benchmarks/snpe_bench.py -c {} -json'.format(self.snpe_dir, json_path)
 
         cmd = '{}; {}'.format(setup_cmd, snpe_cmd)
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True, executable='/bin/bash')
@@ -123,7 +123,7 @@ class Profiler():
         #convcert to a quantized dlc (.quantized.dlc)
         if not os.path.exists(qnt_dlc_path):
             pass
-            #TODO
+            #TODO: generate random images / create image list
 
         #visualize a dlc
         if not os.path.exists(html_path):
@@ -154,29 +154,77 @@ class Profiler():
         with open(json_path, 'w') as outfile:
             json.dump(benchmark, outfile, indent=4)
 
-    def measure_gflops(self):
-        #TODO: tf.profiler
-        pass
+    def _load_pb(self, pb_path):
+        with tf.gfile.GFile(pb_path, 'rb') as f:
+            graph_def = tf.GraphDef()
+            graph_def.ParseFromString(f.read())
+        with tf.Graph().as_default() as graph:
+            tf.import_graph_def(graph_def, name='')
+            return graph
 
+    #TODO: this includes intializere
+    def measure_flops(self):
+        input_tensor = tf.random.uniform((args.nhwc[0], args.nhwc[1], args.nhwc[2], args.nhwc[3]), 0, 255)
+        output_tensor = model(input_tensor)
+        sess = tf.keras.backend.get_session()
+        with sess.graph.as_default():
+            opts = tf.profiler.ProfileOptionBuilder.float_operation()
+            flops = tf.profiler.profile(sess.graph, options=opts)
+        return flops.total_float_ops
+
+    #TODO: include qnt_dlc_size
     def measure_size(self):
-        #TODO: meausre pb size
-        pass
+        opt_pb_path = os.path.join(self.log_dir, self.opt_pb_name)
+        dlc_path = os.path.join(self.log_dir, self.dlc_name)
+        #qnt_dlc_path = os.path.join(self.log_dir, self.qnt_dlc_name)
 
-    def meaure_parameters(self):
-        #TODO: tf.profiler
-        pass
+        opt_pb_size = os.path.getsize(opt_pb_path)
+        dlc_size = os.path.getsize(dlc_path)
+        #qnt_dlc_size = os.path.getsize(qnt_dlc_path)
+
+        #return opt_pb_size, dlc_size, qnt_dlc_size
+        return opt_pb_size, dlc_size
+
+    def measure_parameters(self):
+        input_tensor = tf.random.uniform((args.nhwc[0], args.nhwc[1], args.nhwc[2], args.nhwc[3]), 0, 255)
+        output_tensor = model(input_tensor)
+        sess = tf.keras.backend.get_session()
+        with sess.graph.as_default():
+            opts = tf.profiler.ProfileOptionBuilder.trainable_variables_parameter()
+            params_stats = tf.profiler.profile(sess.graph, options=opts)
+        return params_stats.total_parameters
 
     def measure_latency(self, device_id, runtime):
-        #TODO: SNPE / refer setup_experiment.py
         result_dir = os.path.join(self.log_dir, device_id, runtime, str(self.nhwc[0]))
-        json_path = os.path.join(result_dir, self.json_name)
-        assert(os.path.exists(json_path))
+        config_json_path = os.path.join(result_dir, self.json_name)
+        assert(os.path.exists(config_json_path))
 
-        self._snpe_benchmark(json_path)
+        self._snpe_benchmark(config_json_path)
 
-    #read all results and outputs a json file (iterate devices, runtimes)
-    def summary(self):
-        pass
+        output_json_path = os.path.join(result_dir, 'latest_results', 'benchmark_stats_{}.json'.format(self.model.name))
+        assert(os.path.exists(output_json_path))
+
+        json_data = open(output_json_path).read()
+        data = json.loads(json_data)
+        return float(data['Execution_Data']['GPU_FP16']['Total Inference Time']['Avg_Time'])
+
+    def measure_all(self, device_id, runtime):
+        flops = self.measure_flops()
+        num_params = self.measure_parameters()
+        latency = self.measure_latency(device_id, runtime)
+        pb_size, dlc_size = self.measure_size()
+
+        summary = {}
+        summary['flops'] = flops
+        summary['num_params'] = num_params
+        summary['latency'] = latency / 1000.0
+        summary['pb_size'] = pb_size / 1000.0
+        summary['dlc_size'] = dlc_size / 1000.0
+
+        result_dir = os.path.join(self.log_dir, device_id, runtime, str(self.nhwc[0]))
+        json_path = os.path.join(result_dir, 'summary.json')
+        with open(json_path, 'w', encoding='utf-8') as f:
+            json.dump(summary, f, ensure_ascii=False, indent=4)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -208,4 +256,9 @@ if __name__ == '__main__':
     profiler = Profiler(model, args.nhwc, log_dir, args.snpe_dir)
     profiler.create_model()
     profiler.create_json(args.device_id, args.runtime)
-    profiler.measure_latency(args.device_id, args.runtime)
+    profiler.measure_all(args.device_id, args.runtime)
+    #print(profiler.measure_latency(args.device_id, args.runtime))
+    #print(profiler.measure_size())
+    #print(profiler.measure_gflops())
+    #print(profiler.measure_parameters())
+
