@@ -79,7 +79,7 @@ class Tester:
     def test(self, lr_image_dir, hr_image_dir, save_image=False):
         #quantization
         self.quantizer.profile(self.encoder, lr_image_dir, self.checkpoint_dir)
-        self.quantizer.plot(self.encoder, lr_image_dir, self.qnt_image_dir)
+        #self.quantizer.plot(self.encoder, lr_image_dir, self.qnt_image_dir)
         self.quantizer.load(self.checkpoint_dir)
 
         #entropy

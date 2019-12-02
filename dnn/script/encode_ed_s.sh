@@ -7,5 +7,5 @@ python $DNNDIR/tool/encode_ed_s.py --dataset_dir $DATADIR/game-lol \
                 --enc_num_filters 64 \
                 --dec_num_blocks 1 \
                 --dec_num_filters 8 \
-                --min_percentile 0.5 \
-                --max_percentile 99.5
+                --min_percentile 5 \
+                --max_percentile 95

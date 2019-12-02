@@ -15,7 +15,7 @@ from tool.common import freeze_session, optimize_for_inference, check_attached_d
 class Profiler():
     model_name = 'mock'
     json_name = 'snpe_benchmark.json'
-    total_run = 1
+    total_run = 10
     total_num = 1
 
     def __init__(self, model, nhwc, log_dir, snpe_dir):

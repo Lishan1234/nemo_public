@@ -35,8 +35,9 @@ class Tester:
         print(self.checkpoint_dir)
         self.encoder = edsr_ed_s.load_encoder(self.checkpoint_dir)
 
-    def test(self, lr_image_dir, ffmpeg_path, output_video_name, fps, num_threads=4):
+    def test(self, lr_filtered_image_dir, lr_image_dir, ffmpeg_path, output_video_name, fps, num_threads=4):
         #quantization
+        self.quantizer.profile(self.encoder, lr_filtered_image_dir, self.checkpoint_dir)
         self.quantizer.load(self.checkpoint_dir)
 
         #quality
@@ -122,6 +123,8 @@ if __name__ == '__main__':
 
     #tester
     ffmpeg_option_1 = FFmpegOption(args.filter_type, args.filter_fps, args.upsample) #for a test video
+    lr_filtered_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_1.summary(args.lr_video_name))
+
     checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option_1.summary(args.lr_video_name), edsr_ed_s.name)
     log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option_0.summary(args.lr_video_name), edsr_ed_s.name, \
                             linear_quantizer.name)
@@ -136,4 +139,4 @@ if __name__ == '__main__':
     fps = video_fps(lr_video_path)
 
     tester = Tester(edsr_ed_s, linear_quantizer, checkpoint_dir, log_dir, image_dir, video_dir)
-    tester.test(lr_image_dir, args.ffmpeg_path, new_video, fps)
+    tester.test(lr_filtered_image_dir, lr_image_dir, args.ffmpeg_path, new_video, fps)
