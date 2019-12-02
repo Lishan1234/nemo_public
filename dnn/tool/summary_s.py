@@ -53,11 +53,10 @@ if __name__ == '__main__':
     scale = upscale_factor(lr_video_path, hr_video_path)
 
     with open(result_path, 'w') as f_result:
-        #TODO
         log = '{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format('num_blocks', 'num_filters', \
                                                 'latency', 'flops', \
                                                 'size', 'num_params', \
-                                                "\t".join("{}kbps".format(bitrate) for bitrate in args.bitrate))
+                                                "\t".join('Raw' if bitrate == 0 else '{}kbps'.format(bitrate) for bitrate in args.bitrate))
         f_result.write(log)
 
         for num_blocks in args.num_blocks:
@@ -81,10 +80,14 @@ if __name__ == '__main__':
                 psnr_values = []
                 for bitrate in args.bitrate:
                     lr_video_title, lr_video_format = os.path.splitext(args.lr_video_name)
-                    lr_video_name = '{}_{}kbps{}'.format(lr_video_title, bitrate, lr_video_format)
+                    if bitrate is not 0:
+                        lr_video_name = '{}_{}kbps{}'.format(lr_video_title, bitrate, lr_video_format)
+                    else:
+                        lr_video_name = args.lr_video_name
                     quality_log_dir = os.path.join(args.rootdir, args.dataset_name, 'log', ffmpeg_option_0.summary(lr_video_name), edsr_s.name, \
                                     ffmpeg_option_1.summary(lr_video_name))
                     quality_log_path = os.path.join(quality_log_dir, 'quality.txt')
+                    print(quality_log_path)
                     assert(os.path.exists(quality_log_path))
 
                     with open(quality_log_path, 'r') as f:
