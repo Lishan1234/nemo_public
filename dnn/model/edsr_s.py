@@ -55,6 +55,7 @@ class EDSR_S():
         print('checkpoint: {}'.format(checkpoint_path))
         assert(checkpoint_path is not None)
         checkpoint.restore(checkpoint_path)
+        #print(tf.train.list_variables(checkpoint_path))
 
         return checkpoint
 

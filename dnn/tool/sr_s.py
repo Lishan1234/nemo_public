@@ -31,6 +31,7 @@ class Tester:
         os.makedirs(self.video_dir, exist_ok=True)
 
         self.checkpoint = edsr_s.load_checkpoint(self.checkpoint_dir)
+        #print(self.checkpoint.model.summary())
 
     def test(self, lr_image_dir, hr_image_dir, ffmpeg_path, output_video_name, fps, save_video, num_threads=4):
         assert(self.checkpoint is not None)
@@ -94,7 +95,7 @@ if __name__ == '__main__':
     #directory, path
     parser.add_argument('--dataset_dir', type=str, required=True)
     parser.add_argument('--lr_video_name', type=str, required=True)
-    parser.add_argument('--train_video_name', type=str, required=True)
+    parser.add_argument('--train_video_name', type=str, default=None)
     parser.add_argument('--hr_video_name', type=str, required=True)
     parser.add_argument('--ffmpeg_path', type=str, required=True)
     parser.add_argument('--ffprobe_path', type=str, default='usr/bin/ffprobe')
@@ -103,10 +104,11 @@ if __name__ == '__main__':
     parser.add_argument('--filter_type', type=str,  default='uniform')
     parser.add_argument('--filter_fps', type=float, default=1.0)
     parser.add_argument('--upsample', type=str, default='bilinear')
+    parser.add_argument('--bitrate', type=int, nargs='+', required=True)
 
     #architecture
-    parser.add_argument('--num_filters', type=int, required=True)
-    parser.add_argument('--num_blocks', type=int, required=True)
+    parser.add_argument('--num_filters', type=int, nargs='+', required=True)
+    parser.add_argument('--num_blocks', type=int, nargs='+', required=True)
     parser.add_argument('--enable_normalization', action='store_true')
 
     #log
@@ -114,45 +116,51 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    #setting (lr, hr)
+    #setting
+    ffmpeg_option_0 = FFmpegOption('none', None, None) #for a pretrained DNN
+    ffmpeg_option_1 = FFmpegOption(args.filter_type, args.filter_fps, args.upsample) #for a test video
+
     lr_video_path = os.path.join(args.dataset_dir, 'video', args.lr_video_name)
-    train_video_path = os.path.join(args.dataset_dir, 'video', args.train_video_name)
     hr_video_path = os.path.join(args.dataset_dir, 'video', args.hr_video_name)
     assert(os.path.exists(lr_video_path))
-    assert(os.path.exists(train_video_path))
     assert(os.path.exists(hr_video_path))
+    scale = upscale_factor(lr_video_path, hr_video_path)
 
-    ffmpeg_option_0 = FFmpegOption('none', None, None) #for a pretrained DNN
-    lr_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.lr_video_name))
     hr_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.hr_video_name))
-    setup_images(lr_video_path, lr_image_dir, args.ffmpeg_path, ffmpeg_option_0.filter())
     setup_images(hr_video_path, hr_image_dir, args.ffmpeg_path, ffmpeg_option_0.filter())
 
-    #dnn
-    scale = upscale_factor(lr_video_path, hr_video_path)
-    if args.enable_normalization:
-        #TODO: rgb mean
-        #normalize_config = NormalizeConfig('normalize', 'denormalize', rgb_mean)
-        pass
-    else:
-        normalize_config = None
-    edsr_s = EDSR_S(args.num_blocks, args.num_filters, \
-                            scale, normalize_config)
+    for num_blocks in args.num_blocks:
+        for num_filters in args.num_filters:
+            #dnn
+            edsr_s = EDSR_S(num_blocks, num_filters, scale, None)
 
-    #tester
-    ffmpeg_option_1 = FFmpegOption(args.filter_type, args.filter_fps, args.upsample) #for a test video
-    checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option_1.summary(args.train_video_name), edsr_s.name)
-    log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option_0.summary(args.lr_video_name), edsr_s.name, \
-                            ffmpeg_option_1.summary(args.train_video_name))
-    image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.lr_video_name), edsr_s.name, \
-                            ffmpeg_option_1.summary(args.train_video_name))
-    video_dir = os.path.join(args.dataset_dir, 'video', ffmpeg_option_1.summary(args.train_video_name), edsr_s.name)
-    os.makedirs(checkpoint_dir, exist_ok=True)
-    os.makedirs(log_dir, exist_ok=True)
+            for bitrate in args.bitrate:
+                #image
+                lr_video_title, lr_video_format = os.path.splitext(args.lr_video_name)
+                if bitrate is not 0:
+                    lr_video_name = '{}_{}kbps{}'.format(lr_video_title, bitrate, lr_video_format)
+                else:
+                    lr_video_name = args.lr_video_name
+                lr_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(lr_video_name))
+                lr_video_path = os.path.join(args.dataset_dir, 'video', lr_video_name)
+                setup_images(lr_video_path, lr_image_dir, args.ffmpeg_path, ffmpeg_option_0.filter())
 
-    video_name, video_format = os.path.splitext(args.lr_video_name)
-    new_video = '{}_sr{}'.format(video_name, video_format)
-    fps = video_fps(lr_video_path)
+                #directory
+                if args.train_video_name is None:
+                    checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option_1.summary(lr_video_name), edsr_s.name)
+                else:
+                    checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option_1.summary(args.train_video_name), edsr_s.name)
+                log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option_0.summary(lr_video_name), edsr_s.name, \
+                                        ffmpeg_option_1.summary(lr_video_name))
+                image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(lr_video_name), edsr_s.name, \
+                                        ffmpeg_option_1.summary(lr_video_name))
+                video_dir = os.path.join(args.dataset_dir, 'video', ffmpeg_option_1.summary(lr_video_name), edsr_s.name)
+                os.makedirs(checkpoint_dir, exist_ok=True)
+                os.makedirs(log_dir, exist_ok=True)
 
-    tester = Tester(edsr_s, checkpoint_dir, log_dir, image_dir, video_dir)
-    tester.test(lr_image_dir, hr_image_dir, args.ffmpeg_path, new_video, fps, args.save_video)
+                video_name, video_format = os.path.splitext(lr_video_name)
+                new_video = '{}_sr{}'.format(video_name, video_format)
+                fps = video_fps(lr_video_path)
+
+                tester = Tester(edsr_s, checkpoint_dir, log_dir, image_dir, video_dir)
+                tester.test(lr_image_dir, hr_image_dir, args.ffmpeg_path, new_video, fps, args.save_video)
