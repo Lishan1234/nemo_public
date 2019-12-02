@@ -10,4 +10,4 @@ python $DNNDIR/tool/decode_ed_s.py --dataset_dir $DATADIR/game-lol \
                 --dec_num_filters 8 \
                 --min_percentile 0 \
                 --max_percentile 100 \
-                --bitrate 400
+                --bitrate 0 
