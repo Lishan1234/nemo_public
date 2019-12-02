@@ -84,8 +84,8 @@ if __name__ == '__main__':
     #architecture
     parser.add_argument('--enc_num_filters', type=int, required=True)
     parser.add_argument('--enc_num_blocks', type=int, required=True)
-    parser.add_argument('--dec_num_filters', type=int, required=True)
-    parser.add_argument('--dec_num_blocks', type=int, required=True)
+    parser.add_argument('--dec_num_filters', type=int, nargs='+', required=True)
+    parser.add_argument('--dec_num_blocks', type=int, nargs='+', required=True)
     parser.add_argument('--enable_normalization', action='store_true')
     parser.add_argument('--min_percentile', type=float, required=True)
     parser.add_argument('--max_percentile', type=float, required=True)
@@ -95,48 +95,49 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+
     #setting
+    ffmpeg_option_0 = FFmpegOption('none', None, None) #for a pretrained DNN
+    ffmpeg_option_1 = FFmpegOption(args.filter_type, args.filter_fps, args.upsample) #for a test video
+
     lr_video_path = os.path.join(args.dataset_dir, 'video', args.lr_video_name)
     hr_video_path = os.path.join(args.dataset_dir, 'video', args.hr_video_name)
     assert(os.path.exists(lr_video_path))
     assert(os.path.exists(hr_video_path))
-
-    ffmpeg_option_0 = FFmpegOption('none', None, None) #for a pretrained DNN
-    lr_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.lr_video_name))
-    setup_images(lr_video_path, lr_image_dir, args.ffmpeg_path, ffmpeg_option_0.filter())
-
-    #dnn
     scale = upscale_factor(lr_video_path, hr_video_path)
-    if args.enable_normalization:
-        #TODO: rgb mean
-        #normalize_config = NormalizeConfig('normalize', 'denormalize', rgb_mean)
-        pass
-    else:
-        normalize_config = None
 
-    edsr_ed_s = EDSR_ED_S(args.enc_num_blocks, args.enc_num_filters, \
-                           args.dec_num_blocks, args.dec_num_filters, \
-                            scale, normalize_config)
+    lr_filtered_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_1.summary(args.lr_video_name))
+    setup_images(lr_video_path, lr_filtered_image_dir, args.ffmpeg_path, ffmpeg_option_1.filter())
 
     #quantization
     linear_quantizer = LinearQuantizer(args.min_percentile, args.max_percentile)
 
-    #tester
-    ffmpeg_option_1 = FFmpegOption(args.filter_type, args.filter_fps, args.upsample) #for a test video
-    lr_filtered_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_1.summary(args.lr_video_name))
+    for dec_num_blocks in args.dec_num_blocks:
+        for dec_num_filters in args.dec_num_filters:
+            #dnn
+            edsr_ed_s = EDSR_ED_S(args.enc_num_blocks, args.enc_num_filters, \
+                                   dec_num_blocks, dec_num_filters, \
+                                    scale, None)
 
-    checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option_1.summary(args.lr_video_name), edsr_ed_s.name)
-    log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option_0.summary(args.lr_video_name), edsr_ed_s.name, \
-                            linear_quantizer.name)
-    image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.lr_video_name), edsr_ed_s.name, \
-                            linear_quantizer.name)
-    video_dir = os.path.join(args.dataset_dir, 'video', edsr_ed_s.name)
-    os.makedirs(checkpoint_dir, exist_ok=True)
-    os.makedirs(log_dir, exist_ok=True)
+            #frame
+            lr_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.lr_video_name))
+            setup_images(lr_video_path, lr_image_dir, args.ffmpeg_path, ffmpeg_option_0.filter())
 
-    video_name, video_format = os.path.splitext(args.lr_video_name)
-    new_video = '{}_{}_encode{}'.format(video_name, linear_quantizer.name, video_format)
-    fps = video_fps(lr_video_path)
+            #directory
+            checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option_1.summary(args.lr_video_name), edsr_ed_s.name)
+            log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option_0.summary(args.lr_video_name), edsr_ed_s.name, \
+                                    linear_quantizer.name)
+            image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option_0.summary(args.lr_video_name), edsr_ed_s.name, \
+                                    linear_quantizer.name)
+            video_dir = os.path.join(args.dataset_dir, 'video', edsr_ed_s.name)
+            os.makedirs(checkpoint_dir, exist_ok=True)
+            os.makedirs(log_dir, exist_ok=True)
 
-    tester = Tester(edsr_ed_s, linear_quantizer, checkpoint_dir, log_dir, image_dir, video_dir)
-    tester.test(lr_filtered_image_dir, lr_image_dir, args.ffmpeg_path, new_video, fps)
+            #video
+            video_name, video_format = os.path.splitext(args.lr_video_name)
+            new_video = '{}_{}_encode{}'.format(video_name, linear_quantizer.name, video_format)
+            fps = video_fps(lr_video_path)
+
+            #test
+            tester = Tester(edsr_ed_s, linear_quantizer, checkpoint_dir, log_dir, image_dir, video_dir)
+            tester.test(lr_filtered_image_dir, lr_image_dir, args.ffmpeg_path, new_video, fps)
