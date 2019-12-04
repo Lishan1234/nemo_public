@@ -309,4 +309,40 @@ if __name__ == '__main__':
 
             #test
             tester = Tester(edsr_ed_s, linear_quantizer, checkpoint_dir, log_dir, image_dir, args.webp_dir)
-            tester.test_lossy(lr_image_dir, feature_image_dir, hr_image_dir)
+            #tester.test_lossless(lr_image_dir, feature_image_dir, hr_image_dir)
+            #tester.test_near_lossless(lr_image_dir, feature_image_dir, hr_image_dir)
+            #tester.test_lossy(lr_image_dir, feature_image_dir, hr_image_dir)
+
+    result_dir = os.path.join(args.dataset_dir, 'result')
+    os.makedirs(result_dir, exist_ok=True)
+    result_path = os.path.join(result_dir, 'summary_webp_ed_s.txt')
+    with open(result_path, 'w') as f:
+        for dec_num_blocks in args.dec_num_blocks:
+            for dec_num_filters in args.dec_num_filters:
+                f.write('#Block\t#Filter\tMode\tCompress factor\tPSNR(dB)\tSize(KB)\n')
+
+                lossless_log_dir = os.path.join(log_dir, 'webp_lossless')
+                quality_log_path = os.path.join(lossless_log_dir, 'quality.txt')
+                size_log_path = os.path.join(lossless_log_dir, 'size.txt')
+                with open(quality_log_path) as f_q, open(size_log_path) as f_s:
+                    quality = np.round(float(f_q.readline().split('\t')[1]), 2)
+                    size = int(f_s.readline().split('\t')[1])
+                    f.write('{}\t{}\tLossless\t100\t{}\t{}\n'.format(dec_num_blocks, dec_num_filters, quality, size))
+
+                for near_lossless in Tester.near_lossless:
+                    near_lossless_log_dir = os.path.join(log_dir, 'webp_near_lossless_{}'.format(near_lossless))
+                    quality_log_path = os.path.join(near_lossless_log_dir, 'quality.txt')
+                    size_log_path = os.path.join(near_lossless_log_dir, 'size.txt')
+                    with open(quality_log_path) as f_q, open(size_log_path) as f_s:
+                        quality = np.round(float(f_q.readline().split('\t')[1]), 2)
+                        size = int(f_s.readline().split('\t')[1])
+                        f.write('{}\t{}\tNear-lossless\t{}\t{}\t{}\n'.format(dec_num_blocks, dec_num_filters, near_lossless, quality, size))
+
+                for q in Tester.q:
+                    lossy_log_dir = os.path.join(log_dir, 'webp_lossy_{}'.format(q))
+                    quality_log_path = os.path.join(lossy_log_dir, 'quality.txt')
+                    size_log_path = os.path.join(lossy_log_dir, 'size.txt')
+                    with open(quality_log_path) as f_q, open(size_log_path) as f_s:
+                        quality = np.round(float(f_q.readline().split('\t')[1]), 2)
+                        size = int(f_s.readline().split('\t')[1])
+                        f.write('{}\t{}\tLossy\t{}\t{}\t{}\n'.format(dec_num_blocks, dec_num_filters, q, quality, size))
