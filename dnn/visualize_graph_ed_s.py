@@ -8,7 +8,6 @@ from importlib import import_module
 from model.common import NormalizeConfig
 from model.edsr_ed_s import EDSR_ED_S
 from dataset import ImageDataset
-from trainer_s import EDSRTrainer
 from utility import VideoMetadata, FFmpegOption
 
 import tensorflow as tf

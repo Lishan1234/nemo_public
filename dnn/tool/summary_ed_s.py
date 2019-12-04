@@ -61,11 +61,11 @@ if __name__ == '__main__':
     linear_quantizer = LinearQuantizer(args.min_percentile, args.max_percentile)
 
     with open(result_path, 'w') as f_result:
-        #TODO
         log = '{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format('num_blocks', 'num_filters', \
                                                 'latency', 'flops', \
                                                 'size', 'num_params', \
-                                                "\t".join('Raw' if bitrate == 0 else '{}kbps'.format(bitrate) for bitrate in args.bitrate))
+                                                '\t'.join('Raw(SR)\tRaw(Bilinear)' if bitrate == 0 \
+                                                else '{}kbps(SR)\t{}kbps(Bilinear)'.format(bitrate, bitrate) for bitrate in args.bitrate))
         f_result.write(log)
 
         for dec_num_blocks in args.dec_num_blocks:
@@ -104,6 +104,7 @@ if __name__ == '__main__':
                         result = line.split('\t')
                         assert(result[0] == 'Average')
                         psnr_values.append(np.round(float(result[1]), 2))
+                        psnr_values.append(np.round(float(result[2]), 2))
 
                 #log
                 log = '{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(dec_num_blocks, dec_num_filters, \
