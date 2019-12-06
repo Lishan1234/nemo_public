@@ -236,8 +236,8 @@ if __name__ == '__main__':
     #architecture
     parser.add_argument('--enc_num_filters', type=int, required=True)
     parser.add_argument('--enc_num_blocks', type=int, required=True)
-    parser.add_argument('--dec_num_filters', type=int, required=True)
-    parser.add_argument('--dec_num_blocks', type=int, required=True)
+    parser.add_argument('--dec_num_filters', type=int, nargs='+', required=True)
+    parser.add_argument('--dec_num_blocks', type=int, nargs='+', required=True)
     parser.add_argument('--scale', type=int, required=True)
     parser.add_argument('--nhwc', nargs='+', type=int, required=True)
 
@@ -249,19 +249,17 @@ if __name__ == '__main__':
 
     assert(len(args.nhwc) == 4)
 
-    #model
-    edsr_ed_s = EDSR_ED_S(args.enc_num_blocks, args.enc_num_filters, \
-                        args.dec_num_blocks, args.dec_num_filters, \
-                        args.scale, None)
-    model = edsr_ed_s.build_decoder()
+    for dec_num_blocks in args.dec_num_blocks:
+        for dec_num_filters in args.dec_num_filters:
+            #model
+            edsr_ed_s = EDSR_ED_S(args.enc_num_blocks, args.enc_num_filters, \
+                                dec_num_blocks, dec_num_filters, \
+                                args.scale, None)
+            model = edsr_ed_s.build_decoder()
 
-    #setup
-    log_dir = os.path.join(args.model_dir, model.name)
-    profiler = Profiler(model, args.nhwc, log_dir, args.snpe_dir)
-    profiler.create_model()
-    profiler.create_json(args.device_id, args.runtime)
-    profiler.measure_all(args.device_id, args.runtime)
-    #print(profiler.measure_latency(args.device_id, args.runtime))
-    #print(profiler.measure_size())
-    #print(profiler.measure_gflops())
-    #print(profiler.measure_parameters())
+            #setup
+            log_dir = os.path.join(args.model_dir, model.name)
+            profiler = Profiler(model, args.nhwc, log_dir, args.snpe_dir)
+            profiler.create_model()
+            profiler.create_json(args.device_id, args.runtime)
+            profiler.measure_all(args.device_id, args.runtime)

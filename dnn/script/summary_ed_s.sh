@@ -8,8 +8,8 @@ python $DNNDIR/tool/summary_ed_s.py --rootdir $DATADIR \
                 --runtime GPU_FP16 \
                 --enc_num_blocks 8 \
                 --enc_num_filters 64 \
-                --dec_num_blocks 1 \
+                --dec_num_blocks 8 \
                 --dec_num_filters 8 \
-                --min_percentile 0 \
-                --max_percentile 100 \
-                --bitrate 400
+                --min_percentile 0.2 \
+                --max_percentile 99.8 \
+                --bitrate 0 200 400 600

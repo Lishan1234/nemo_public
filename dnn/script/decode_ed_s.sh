@@ -6,8 +6,8 @@ python $DNNDIR/tool/decode_ed_s.py --dataset_dir $DATADIR/game-lol \
                 --train_video_name 240p_s0_d60.webm \
                 --enc_num_blocks 8 \
                 --enc_num_filters 64 \
-                --dec_num_blocks 1 \
+                --dec_num_blocks 8 \
                 --dec_num_filters 8 \
-                --min_percentile 0 \
-                --max_percentile 100 \
-                --bitrate 0 
+                --min_percentile 0.2 \
+                --max_percentile 99.8 \
+                --bitrate 0 200 400 600 

@@ -234,8 +234,8 @@ if __name__ == '__main__':
     parser.add_argument('--snpe_dir', type=str, required=True)
 
     #architecture
-    parser.add_argument('--num_filters', type=int, required=True)
-    parser.add_argument('--num_blocks', type=int, required=True)
+    parser.add_argument('--num_filters', type=int, nargs='+', required=True)
+    parser.add_argument('--num_blocks', type=int, nargs='+', required=True)
     parser.add_argument('--scale', type=int, required=True)
     parser.add_argument('--nhwc', nargs='+', type=int, required=True)
 
@@ -247,18 +247,15 @@ if __name__ == '__main__':
 
     assert(len(args.nhwc) == 4)
 
-    #model
-    edsr_s = EDSR_S(args.num_blocks, args.num_filters, args.scale, None)
-    model = edsr_s.build_model()
+    for num_blocks in args.num_blocks:
+        for num_filters in args.num_filters:
+            #model
+            edsr_s = EDSR_S(num_blocks, num_filters, args.scale, None)
+            model = edsr_s.build_model()
 
-    #setup
-    log_dir = os.path.join(args.model_dir, model.name)
-    profiler = Profiler(model, args.nhwc, log_dir, args.snpe_dir)
-    profiler.create_model()
-    profiler.create_json(args.device_id, args.runtime)
-    profiler.measure_all(args.device_id, args.runtime)
-    #print(profiler.measure_latency(args.device_id, args.runtime))
-    #print(profiler.measure_size())
-    #print(profiler.measure_gflops())
-    #print(profiler.measure_parameters())
-
+            #setup
+            log_dir = os.path.join(args.model_dir, model.name)
+            profiler = Profiler(model, args.nhwc, log_dir, args.snpe_dir)
+            profiler.create_model()
+            profiler.create_json(args.device_id, args.runtime)
+            profiler.measure_all(args.device_id, args.runtime)
