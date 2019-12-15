@@ -28,28 +28,15 @@ ndk="${1}"
 shift 1
 
 # configuration parameters common to all architectures
-#common_params="--disable-libyuv --disable-vp8 --enable-postproc --enable-vp9-postproc"
-#common_params="--disable-libyuv --enable-postproc --enable-vp9-postproc"
+common_params="--disable-examples --disable-docs --enable-realtime-only"
+common_params+="--disable-vp8"
+common_params+="--enable-libyuv --disable-runtime-cpu-detect"
 #common_params+=" --disable-vp8 --disable-vp9-encoder --disable-webm-io"
-#common_params="--disable-examples --disable-docs --enable-realtime-only"
-#common_params+=" --disable-vp8 --disable-vp9-encoder"
 #common_params+=" --disable-libyuv --disable-runtime-cpu-detect"
 #common_params+=" --enable-external-build"
 
-common_params="--disable-examples --disable-docs --enable-realtime-only"
-#common_params+=" --disable-vp8 --disable-vp9-encoder --disable-webm-io"
-#common_params+=" --disable-vp8 --disable-vp9-encoder"
-common_params+=" --disable-vp8"
-common_params+=" --disable-libyuv --disable-runtime-cpu-detect"
-#common_params+=" --enable-external-build"
-#common_params+=" --disable-vp8 --disable-webm-io"
-#common_params+=" --disable-vp8"
-#common_params+=" --disable-runtime-cpu-detect"
-
 arch[0]="arm64-v8a"
 config[0]="--force-target=armv8-android-gcc --sdk-path=$ndk --enable-neon --enable-internal-stats"
-#config[0]="--force-target=armv8-android-gcc --enable-neon --enable-webm-io --enable-internal-stats"
-#config[0]="--force-target=armv8-android-gcc --sdk-path=$ndk --enable-neon --enable-webm-io"
 
 # configuration parameters for various architectures
 #arch[0]="armeabi-v7a"
@@ -84,8 +71,8 @@ limit=$((${#arch[@]} - 1))
 # list of files allowed after running configure in each arch directory.
 # everything else will be removed.
 allowed_files="libvpx_srcs.txt vpx_config.c vpx_config.h vpx_scale_rtcd.h"
-#allowed_files+=" vp8_rtcd.h vp9_rtcd.h vpx_version.h vpx_config.asm"
-allowed_files+=" vp9_rtcd.h vpx_version.h vpx_config.asm"
+allowed_files+=" vp8_rtcd.h vp9_rtcd.h vpx_version.h vpx_config.asm"
+#allowed_files+=" vp9_rtcd.h vpx_version.h vpx_config.asm"
 allowed_files+=" vpx_dsp_rtcd.h libvpx.ver"
 
 remove_trailing_whitespace() {

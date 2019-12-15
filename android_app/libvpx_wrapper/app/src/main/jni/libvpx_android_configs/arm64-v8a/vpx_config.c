@@ -6,5 +6,5 @@
 /* in the file PATENTS.  All contributing project authors may */
 /* be found in the AUTHORS file in the root of the source tree. */
 #include "vpx/vpx_codec.h"
-static const char* const cfg = "--force-target=armv8-android-gcc --sdk-path=/home/hyunho/android-ndk-r14b/ --enable-neon --enable-internal-stats --disable-examples --disable-docs --enable-realtime-only --disable-vp8 --disable-libyuv --disable-runtime-cpu-detect --extra-cflags=     -isystem /home/hyunho/android-ndk-r14b//sysroot/usr/include/arm-linux-androideabi     -isystem /home/hyunho/android-ndk-r14b//sysroot/usr/include     ";
+static const char* const cfg = "--force-target=armv8-android-gcc --sdk-path=/home/hyunho/android-ndk-r14b/ --enable-neon --enable-internal-stats --disable-vp8 --disable-examples --disable-docs --disable-runtime-cpu-detect --enable-realtime-only --enable-libyuv --extra-cflags=     -isystem /home/hyunho/android-ndk-r14b//sysroot/usr/include/arm-linux-androideabi     -isystem /home/hyunho/android-ndk-r14b//sysroot/usr/include     ";
 const char *vpx_codec_build_config(void) {return cfg;}
