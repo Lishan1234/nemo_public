@@ -25,7 +25,7 @@ include $(CONFIG_DIR)/config.mk
 include $(CONFIG_DIR)/libs-$(TOOLCHAIN).mk
 
 ifeq ($(CONFIG_SNPE), yes)
-	SNPE_ROOT := $(LOCAL_PATH)/../../../third_party/snpe
+	SNPE_ROOT := $(LOCAL_PATH)/libvpx/third_party/snpe
 	SNPE_INCLUDE_DIR:= $(SNPE_ROOT)/include/zdl
 	ifeq ($(TARGET_ARCH_ABI), arm64-v8a)
 		ifeq ($(APP_STL), c++_shared)

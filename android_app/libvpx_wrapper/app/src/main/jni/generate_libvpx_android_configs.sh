@@ -29,8 +29,8 @@ shift 1
 
 # configuration parameters common to all architectures
 common_params="--disable-examples --disable-docs --enable-realtime-only"
-common_params+="--disable-vp8"
-common_params+="--enable-libyuv --disable-runtime-cpu-detect"
+common_params+=" --disable-vp8"
+common_params+=" --enable-libyuv --disable-runtime-cpu-detect"
 #common_params+=" --disable-vp8 --disable-vp9-encoder --disable-webm-io"
 #common_params+=" --disable-libyuv --disable-runtime-cpu-detect"
 #common_params+=" --enable-external-build"
@@ -111,7 +111,7 @@ for i in $(seq 0 ${limit}); do
   ../../libvpx/configure ${config[${i}]} ${common_params} --extra-cflags=" \
     -isystem $ndk/sysroot/usr/include/arm-linux-androideabi \
     -isystem $ndk/sysroot/usr/include \
-    "
+  "
   rm -f libvpx_srcs.txt
   for f in ${allowed_files}; do
     # the build system supports multiple different configurations. avoid

@@ -38,6 +38,7 @@ function _setup_snpe()
   # get directory of the bash script
   local SOURCEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
   export SNPE_ROOT=$(readlink -f $SOURCEDIR/third_party/snpe)
+  export MOBINAS_ROOT=$(readlink -f $SOURCEDIR)
   export PATH=$SNPE_ROOT/bin/x86_64-linux-clang:$PATH
 
   # setup LD_LIBRARY_PATH
