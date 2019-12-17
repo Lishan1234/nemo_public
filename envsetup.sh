@@ -30,7 +30,7 @@ EOF
 function _setup_mobinas()
 {
   local SOURCEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-  export PYTHONPATH=$(readlink -f $SOURCEDIR):$PYTHONPATH
+  export PYTHONPATH=$(readlink -f $SOURCEDIR):$(readlink -f $SOURCEDIR/dnn):$PYTHONPATH
 }
 
 function _setup_snpe()
