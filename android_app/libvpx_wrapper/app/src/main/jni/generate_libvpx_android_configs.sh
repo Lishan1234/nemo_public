@@ -27,6 +27,8 @@ fi
 ndk="${1}"
 shift 1
 
+if [ -d libvpx_android_configs]; then rm -Rf libvpx_android_configs; fi
+
 # configuration parameters common to all architectures
 common_params="--disable-examples --disable-docs --enable-realtime-only"
 common_params+=" --disable-vp8"
@@ -36,7 +38,7 @@ common_params+=" --enable-libyuv --disable-runtime-cpu-detect"
 #common_params+=" --enable-external-build"
 
 arch[0]="arm64-v8a"
-config[0]="--force-target=armv8-android-gcc --sdk-path=$ndk --enable-neon --enable-internal-stats"
+config[0]="--force-target=armv8-android-gcc --sdk-path=$ndk --enable-neon --enable-internal-stats --enable-snpe"
 
 # configuration parameters for various architectures
 #arch[0]="armeabi-v7a"
@@ -120,8 +122,8 @@ for i in $(seq 0 ${limit}); do
   done
 
   # remove files that aren't needed
-  rm -rf !(${allowed_files// /|})
-  remove_trailing_whitespace *
+  #rm -rf !(${allowed_files// /|})
+  #remove_trailing_whitespace *
 
   popd
 done

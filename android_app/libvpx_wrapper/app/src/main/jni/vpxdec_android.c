@@ -1,7 +1,7 @@
 //
 // Created by hyunho on 4/15/19.
 //
-#include "./decode_test.h"
+#include "vpxdec_android.h"
 
 #include <time.h>
 #include <assert.h>
@@ -14,8 +14,6 @@
 #include <errno.h>
 
 #include "./vpx_config.h"
-//#include <iostream>
-//#include <map>
 
 #if CONFIG_LIBYUV
 #include "third_party/libyuv/include/libyuv/scale.h"
@@ -40,7 +38,7 @@
 #endif
 #include "./y4menc.h"
 
-#define TAG "decode_test.c JNI"
+#define TAG "vpxdec_android.c JNI"
 #define _UNKNOWN   0
 #define _DEFAULT   1
 #define _VERBOSE   2
@@ -416,30 +414,34 @@ static int img_shifted_realloc_required(const vpx_image_t *img,
 }
 #endif
 
-int decode_test(mobinas_cfg_t *mobinas_cfg) {
+int decode(mobinas_cfg_t *mobinas_cfg, vpxdec_cfg_t *vpxdec_cfg) {
     vpx_codec_ctx_t decoder;
     int i;
     int ret = EXIT_FAILURE;
     uint8_t *buf = NULL;
     size_t bytes_in_buffer = 0, buffer_size = 0;
     FILE *infile;
-    int stop_after = 30, frame_in = 0, frame_out = 0, flipuv = 0, noblit = 1;
+    int arg_skip = vpxdec_cfg->arg_skip;
+    int stop_after = vpxdec_cfg->stop_after;
+    int frame_in = 0;
+    int frame_out = 0;
+    int flipuv = 0;
+    int noblit = 1;
     int do_md5 = 0, progress = 0;
-    int postproc = 0, summary = 0, quiet = 1; //TODO (hyunho): set stop_after by configuration
-    int arg_skip = 0;
+    int postproc = 1, summary = 1, quiet = 1;
     int ec_enabled = 0;
     int keep_going = 0;
-    const VpxInterface *interface = NULL;
+    const VpxInterface *interface = get_vpx_decoder_by_name("vp9");
     const VpxInterface *fourcc_interface = NULL;
     uint64_t dx_time = 0, dx_time_ = 0;
     struct arg arg;
-    char **argv, **argi, **argj;
 
     int single_file;
-    int use_y4m = 1;
+    int use_y4m = 0;
     int opt_yv12 = 0;
     int opt_i420 = 0;
     vpx_codec_dec_cfg_t cfg = {0, 0, 0};
+    cfg.threads = vpxdec_cfg->threads;
 #if CONFIG_VP9_HIGHBITDEPTH
     unsigned int output_bit_depth = 0;
 #endif
@@ -456,15 +458,13 @@ int decode_test(mobinas_cfg_t *mobinas_cfg) {
     vpx_image_t *img_shifted = NULL;
 #endif
     int frame_avail, got_data, flush_decoder = 0;
-    int num_external_frame_buffers = 0;
+    int num_external_frame_buffers = vpxdec_cfg->num_external_frame_buffers ;
     struct ExternalFrameBufferList ext_fb_list = {0, NULL};
 
     const char *outfile_pattern = NULL;
     char outfile_name[PATH_MAX] = {0};
     FILE *outfile = NULL;
-
     FILE *framestats_file = NULL;
-
     MD5Context md5_ctx;
     unsigned char md5_digest[16];
 
@@ -478,51 +478,21 @@ int decode_test(mobinas_cfg_t *mobinas_cfg) {
     input.vpx_input_ctx = &vpx_input_ctx;
 
     /*******************Hyunho************************/
-    interface = get_vpx_decoder_by_name("vp9");
-    if (!interface)
-        die("Error: Unrecognized argument (%s) to --codec\n", arg.val);
-    outfile_pattern = "test.y4m";
-    cfg.threads = 2;
-    num_external_frame_buffers = 50;
-    framestats_file = open_logfile("framestats", mobinas_cfg->log_dir);
-    progress = 1;
-    summary = 1;
-
-    //TODO: move cache config to libvpx_wrapper.cpp
-    //TODO: enable cache config to set (video frame index, super frame index)
-    //TODO: modify prefix to record cache policy
-    //TODO: remove existing frames for all contents (using python)
-    //create a cache config
-//    std::map<int, int> cache_config;
-//    if (mobinas_cfg.mode == DECODE_CACHE) {
-//        cache_config.insert(std::pair<int, int>(0, 0)); // key frame
-//        cache_config.insert(std::pair<int, int>(30, 0)); //key frame
-//        cache_config.insert(std::pair<int, int>(60, 0)); //key frame
-//        cache_config.insert(std::pair<int, int>(5, 0));
-//        cache_config.insert(std::pair<int, int>(1, 0));
-//        cache_config.insert(std::pair<int, int>(60, 0));
-//        cache_config.insert(std::pair<int, int>(90, 0));
-//        cache_config.insert(std::pair<int, int>(120, 0));
-//    }
-    /*******************Hyunho************************/
     /* Open file */
-    char video_path[PATH_MAX];
-    memset(video_path, 0, PATH_MAX);
-    sprintf(video_path, "%s/%s.webm", mobinas_cfg->video_dir, mobinas_cfg->target_file);
-    LOGD("video_path: %s", video_path);
-    infile = strcmp(video_path, "-") ? fopen(video_path, "rb") : set_binary_mode(stdin);
-
-    if (!infile) {
-        LOGE("Failed to open input file '%s'", strcmp(video_path, "-") ? video_path : "stdin");
+    infile = fopen(vpxdec_cfg->video_path, "rb");
+    if (!infile)
+    {
+        LOGE("Failed to open input file %s\n", vpxdec_cfg->video_path);
         exit(EXIT_FAILURE);
     }
+    /*******************Hyunho************************/
 
 #if CONFIG_OS_SUPPORT
     /* Make sure we don't dump to the terminal, unless forced to with -o - */
     if (!outfile_pattern && isatty(fileno(stdout)) && !do_md5 && !noblit) {
         LOGE("Not dumping raw video to your terminal. Use '-o -' to "
              "override.\n");
-        return EXIT_FAILURE;
+        exit(EXIT_FAILURE);
     }
 #endif
     input.vpx_input_ctx->file = infile;
@@ -601,18 +571,6 @@ int decode_test(mobinas_cfg_t *mobinas_cfg) {
         }
     }
 
-    if (vpx_mobinas_init(&decoder, mobinas_cfg)){
-        LOGE("Failed to initialize mobinas cfg: %s\n", vpx_codec_error(&decoder));
-        goto fail;
-    };
-
-//    int enable_row_mt = 1;
-//    if (interface->fourcc == VP9_FOURCC &&
-//        vpx_codec_control(&decoder, VP9D_SET_ROW_MT, enable_row_mt)) {
-//        fprintf(stderr, "Failed to set decoder in row multi-thread mode: %s\n",
-//                vpx_codec_error(&decoder));
-//        goto fail;
-//    }
 
     if (!quiet) LOGE("%s\n", decoder.name);
 
@@ -650,6 +608,14 @@ int decode_test(mobinas_cfg_t *mobinas_cfg) {
     clock_t start, end;
     double cpu_time_used;
     start = clock();
+
+    /*******************Hyunho************************/
+    if (vpx_load_mobinas_cfg(&decoder, mobinas_cfg)){
+        LOGE("Failed to initialize mobinas cfg: %s\n", vpx_codec_error(&decoder));
+        goto fail;
+    };
+    /*******************Hyunho************************/
+
     while (frame_avail || got_data) {
         vpx_codec_iter_t iter = NULL;
         vpx_image_t *img;
@@ -920,8 +886,6 @@ int decode_test(mobinas_cfg_t *mobinas_cfg) {
 
     fclose(infile);
     if (framestats_file) fclose(framestats_file);
-
-    free(argv);
 
     LOGI("main_loop success");
 

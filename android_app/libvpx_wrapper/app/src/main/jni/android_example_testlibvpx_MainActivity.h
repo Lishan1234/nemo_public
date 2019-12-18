@@ -72,8 +72,8 @@ extern "C" {
  * Method:    vpxDecodeVideo
  * Signature: (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;II)V
  */
-JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxDecodeVideo
-  (JNIEnv *, jclass, jstring, jstring, jstring, jstring, jstring, jint, jint);
+JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxdec
+  (JNIEnv *, jclass);
 
 #ifdef __cplusplus
 }
