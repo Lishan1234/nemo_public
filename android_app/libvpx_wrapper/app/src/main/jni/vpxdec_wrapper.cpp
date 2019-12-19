@@ -98,12 +98,13 @@ static mobinas_cfg online_sr(const char *content_dir, const char *input_video, c
     _mkdir(mobinas_cfg.sr_compare_frame_dir);
 
     mobinas_cfg.save_frame = 1;
-    mobinas_cfg.save_quality = 0;
+    mobinas_cfg.save_quality = 1;
     mobinas_cfg.save_latency = 0;
     mobinas_cfg.save_metadata = 0;
 
-    mobinas_cfg.decode_mode = DECODE;
+    mobinas_cfg.decode_mode = DECODE_SR;
     mobinas_cfg.dnn_mode = ONLINE_DNN;
+    mobinas_cfg.dnn_runtime = GPU_FLOAT32_16_HYBRID;
 
     sprintf(mobinas_cfg.dnn_path, "%s/checkpoint/%s/%s", content_dir, dnn_name, dnn_file);
 
@@ -115,22 +116,23 @@ static mobinas_cfg online_sr(const char *content_dir, const char *input_video, c
 JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxdec
         (JNIEnv *env, jclass jobj)
 {
-    const char *content_dir = "/data/local/tmp";
+    const char *content_dir = "/storage/emulated/0/Android/data/android.example.testlibvpx/files";
     const char *input_video = "240p_s0_d60_encoded.webm";
-    const char *compare_video = "1080p_s0_d60.webm";
-    const char *dnn_name = "EDSR_S_B4_F32_S4";
-    const char *dnn_file = "ckpt-300.dlc";
+    const char *compare_video = "960p_s0_d60.webm";
+    const char *dnn_name = "EDSR_S_B8_F64_S4";
+    const char *dnn_file = "ckpt-100.dlc";
 
     vpxdec_cfg_t vpxdec_cfg = {0};
     vpxdec_cfg.arg_skip = 0;
     vpxdec_cfg.threads = 1;
-    vpxdec_cfg.stop_after = 30;
+    vpxdec_cfg.stop_after = 5;
     vpxdec_cfg.num_external_frame_buffers = 50;
-    sprintf(vpxdec_cfg.video_path, "%s/video/%s", content_dir, input_video);
 
-//    mobinas_cfg setup_mobinas_cfg = setup(content_dir, input_video);
+//    sprintf(vpxdec_cfg.video_path, "%s/video/%s", content_dir, compare_video);
+//    mobinas_cfg setup_mobinas_cfg = setup(content_dir, compare_video);
 //    decode(&setup_mobinas_cfg, &vpxdec_cfg);
 
+    sprintf(vpxdec_cfg.video_path, "%s/video/%s", content_dir, input_video);
     mobinas_cfg online_mobinas_cfg = online_sr(content_dir, input_video, compare_video, dnn_name, dnn_file);
     decode(&online_mobinas_cfg, &vpxdec_cfg);
 }

@@ -63,9 +63,8 @@ if __name__ == '__main__':
     limit = '--limit={}'.format(args.limit) if args.limit is not None else ''
     cmds = ['#!/system/bin/sh',
             'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{}'.format(device_libs_dir),
-            'export PATH=$PATH:{}'.format(device_bin_dir),
             'cd {}'.format(device_root_dir),
-            'vpxdec --codec=vp9 --progress --summary --noblit --threads={} --frame-buffers=50 {} --content-dir=. --input-video={} --save-frame'.format(args.threads, limit, args.hr_video_name),
+            '{} --codec=vp9  --noblit --threads={} --frame-buffers=50 {} --content-dir=. --input-video={} --save-frame'.format(os.path.join(device_bin_dir, 'vpxdec'), args.threads, limit, args.hr_video_name),
             'exit']
     cmd_script_path = os.path.join(script_dir, 'setup.sh')
     with open(cmd_script_path, 'w') as cmd_script:
@@ -74,12 +73,10 @@ if __name__ == '__main__':
     adb_push(device_script_dir, cmd_script_path)
 
     #online_sr.sh
-    limit = '--limit {}'.format(args.limit) if args.limit is not None else ''
     cmds = ['#!/system/bin/sh',
             'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{}'.format(device_libs_dir),
-            'export PATH=$PATH:{}'.format(device_bin_dir),
             'cd {}'.format(device_root_dir),
-            'vpxdec --codec=vp9 --progress --summary --noblit --threads={} --frame-buffers=50 {} --content-dir=. --input-video={} --compare-video={} --decode-mode=1 --dnn-mode=1 --dnn-name={} --checkpoint-name={} --save-frame --save-quality'.format(args.threads, limit, args.lr_video_name, args.hr_video_name, model.name, dlc_dict['dlc_name']),
+            '{} --codec=vp9  --noblit --threads={} --frame-buffers=50 {} --content-dir=. --input-video={} --compare-video={} --decode-mode=1 --dnn-mode=1 --dnn-name={} --dnn-file={} --save-frame --save-quality'.format(os.path.join(device_bin_dir, 'vpxdec'), args.threads, limit, args.lr_video_name, args.hr_video_name, model.name, dlc_dict['dlc_name']),
             'exit']
     cmd_script_path = os.path.join(script_dir, 'online_sr.sh')
     with open(cmd_script_path, 'w') as cmd_script:
@@ -88,12 +85,10 @@ if __name__ == '__main__':
     adb_push(device_script_dir, cmd_script_path)
 
     #online_cache.sh
-    limit = '--limit {}'.format(args.limit) if args.limit is not None else ''
     cmds = ['#!/system/bin/sh',
             'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{}'.format(device_libs_dir),
-            'export PATH=$PATH:{}'.format(device_bin_dir),
             'cd {}'.format(device_root_dir),
-            'vpxdec --codec=vp9 --progress --summary --noblit --threads={} --frame-buffers=50 {} --content-dir=. --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=1 --cache-policy=2 --dnn-name={} --checkpoint-name={} --save-frame --save-quality'.format(args.threads, limit, args.lr_video_name, args.hr_video_name, model.name, dlc_dict['dlc_name']),
+            '{} --codec=vp9  --noblit --threads={} --frame-buffers=50 {} --content-dir=. --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=1 --cache-policy=2 --dnn-name={} --dnn-file={} --save-frame --save-quality'.format(os.path.join(device_bin_dir, 'vpxdec'), args.threads, limit, args.lr_video_name, args.hr_video_name, model.name, dlc_dict['dlc_name']),
             'exit']
     cmd_script_path = os.path.join(script_dir, 'online_cache.sh')
     with open(cmd_script_path, 'w') as cmd_script:
@@ -107,7 +102,7 @@ if __name__ == '__main__':
             'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{}'.format(device_libs_dir),
             'export PATH=$PATH:{}'.format(device_bin_dir),
             'cd {}'.format(device_root_dir),
-            'vpxdec --codec=vp9 --progress --summary --noblit --threads={} --frame-buffers=50 {} --content-dir=. --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=2 --cache-policy=2 --dnn-name={} --checkpoint-name={} --save-latency'.format(args.threads, limit, args.lr_video_name, args.hr_video_name, model.name, dlc_dict['dlc_name']),
+            '{} --codec=vp9  --noblit --threads={} --frame-buffers=50 {} --content-dir=. --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=2 --cache-policy=2 --dnn-name={} --dnn-file={} --save-latency'.format(os.path.join(device_bin_dir, 'vpxdec'), args.threads, limit, args.lr_video_name, args.hr_video_name, model.name, dlc_dict['dlc_name']),
             'exit']
     cmd_script_path = os.path.join(script_dir, 'offline_cache.sh')
     with open(cmd_script_path, 'w') as cmd_script:

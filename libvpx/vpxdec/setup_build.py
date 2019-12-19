@@ -27,7 +27,7 @@ if __name__ == '__main__':
     adb_mkdir(device_libs_dir, args.device_id)
 
     #setup vpxdec
-    vpxdec_path = os.path.join('libs', args.abi, 'vxpdec')
+    vpxdec_path = os.path.join('libs', args.abi, 'vpxdec')
     adb_push(device_bin_dir, vpxdec_path)
 
     #setup library

@@ -16,17 +16,6 @@ public class MainActivity extends AppCompatActivity {
         System.loadLibrary("vpxtestJNI");
     }
 
-    static void cleanDirectory(File directory) {
-        File[] files = directory.listFiles();
-        for (File file: files)
-        {
-            if (!file.delete())
-            {
-                System.out.println("Failed to delete "+ file);
-            }
-        }
-    }
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -35,15 +24,5 @@ public class MainActivity extends AppCompatActivity {
         //Execute a libvpx unit test
         vpxdec();
         Log.i(TAG, "MainActivity ends");
-    }
-
-    private static void doCreateDirectory(File directory) throws IOException {
-        if (!directory.mkdirs()) {
-            throw new IOException("Can not create directory: " + directory.getAbsolutePath());
-        }
-    }
-
-    private static boolean modelExists(File modelRoot) {
-        return modelRoot.listFiles().length > 0;
     }
 }

@@ -428,7 +428,7 @@ int decode(mobinas_cfg_t *mobinas_cfg, vpxdec_cfg_t *vpxdec_cfg) {
     int flipuv = 0;
     int noblit = 1;
     int do_md5 = 0, progress = 0;
-    int postproc = 1, summary = 1, quiet = 1;
+    int postproc = 0, summary = 1, quiet = 1;
     int ec_enabled = 0;
     int keep_going = 0;
     const VpxInterface *interface = get_vpx_decoder_by_name("vp9");
@@ -611,9 +611,16 @@ int decode(mobinas_cfg_t *mobinas_cfg, vpxdec_cfg_t *vpxdec_cfg) {
 
     /*******************Hyunho************************/
     if (vpx_load_mobinas_cfg(&decoder, mobinas_cfg)){
-        LOGE("Failed to initialize mobinas cfg: %s\n", vpx_codec_error(&decoder));
+        LOGE("Failed to load mobinas cfg: %s\n", vpx_codec_error(&decoder));
         goto fail;
     };
+
+    if (mobinas_cfg->dnn_mode == DECODE_SR || mobinas_cfg->dnn_mode == DECODE_CACHE) {
+        if(vpx_load_mobinas_dnn(&decoder, mobinas_cfg)){
+            LOGE("Failed to load mobinas dnn: %s\n", vpx_codec_error(&decoder));
+            goto fail;
+        }
+    }
     /*******************Hyunho************************/
 
     while (frame_avail || got_data) {
