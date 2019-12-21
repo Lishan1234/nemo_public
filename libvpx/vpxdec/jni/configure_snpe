@@ -18,6 +18,8 @@
 # a bash script that generates the necessary config files for libvpx android ndk
 # builds.
 
+rm -r libvpx_android_configs
+
 set -e
 if [ $# -ne 1 ]; then
   echo "Usage: ${0} <path_to_android_ndk>"
@@ -27,19 +29,18 @@ fi
 ndk="${1}"
 shift 1
 
-if [ -d libvpx_android_configs]; then rm -rf libvpx_android_configs; fi
-
 # configuration parameters common to all architectures
 common_params="--disable-examples --disable-docs --enable-realtime-only"
 common_params+=" --disable-vp8"
 common_params+=" --enable-libyuv --disable-runtime-cpu-detect"
-common_params+=" --disable-internal-stats"
+common_params+=" --enable-snpe"
+
 #common_params+=" --disable-vp8 --disable-vp9-encoder --disable-webm-io"
 #common_params+=" --disable-libyuv --disable-runtime-cpu-detect"
 #common_params+=" --enable-external-build"
 
 arch[0]="arm64-v8a"
-config[0]="--force-target=armv8-android-gcc --sdk-path=$ndk --enable-neon --enable-internal-stats --enable-snpe"
+config[0]="--force-target=armv8-android-gcc --sdk-path=$ndk --enable-neon --enable-internal-stats"
 
 # configuration parameters for various architectures
 #arch[0]="armeabi-v7a"
@@ -75,8 +76,8 @@ limit=$((${#arch[@]} - 1))
 # everything else will be removed.
 allowed_files="libvpx_srcs.txt vpx_config.c vpx_config.h vpx_scale_rtcd.h"
 allowed_files+=" vp8_rtcd.h vp9_rtcd.h vpx_version.h vpx_config.asm"
-#allowed_files+=" vp9_rtcd.h vpx_version.h vpx_config.asm"
 allowed_files+=" vpx_dsp_rtcd.h libvpx.ver"
+#allowed_files+=" vp9_rtcd.h vpx_version.h vpx_config.asm"
 
 remove_trailing_whitespace() {
   perl -pi -e 's/\s\+$//' "$@"
@@ -115,6 +116,7 @@ for i in $(seq 0 ${limit}); do
     -isystem $ndk/sysroot/usr/include/arm-linux-androideabi \
     -isystem $ndk/sysroot/usr/include \
   "
+
   rm -f libvpx_srcs.txt
   for f in ${allowed_files}; do
     # the build system supports multiple different configurations. avoid
