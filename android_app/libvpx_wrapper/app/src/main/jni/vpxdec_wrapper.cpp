@@ -104,7 +104,7 @@ static mobinas_cfg online_sr(const char *content_dir, const char *input_video, c
 
     mobinas_cfg.decode_mode = DECODE_SR;
     mobinas_cfg.dnn_mode = ONLINE_DNN;
-    mobinas_cfg.dnn_runtime = GPU_FLOAT32_16_HYBRID;
+    mobinas_cfg.dnn_runtime = GPU_FLOAT16;
 
     sprintf(mobinas_cfg.dnn_path, "%s/checkpoint/%s/%s", content_dir, dnn_name, dnn_file);
 
