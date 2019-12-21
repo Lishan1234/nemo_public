@@ -3,9 +3,8 @@
 import argparse
 import os
 import sys
-from importlib import import_module
 
-from model.common import NormalizeConfig
+from model.edsr_r import EDSR_S
 from dataset import ImageDataset
 from trainer_s import EDSRTrainer
 from utility import VideoMetadata, FFmpegOption
@@ -54,8 +53,7 @@ log_dir = os.path.join(args.dataset_dir, 'log')
 if not os.path.exists(video_dir):
     raise ValueError('directory does not exist: {}'.format(video_dir))
 
-model_module = import_module('model.' + args.model_type)
-model_builder = getattr(model_module, 'model')
+edsr_s = EDSR_S(args.num_blocks, args.num_filters, args.scale)
 
 #1. get scale
 video_metadata = VideoMetadata(args.video_format, args.start_time, args.duration)
