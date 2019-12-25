@@ -12,7 +12,6 @@ from tensorflow.keras.metrics import Mean
 from tensorflow.keras.losses import MeanAbsoluteError
 from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 
-tf.enable_eager_execution()
 
 class Trainer:
     def __init__(self, model, loss, learning_rate, checkpoint_dir, log_dir):
@@ -103,6 +102,8 @@ class EDSRTrainer(Trainer):
         super().train(train_dataset, valid_dataset, steps, evaluate_every, save_best_only)
 
 if __name__ == '__main__':
+    tf.enable_eager_execution()
+
     parser = argparse.ArgumentParser()
 
     #directory, path
