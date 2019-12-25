@@ -125,14 +125,20 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxdec
     vpxdec_cfg_t vpxdec_cfg = {0};
     vpxdec_cfg.arg_skip = 0;
     vpxdec_cfg.threads = 1;
-    vpxdec_cfg.stop_after = 5;
+    vpxdec_cfg.stop_after = 240;
     vpxdec_cfg.num_external_frame_buffers = 50;
+
+    sprintf(vpxdec_cfg.video_path, "%s/video/%s", content_dir, input_video);
+    mobinas_cfg setup_mobinas_cfg = setup(content_dir, input_video);
+    setup_mobinas_cfg.save_frame = 0;
+    setup_mobinas_cfg.save_metadata = 1;
+    decode(&setup_mobinas_cfg, &vpxdec_cfg);
 
 //    sprintf(vpxdec_cfg.video_path, "%s/video/%s", content_dir, compare_video);
 //    mobinas_cfg setup_mobinas_cfg = setup(content_dir, compare_video);
 //    decode(&setup_mobinas_cfg, &vpxdec_cfg);
 
-    sprintf(vpxdec_cfg.video_path, "%s/video/%s", content_dir, input_video);
-    mobinas_cfg online_mobinas_cfg = online_sr(content_dir, input_video, compare_video, dnn_name, dnn_file);
-    decode(&online_mobinas_cfg, &vpxdec_cfg);
+//    sprintf(vpxdec_cfg.video_path, "%s/video/%s", content_dir, input_video);
+//    mobinas_cfg online_mobinas_cfg = online_sr(content_dir, input_video, compare_video, dnn_name, dnn_file);
+//    decode(&online_mobinas_cfg, &vpxdec_cfg);
 }
