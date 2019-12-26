@@ -2,6 +2,7 @@ import os
 import sys
 import argparse
 import networkx as nx
+import matplotlib.pyplot as plt
 
 #Assumption: Fixed GOP interval
 class FDA():
@@ -26,10 +27,10 @@ class FDA():
 
     def analyze(self, chunk_idx):
         postfix = 'chunk{:04d}'.format(chunk_idx)
-        log_path = os.path.join(self.content_dir, 'log', self.input_video, postfix, 'metadata.txt')
+        metadata_log_path = os.path.join(self.content_dir, 'log', self.input_video, postfix, 'metadata.txt')
 
         G = nx.DiGraph()
-        with open(log_path, 'r') as f:
+        with open(metadata_log_path, 'r') as f:
             lines = f.readlines()
             for idx, line in enumerate(lines):
                 result = line.strip().split('\t')
@@ -46,17 +47,30 @@ class FDA():
                         ref_video_frame = int(result[2*i+5])
                         ref_super_frame = int(result[2*i+6])
                         ref_node_name = '{}.{}'.format(ref_video_frame, ref_super_frame)
-                        G.add_edge(node_name, ref_node_name)
+                        G.add_edge(ref_node_name, node_name)
                 else:
                     #add node
                     G.add_node(node_name, video_frame=video_frame, super_frame=super_frame)
 
         #2. log a DAG data
-        #iterate over node
-        #if node has out_degree >= 2, log into queue1
-        #if node has out_degree == 1, log into queue2
+        nodes = sorted(G.nodes, key=lambda x: float(x))
+        queue1_log_path = os.path.join(self.content_dir, 'log', self.input_video, postfix, 'queue1.txt')
+        queue2_log_path = os.path.join(self.content_dir, 'log', self.input_video, postfix, 'queue2.txt')
+        with open(queue1_log_path, 'w') as f1, open(queue2_log_path, 'w') as f2:
+            for node in nodes:
+                print(node, G.out_degree(node), list(G.successors(node)))
+                log = '{}\t{}\n'.format(G.nodes[node]['video_frame'], G.nodes[node]['super_frame'])
+                if G.out_degree(node) >= 2:
+                    f1.write(log)
+                else:
+                    f2.write(log)
 
         #3. visualize a DAG
+        #TODO: add options for draw_spectral() (more clear nodes, edges)
+        #Reference: https://networkx.github.io/documentation/stable/tutorial.html#drawing-graphs
+        graph_path = os.path.join(self.content_dir, 'log', self.input_video, postfix, 'graph.png')
+        nx.draw_spectral(G)
+        plt.savefig(graph_path)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Frame Dependency Analyzer')
