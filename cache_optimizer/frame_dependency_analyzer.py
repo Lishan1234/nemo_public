@@ -59,7 +59,7 @@ class FDA():
         with open(queue1_log_path, 'w') as f1, open(queue2_log_path, 'w') as f2:
             for node in nodes:
                 print(node, G.out_degree(node), list(G.successors(node)))
-                log = '{}\t{}\n'.format(G.nodes[node]['video_frame'], G.nodes[node]['super_frame'])
+                log = '{}\t{}\t{}\n'.format(G.nodes[node]['video_frame'], G.nodes[node]['super_frame'], G.out_degree(node))
                 if G.out_degree(node) >= 2:
                     f1.write(log)
                 else:
@@ -68,9 +68,20 @@ class FDA():
         #3. visualize a DAG
         #TODO: add options for draw_spectral() (more clear nodes, edges)
         #Reference: https://networkx.github.io/documentation/stable/tutorial.html#drawing-graphs
+        options = {
+                'node_color': 'black',
+                'node_size': 10,
+                'width': 1,
+                }
         graph_path = os.path.join(self.content_dir, 'log', self.input_video, postfix, 'graph.png')
-        nx.draw_spectral(G)
+        nx.draw(G, **options)
         plt.savefig(graph_path)
+        plt.clf()
+
+        s_graph_path = os.path.join(self.content_dir, 'log', self.input_video, postfix, 'graph_spectral.png')
+        nx.draw_spectral(G, **options)
+        plt.savefig(s_graph_path)
+        plt.clf()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Frame Dependency Analyzer')
@@ -86,5 +97,5 @@ if __name__ == '__main__':
 
     fda = FDA(os.path.abspath(args.vpxdec_path), os.path.abspath(args.content_dir),
                 args.input_video_name, args.num_threads, args.gop)
-    #fda.run(0)
+    fda.run(0)
     fda.analyze(0)
