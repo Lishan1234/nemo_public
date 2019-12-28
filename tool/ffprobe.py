@@ -1,6 +1,7 @@
 import shlex
 import subprocess
 import json
+import os
 
 def profile_video(video_path):
     cmd = "ffprobe -v quiet -print_format json -show_streams"
