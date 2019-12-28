@@ -25,3 +25,34 @@ def valid_image_dataset(lr_image_dir, hr_image_dir, repeat_count=1):
     ds = ds.repeat(repeat_count)
     ds = ds.prefetch(buffer_size=AUTOTUNE)
     return ds
+
+def decode_raw(filepath, width, height):
+    file = tf.io.read_file(filepath)
+    image = tf.decode_raw(file, tf.uint8)
+    image = tf.reshape(image, [width, height, 3])
+    return image, filepath
+
+def raw_dataset(image_dir, width, height):
+    images = sorted(glob.glob('{}/*.raw'.format(image_dir)))
+    ds = tf.data.Dataset.from_tensor_slices(images)
+    ds = ds.map(lambda x: decode_raw(x, width, height), num_parallel_calls=AUTOTUNE)
+    return ds, len(images)
+
+def single_raw_dataset(lr_image_dir, width, height, repeat_count=1):
+    lr_ds, length = raw_dataset(lr_image_dir, width, height)
+
+    ds = lr_ds
+    ds = ds.batch(1)
+    ds = ds.repeat(repeat_count)
+    ds = ds.prefetch(buffer_size=AUTOTUNE)
+    return ds
+
+def valid_raw_dataset(lr_image_dir, hr_image_dir, width, height, scale, repeat_count=1):
+    lr_ds, length = raw_dataset(lr_image_dir, width, height)
+    hr_ds, _ = raw_dataset(hr_image_dir, width * scale, height * scale)
+
+    ds = tf.data.Dataset.zip((lr_ds, hr_ds))
+    ds = ds.batch(1)
+    ds = ds.repeat(repeat_count)
+    ds = ds.prefetch(buffer_size=AUTOTUNE)
+    return ds
