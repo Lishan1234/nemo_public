@@ -3,6 +3,7 @@ import sys
 import argparse
 import glob
 import time
+import struct
 
 import scipy.misc
 import numpy as np
@@ -11,6 +12,7 @@ from tqdm import tqdm
 
 from tool.ffprobe import profile_video
 from tool.tensorflow import single_raw_dataset
+from tool.libvpx import Frame
 
 from dnn.model.edsr_s import EDSR_S
 
@@ -25,6 +27,7 @@ class CRA():
         self.compare_video = compare_video
         self.num_threads = num_threads
         self.gop = gop
+        self.frames = None
 
     def _prepare_hr_frames(self, chunk_idx):
         start_idx = chunk_idx * self.gop
@@ -104,8 +107,8 @@ class CRA():
             sr = tf.cast(sr, tf.uint8)
             sr = tf.squeeze(sr).numpy()
 
+            #validate
             """
-            #Validate
             sr_png = tf.image.encode_png(sr)
             tf.io.write_file(os.path.join('.', 'tmp.png'), sr_png)
             """
@@ -113,18 +116,62 @@ class CRA():
             name = os.path.basename(img[1].numpy()[0].decode())
             sr.tofile(os.path.join(sr_image_dir, name))
 
+    def _prepare_frame_index(self, chunk_idx):
+        start_idx = chunk_idx * self.gop
+        end_idx = (chunk_idx + 1) * self.gop
+        postfix = 'chunk{:04d}'.format(chunk_idx)
+
+        self.frames = []
+        metadata_log_path = os.path.join(self.content_dir, 'log', self.input_video, postfix, 'metadata.txt')
+        with open(metadata_log_path, 'r') as f:
+            lines = f.readlines()
+            for line in lines:
+                line = line.strip()
+                current_video_frame = int(line.split('\t')[0])
+                current_super_frame = int(line.split('\t')[1])
+                self.frames.append(Frame(current_video_frame, current_super_frame))
+
     def prepare(self, chunk_idx):
         self._prepare_hr_frames(chunk_idx)
         self._prepare_sr_frames(chunk_idx)
 
-    #TODO: CRA generates a cache profile and analyze the performance
-    #TODO: APS select a policy to add anchor point
-    def prepare_cache_profiles(self, frame_idx, anchor_point_idx):
-        #name: cra_{frame_idx}_{len(anchor_point_idx)}
-        pass
+    def save_cache_profile(self, chunk_idx, new_anchor_point, existing_anchor_points):
+        if self.frames is None:
+            self._prepare_frame_index(chunk_idx)
 
-    def analyze(self, chunk_idx, frame_idx, anchor_point_idx):
-        pass
+        start_idx = chunk_idx * self.gop
+        end_idx = (chunk_idx + 1) * self.gop
+        postfix = 'chunk{:04d}'.format(chunk_idx)
+        cache_profile_path = os.path.join(self.content_dir, 'log', self.input_video, postfix, 'cra_{}_{}'.format(new_anchor_point.name, len(existing_anchor_points)))
+
+        with open(cache_profile_path, "wb") as f:
+            byte_value = 0
+            for i, frame in enumerate(self.frames):
+                if frame == new_anchor_point or frame in existing_anchor_points:
+                    byte_value += 1 << (i % 8)
+
+                if i % 8 == 7:
+                    f.write(struct.pack("=B", byte_value))
+                    byte_value = 0
+
+            if len(self.frames) % 8 != 0:
+                f.write(struct.pack("=B", byte_value))
+
+    #TODO
+    def run_cache_profile(self, chunk_idx, new_anchor_point, existing_anchor_points):
+        start_idx = chunk_idx * self.gop
+        end_idx = (chunk_idx + 1) * self.gop
+        postfix = 'chunk{:04d}'.format(chunk_idx)
+        cache_profile_path = os.path.join(self.content_dir, 'log', self.input_video, postfix, 'cra_{}_{}'.format(new_anchor_point.name, len(existing_anchor_points)))
+
+        cmd = '{} --codec=vp9 --noblit --threads={} --frame-buffers=50 --skip={} --limit={} \
+                --content-dir={} --input-video={} --compare-video={} --postfix={} --decode-mode=2 \
+                --dnn-mode=2 --cache-policy=1 --save-quality --save-metadata --dnn-name={} --cache-profile={}'.format(self.vpxdec_path, self.num_threads, \
+                start_idx, end_idx - start_idx, self.content_dir, self.input_video, self.compare_video, postfix, self.model.name, cache_profile_path)
+        print(cmd)
+        os.system(cmd)
+
+    #TODO: quality_sr.txt
 
 if __name__ == '__main__':
     tf.enable_eager_execution()
@@ -158,4 +205,6 @@ if __name__ == '__main__':
 
     cra = CRA(checkpoint.model, args.vpxdec_path, args.content_dir, args.input_video_name, args.compare_video_name, args.num_threads, args.gop)
     #cra.prepare(0)
-    cra._prepare_sr_frames(0)
+    #cra._prepare_sr_frames(0)
+    #cra.save_cache_profile(0, Frame(0,0), [])
+    cra.run_cache_profile(0, Frame(0,0), [])
