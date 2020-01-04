@@ -5,6 +5,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 #Assumption: Fixed GOP interval
+#TODO: set proper number of threads as CRA
 class FDA():
     def __init__(self, vpxdec_path, content_dir, input_video, num_threads, gop):
         self.vpxdec_path = vpxdec_path

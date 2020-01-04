@@ -1,3 +1,5 @@
+import math
+
 class Frame():
     def __init__(self, video_index, super_index):
         self.video_index = video_index
@@ -52,6 +54,17 @@ class CacheProfile():
 
     def __lt__(self, other):
         return self.count_anchor_points() < other.count_anchor_points()
+
+#ref: https://developers.google.com/media/vp9/settings/vod
+def get_num_threads(resolution):
+    tile_size = 256
+    if resolution >= tile_size:
+        num_tiles = resolution // tile_size
+        log_num_tiles = math.floor(math.log(num_tiles, 2))
+        num_threads = (2**log_num_tiles) * 2
+    else:
+        num_threads = 2
+    return num_threads
 
 if __name__ == '__main__':
     frame_list = [Frame(0,1)]
