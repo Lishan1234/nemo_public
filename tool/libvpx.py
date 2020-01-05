@@ -1,4 +1,7 @@
 import math
+import os
+import struct
+import copy
 
 class Frame():
     def __init__(self, video_index, super_index):
@@ -35,10 +38,10 @@ class CacheProfile():
             self.measured_quality = None
 
         if cache_profile is not None:
-            self.frames = cache_profile.frames
-            self.anchor_points = cache_profile.anchor_points
-            self.estimated_quality = cache_profile.estimated_quality
-            self.measured_quality = cache_profile.measured_quality
+            self.frames = copy.deepcopy(cache_profile.frames)
+            self.anchor_points = copy.deepcopy(cache_profile.anchor_points)
+            self.estimated_quality = copy.deepcopy(cache_profile.estimated_quality)
+            self.measured_quality = copy.deepcopy(cache_profile.measured_quality)
 
         self.save_dir = save_dir
         self.name = name
@@ -47,12 +50,13 @@ class CacheProfile():
     def fromframes(cls, frames, save_dir, name):
         return cls(frames, None, save_dir, name)
 
+    @classmethod
+    def fromcacheprofile(cls, cache_profile, save_dir, name):
+        return cls(None, cache_profile, save_dir, name)
+
     @property
     def path(self):
         return os.path.join(self.save_dir, self.name)
-
-    def fromcacheprofile(cls, cache_profile, save_dir, name):
-        return cls(None, cache_profile, save_dir, name)
 
     def add_anchor_point(self, frame, quality=None):
         self.anchor_points.append(frame)
@@ -71,15 +75,15 @@ class CacheProfile():
         path = os.path.join(self.save_dir, self.name)
         with open(path, "wb") as f:
             byte_value = 0
-            for i, frame in enumerate(cache_profile.frames):
-                if frame in cache_profile.anchor_points:
+            for i, frame in enumerate(self.frames):
+                if frame in self.anchor_points:
                     byte_value += 1 << (i % 8)
 
                 if i % 8 == 7:
                     f.write(struct.pack("=B", byte_value))
                     byte_value = 0
 
-            if len(cache_profile.frames) % 8 != 0:
+            if len(self.frames) % 8 != 0:
                 f.write(struct.pack("=B", byte_value))
 
     def __lt__(self, other):

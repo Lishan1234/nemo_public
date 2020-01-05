@@ -6,5 +6,6 @@ python cache_erosion_analyzer.py --vpxdec_path /home/hyunho/MobiNAS/third_party/
                                 --num_decoders 4 \
                                 --gop 120 \
                                 --num_blocks 8 \
-                                --num_filters 8 \
-                                --checkpoint_dir /ssd1/data-sigcomm2020/game-lol/checkpoint/240p_s0_d60_encoded.webm.uniform_1.00
+                                --num_filters 64 \
+                                --checkpoint_dir /ssd1/data-sigcomm2020/game-lol/checkpoint/240p_s0_d60_encoded.webm.uniform_1.00 \
+                                --quality_diff 0.2
