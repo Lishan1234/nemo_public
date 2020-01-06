@@ -79,7 +79,6 @@ class APS_v1():
                 start_idx, end_idx - start_idx, self.content_dir, self.input_video, postfix)
         subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
-    #TODO: validate
     def _prepare_sr_frames(self, chunk_idx, model):
         start_idx = chunk_idx * self.gop
         end_idx = (chunk_idx + 1) * self.gop
@@ -219,12 +218,10 @@ class APS_v1():
                     command = '{} --codec=vp9 --noblit --frame-buffers=50 --skip={} --limit={} --content-dir={} \
                 --input-video={} --compare-video={} --postfix={} --decode-mode=2 --dnn-mode=2 --cache-policy=1 \
                 --save-quality --dnn-name={} --cache-profile={}'.format(self.vpxdec_path, start_idx, end_idx - start_idx, self.content_dir, self.input_video, self.compare_video, postfix, self.model.name, ap_cache_profile.path)
-                    #q2.put([command, idx])
+                    q2.put([command, idx])
 
-                #TODO
-                #for _ in range(len(frames)):
-                for idx in range(len(frames)):
-                    #idx = q3.get()
+                for _ in range(len(frames)):
+                    idx = q3.get()
                     quality = []
                     path = os.path.join(log_dir, ap_cache_profiles[idx].name, 'quality.txt')
                     with open(path, 'r') as f:
@@ -356,7 +353,7 @@ class APS_v1():
                 selected_cache_profile.save()
 
                 #save a log
-                log_path = os.path.join(log_dir, 'anchor_point_selection.txt')
+                log_path = os.path.join(log_dir, 'aps_v1.txt')
                 with open(log_path, 'w') as f:
                     for cache_profile in cache_profiles:
                         quality_error = np.percentile(np.asarray(dnn_quality) - np.asarray(cache_profile.measured_quality), [90, 95, 100], interpolation='nearest')

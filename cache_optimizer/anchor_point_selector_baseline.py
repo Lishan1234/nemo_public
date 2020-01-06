@@ -1,400 +1,327 @@
 import os
-import abc
-import copy
-import numpy as np
-import logging
 import sys
-import math
+import argparse
+import glob
+import time
 import struct
+import subprocess
+import shlex
+import multiprocessing as mp
+import re
+import logging
+import math
 
-from option import args
-from cache_erosion_analyzer import CRA
+import scipy.misc
+import numpy as np
+import tensorflow as tf
 
-logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+from tool.tf import single_raw_dataset, valid_raw_dataset
+from tool.ffprobe import profile_video
+from tool.libvpx import Frame, CacheProfile, get_num_threads
+from dnn.model.edsr_s import EDSR_S
 
+#deprecated: convert raw to png
 """
-0.0: use estimate_quality()
-0.1: use calculate_quality()
+video_path = os.path.join(self.content_dir, 'video', self.compare_video)
+video_info = profile_video(video_path)
+images = glob.glob(os.path.join(hr_image_dir, '*.raw'))
+for idx, image in enumerate(images):
+    arr = np.fromfile(image, dtype=np.uint8)
+    arr = np.reshape(arr, (video_info['height'], video_info['width'], 3))
+    name = os.path.splitext(os.path.basename(image))[0]
+    name += '.png'
+    scipy.misc.imsave(os.path.join(hr_image_dir, name), arr)
 """
 
-VERSION = "0.0"
+class APS_Baseline():
+    def __init__(self, model, checkpoint_dir, vpxdec_path, content_dir, input_video, compare_video, num_decoders, gop, quality_diff):
+        self.model = model
+        self.checkpoint_dir = checkpoint_dir
+        self.vpxdec_path = vpxdec_path
+        self.content_dir = content_dir
+        self.input_video = input_video
+        self.compare_video = compare_video
+        self.num_decoders = num_decoders
+        self.gop = gop
+        self.frames = None
+        self.quality_diff = quality_diff
 
-class Quality():
-    def __init__(self, mse, max_value=255.0):
-        self.psnr = psnr
-        self.mse = mse
-        self.max_value = max_value
+        self.q0 = mp.Queue()
+        self.q1 = mp.Queue()
+        self.q2 = mp.Queue()
 
-class Frame():
-    def __init__(self, video_index, super_index):
-        self.video_index = video_index
-        self.super_index= super_index
+        self.p0 = mp.Process(target=self._prepare_anchor_points, args=(self.q0, self.q1))
+        self.p1 = mp.Process(target=self._analyze_cache_profiles, args=(self.q1, self.q2))
 
-    def __lt__(self, other):
-        if self.video_index == other.video_index:
-            return self.super_index < other.super_index
-        else:
-            return self.video_index < other.video_index
+    def _prepare_hr_frames(self, chunk_idx):
+        start_idx = chunk_idx * self.gop
+        end_idx = (chunk_idx + 1) * self.gop
+        postfix = 'chunk{:04d}'.format(chunk_idx)
 
-class CacheProfile():
-    def __init__(self):
-        self.anchor_points = []
-        self.sr_cache_quality = {}
-        self.sr_cache_quality['estimated'] = None
-        self.sr_cache_quality['measured'] = None
+        image_dir = os.path.join(self.content_dir, 'image', self.compare_video, postfix)
+        os.makedirs(image_dir, exist_ok=True)
+        command = '{} --codec=vp9 --noblit --frame-buffers=50 --skip={} --limit={} \
+                --content-dir={} --input-video={} --postfix={} --save-frame'.format(self.vpxdec_path,
+                start_idx, end_idx - start_idx, self.content_dir, self.compare_video, postfix)
+        subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
-    def add_anchor_point(self, anchor_point):
-        self.anchor_points.append(anchor_point)
-        self.sr_cache_quality['estimated'] = estimate_quality(self, anchor_point)
+    def _prepare_lr_frames(self, chunk_idx):
+        start_idx = chunk_idx * self.gop
+        end_idx = (chunk_idx + 1) * self.gop
+        postfix = 'chunk{:04d}'.format(chunk_idx)
 
-    def count_anchor_points(self):
-        return len(self.anchor_points)
+        lr_image_dir = os.path.join(self.content_dir, 'image', self.input_video, postfix)
+        os.makedirs(lr_image_dir, exist_ok=True)
 
-    def get_profile_name(self, prefix, start_idx=None, end_idx=None):
-        profile_name = ""
-        if prefix:
-            profile_name += "{}_ap{}".format(prefix, self.count_anchor_points())
-        else:
-            profile_name += "ap{}".format(self.count_anchor_points())
-        if start_idx is not None:
-            profile_name += "_s{}".format(start_idx)
-        if end_idx is not None:
-            profile_name += "_e{}".format(end_idx)
-        return profile_name
+        command = '{} --codec=vp9 --noblit --frame-buffers=50 --skip={} --limit={} \
+                --content-dir={} --input-video={} --postfix={} --save-frame --save-metadata'.format(self.vpxdec_path, \
+                start_idx, end_idx - start_idx, self.content_dir, self.input_video, postfix)
+        subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
-    def is_anchor_point(self, video_index, super_index):
-        for anchor_point in self.anchor_points:
-            if anchor_point.video_index == video_index and anchor_point.super_index == super_index:
-                return True
+    def _prepare_sr_frames(self, chunk_idx, model):
+        start_idx = chunk_idx * self.gop
+        end_idx = (chunk_idx + 1) * self.gop
+        postfix = 'chunk{:04d}'.format(chunk_idx)
 
-        return False
+        lr_image_dir = os.path.join(self.content_dir, 'image', self.input_video, postfix)
+        hr_image_dir = os.path.join(self.content_dir, 'image', self.compare_video, postfix)
+        sr_image_dir = os.path.join(self.content_dir, 'image', self.input_video, self.model.name, postfix)
+        os.makedirs(sr_image_dir, exist_ok=True)
 
-    def __lt__(self, other):
-        return self.count_anchor_points() < other.count_anchor_points()
+        input_video_path = os.path.join(self.content_dir, 'video', self.input_video)
+        input_video_info = profile_video(input_video_path)
 
-    #TODO: Save a cache profile
-    def save(self, path):
-        pass
+        single_raw_ds = single_raw_dataset(lr_image_dir, input_video_info['height'], input_video_info['width'])
+        for idx, img in enumerate(single_raw_ds):
+            lr = img[0]
+            lr = tf.cast(lr, tf.float32)
+            sr = model(lr)
 
-class Video():
-    def __init__(self, sr_quality, bilinear_quality, bilinear_cache_quality=None):
-        self.sr_quality = sr_quality
-        self.bilinear_quality = bilinear_quality
-        self.bilinear_cache_quality = bilinear_cache_quality
+            sr = tf.clip_by_value(sr, 0, 255)
+            sr = tf.round(sr)
+            sr = tf.cast(sr, tf.uint8)
 
-class AnchorPoint():
-    def __init__(self, video_index, super_index, sr_cache_quality):
-        self.video_index = video_index
-        self.super_index= super_index
-        self.sr_cache_quality = sr_cache_quality
+            sr_image = tf.squeeze(sr).numpy()
+            name = os.path.basename(img[1].numpy()[0].decode())
+            sr_image.tofile(os.path.join(sr_image_dir, name))
 
-    def __lt__(self, other):
-        if self.video_index == other.video_index:
-            return self.super_index < other.super_index
-        else:
-            return self.video_index < other.video_index
+            #validate
+            #sr_image = tf.image.encode_png(tf.squeeze(sr))
+            #tf.io.write_file(os.path.join('.', '{0:04d}.png'.format(idx+1)), sr_image)
 
-def estimate_quality(cache_profile, anchor_point):
-    if cache_profile.sr_cache_quality['estimated'] is not None:
-        assert len(cache_profile.sr_cache_quality['estimated']) == len(anchor_point.sr_cache_quality)
-        return np.maximum(cache_profile.sr_cache_quality['estimated'], anchor_point.sr_cache_quality)
-    else:
-        return anchor_point.sr_cache_quality
+    def _load_frames(self, chunk_idx):
+        start_idx = chunk_idx * self.gop
+        end_idx = (chunk_idx + 1) * self.gop
+        postfix = 'chunk{:04d}'.format(chunk_idx)
 
-#TODO: Calculate exact merged quality between two DAGs
-def calculate_quality(cache_profile, anchor_point, video):
-    pass
-
-#TODO: Measure cache profile's quality
-def measure_quality(cache_profile):
-    pass
-
-#Anchor Point Selector
-class APS():
-    __metaclass__ = abc.ABCMeta
-    def __init__(self, args):
-        self.content_dir = args.content_dir
-        self.input_video_name = args.input_video_name
-        self.dnn_video_name = args.dnn_video_name
-        self.compare_video_name = args.compare_video_name
-        self.num_cores = args.cra_num_cores
-        self.result_dir = os.path.join(self.content_dir, "result", self.input_video_name)
-        self.log_dir = os.path.join(self.result_dir, "log")
-        self.profile_dir = os.path.join(self.result_dir, "profile")
-        self.base_cmd = "{} --codec=vp9 --summary --noblit --threads={} --frame-buffers=50  --content-dir={} --input-video={} --dnn-video={} --compare-video={}".format(args.vpxdec_path, args.cra_num_threads, self.content_dir, self.input_video_name, self.dnn_video_name, self.compare_video_name)
-        if args.num_frames is not None:
-            self.base_cmd = "{} --limit={}".format(self.base_cmd, args.num_frames)
-
-        self.cache_profiles = []
-        self.anchor_points = []
-        self.frames = []
-        self.sr_quality = []
-        self.bilinear_quality = []
-        self.bilinear_cache_quality = []
-        self.start_idx = args.aps_start_idx
-        self.end_idx = args.aps_end_idx
-
-        os.makedirs(self.result_dir, exist_ok=True)
-        os.makedirs(self.log_dir, exist_ok=True)
-        os.makedirs(self.profile_dir, exist_ok=True)
-
-    @abc.abstractmethod
-    def select_anchor_points(self):
-        pass
-
-    #TODO: load a power profile
-    def prepare_power_consumption(self):
-        pass
-
-    def is_valid_anchor_point(self, video_index):
-        bt = True if (self.start_idx is None) else (video_index >= self.start_idx)
-        lt = True if (self.end_idx is None) else (video_index <= self.end_idx)
-        return bt and lt
-
-    def prepare_frame(self):
-        metadata_log_path = os.path.join(self.log_dir, "metadata_thread01")
-        video_index = 0
-        super_index = 0
-
-        #run a decoder to generate a log of frame index information
-        cmd = "{} --decode-mode=0 --save-metadata".format(self.base_cmd)
-        os.system(cmd)
-
-        #load the log and read frame index information
-        with open(metadata_log_path, "r") as f:
+        frames = []
+        log_path = os.path.join(self.content_dir, 'log', self.input_video, postfix, 'metadata.txt')
+        with open(log_path, 'r') as f:
             lines = f.readlines()
             for line in lines:
-                metadata = line.split('\t')
-                video_index = int(metadata[0])
-                super_index = int(metadata[1])
-                frame = Frame(video_index, super_index)
-                self.frames.append(frame)
-                logging.debug("video_index: {}, super_index: {}".format(video_index, super_index))
+                line = line.strip()
+                current_video_frame = int(line.split('\t')[0])
+                current_super_frame = int(line.split('\t')[1])
+                frames.append(Frame(current_video_frame, current_super_frame))
 
-    #TODO: load MSE
-    def prepare_anchor_point(self):
-        #load sr-cache quality
-        for frame in self.frames:
-            if self.is_valid_anchor_point(frame.video_index):
-                log_name = "quality_cache_{}".format(CRA.get_profile_name(frame.video_index, frame.super_index))
-                log_path= os.path.join(self.log_dir, log_name)
+        return frames
 
-                sr_cache_quality = []
-                with open(log_path, "r") as f:
-                    lines = f.readlines()
-                    for line in lines:
-                        sr_cache_quality.append(float(line.split('\t')[1]))
+    def _prepare_anchor_points(self, q0, q1):
+        tf.enable_eager_execution()
+        checkpoint = self.model.load_checkpoint(self.checkpoint_dir)
 
-                anchor_point = AnchorPoint(frame.video_index, frame.super_index, sr_cache_quality)
-                frame = Frame(frame.video_index, frame.super_index)
-                self.anchor_points.append(anchor_point)
+        while True:
+            item = q0.get()
+            if item == 'end':
+                return
+            else:
+                chunk_idx = item
+                print('_prepare_anchor_points: start {} chunk'.format(chunk_idx))
+                self._prepare_lr_frames(chunk_idx)
+                self._prepare_hr_frames(chunk_idx)
+                self._prepare_sr_frames(chunk_idx, checkpoint.model)
+                q1.put(chunk_idx)
+                print('_prepare_anchor_points: end {} chunk'.format(chunk_idx))
 
-                logging.debug("{}-Anchor point: video_index {}, super_index {}, average psnr {}".format(self.__class__.__name__, anchor_point.video_index, anchor_point.super_index, np.round(np.average(anchor_point.sr_cache_quality),2)))
+    def _run_cache_profile(self, q0, q1):
+        while True:
+            item = q0.get()
+            if item == 'end':
+                return
+            else:
+                #setup
+                chunk_idx = item[0]
+                cache_profile = item[1]
+                path = item[2]
+                idx = item[3]
 
-    #TODO: load sr, bilinear, bilinear-cache quality
-    def prepare_video_quality(self):
-        #sr_quality
-        cmd = "{} --decode-mode=1 --dnn-mode=2 --save-quality".format(self.base_cmd)
-        os.system(cmd)
-        log_path = os.path.join(self.log_dir, "quality_sr")
-        with open(log_path, "r") as f:
-            lines = f.readlines()
-            for line in lines:
-                self.sr_quality.append(float(line.split('\t')[1]))
-        logging.debug("sr_quality: {}".format(self.sr_quality))
+                #save
+                cache_profile.save(path)
 
-        #bilinear_quliaty
-        cmd = "{} --decode-mode=2 --save-quality".format(self.base_cmd)
-        os.system(cmd)
-        log_path = os.path.join(self.log_dir, "quality_cache_no_dnn")
-        with open(log_path, "r") as f:
-            lines = f.readlines()
-            for i, line in enumerate(lines):
-                self.bilinear_cache_quality.append(float(line.split('\t')[1]))
-        logging.debug("bilinear_cache_quality: {}".format(self.bilinear_cache_quality))
+                #run
+                command = '{} --codec=vp9 --noblit --frame-buffers=50 --skip={} --limit={} --content-dir={} \
+                --input-video={} --compare-video={} --postfix={} --decode-mode=2 --dnn-mode=2 --cache-policy=1 \
+                --save-quality --dnn-name={} --cache-profile={}'.format(self.vpxdec_path, start_idx, end_idx - start_idx, self.content_dir, self.input_video, self.compare_video, postfix, self.model.name, path)
+                subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
-    def save_cache_profiles(self):
-        for cache_profile in self.cache_profiles:
-            profile_name = cache_profile.get_profile_name(self.__class__.__name__, self.start_idx, self.end_idx)
-            profile_path = os.path.join(self.profile_dir, profile_name)
-            with open(profile_path, "wb") as f:
-                byte_value = 0
-                for i, frame in enumerate(self.frames):
-                    if cache_profile.is_anchor_point(frame.video_index, frame.super_index):
-                        byte_value += 1 << (i % 8)
+                #result
+                q1.put(idx)
 
-                    if i % 8 == 7:
-                        f.write(struct.pack("=B", byte_value))
-                        byte_value = 0
+    def _execute_command(self, q0, q1):
+        while True:
+            item = q0.get()
+            if item == 'end':
+                return
+            else:
+                #setup
+                command = item[0]
+                idx = item[1]
 
-                if len(self.frames) % 8 != 0:
-                    f.write(struct.pack("=B", byte_value))
+                #run
+                subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
-    def run_cache_profiles(self):
-        for cache_profile in self.cache_profiles:
-            profile_name = cache_profile.get_profile_name(self.__class__.__name__, self.start_idx, self.end_idx)
-            profile_path = os.path.join(self.profile_dir, profile_name)
-            cmd = "{} --decode-mode=2 --dnn-mode=2 --cache-policy=1 --cache-profile={} --save-quality --save-metadata".format(self.base_cmd, profile_path)
-            os.system(cmd)
+                #result
+                q1.put(idx)
 
-    def prepare_cache_quality(self):
-        for cache_profile in self.cache_profiles:
-            profile_name = cache_profile.get_profile_name(self.__class__.__name__, self.start_idx, self.end_idx)
-            log_name = "quality_cache_{}".format(profile_name)
-            log_path= os.path.join(self.log_dir, log_name)
+    def _analyze_cache_profiles(self, q0, q1):
+        tf.enable_eager_execution()
+        q2 = mp.Queue()
+        q3 = mp.Queue()
+        decoders = [mp.Process(target=self._execute_command, args=(q2, q3)) for i in range(self.num_decoders)]
 
-            cache_profile.sr_cache_quality['measured'] = []
-            with open(log_path, "r") as f:
-                lines = f.readlines()
-                for line in lines:
-                    cache_profile.sr_cache_quality['measured'].append(float(line.split('\t')[1]))
+        for decoder in decoders:
+            decoder.start()
 
-    def get_log_name(self, prefix):
-        log_name = "{}".format(self.__class__.__name__)
-        log_name += "_{}".format(prefix)
-        if self.start_idx is not None: log_name += "_s{}".format(self.start_idx)
-        if self.end_idx is not None: log_name += "_e{}".format(self.end_idx)
-
-        return log_name
-
-    def evaluate_anchor_points(self):
-        log_name = self.get_log_name("anchor_points")
-        log_path = os.path.join(self.log_dir, log_name)
-
-        with open(log_path, "w") as f:
-            for anchor_point in self.anchor_points:
-                psnr_gain = np.subtract(anchor_point.sr_cache_quality, self.bilinear_cache_quality)
-                total_psnr_gain = np.sum(psnr_gain)
-                f.write("{}\t{}\t{}\n".format(anchor_point.video_index, anchor_point.super_index, np.round(total_psnr_gain, 2)))
-                logging.debug("video index: {}, super index: {}".format(anchor_point.video_index, anchor_point.super_index))
-
-    def evaluate_cache_profiles(self):
-        log_name = self.get_log_name("cache_profiles")
-        log_path = os.path.join(self.log_dir,log_name)
-
-        with open(log_path, "w") as f:
-            for cache_profile in self.cache_profiles:
-                start_idx = 0 if self.start_idx is None else self.start_idx
-                end_idx = self.frames[-1].video_idx if self.end_idx is None else self.end_idx
-                estimated_quality = cache_profile.sr_cache_quality['estimated'][start_idx:end_idx + 1]
-                measured_quality = cache_profile.sr_cache_quality['measured'][start_idx:end_idx + 1]
-                average_error = np.average(np.absolute(np.subtract(estimated_quality, measured_quality)))
-
-                average_quality = np.average(measured_quality)
-                error_quality = np.subtract(self.sr_quality[start_idx:end_idx + 1], measured_quality)
-                error_quality_metrics = np.percentile(error_quality, [50, 90, 100], interpolation='nearest')
-                f.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(cache_profile.count_anchor_points(), np.round(np.average(measured_quality), 2), np.round(np.average(estimated_quality), 2), np.round(average_error, 2), np.round(error_quality_metrics[0], 2), np.round(error_quality_metrics[1], 2), np.round(error_quality_metrics[2], 2)))
-
-    def get_highest_quality(self):
-        start_idx = 0 if self.start_idx is None else self.start_idx
-        end_idx = self.frames[-1].video_idx if self.end_idx is None else self.end_idx
-        cache_profile = self.cache_profiles[-1]
-        return np.average(cache_profile.sr_cache_quality['measured'][start_idx:end_idx+1])
-
-class OptimizedAPS(APS):
-    def __init__(self, args):
-        super(OptimizedAPS, self).__init__(args)
-        self.threshold = args.aps_threshold
-        self.current_cache_profile = CacheProfile()
-
-    def select_anchor_points(self):
-        total_gain = 0
-
-        while len(self.anchor_points) > 0:
-            anchor_point, psnr_gain = self.select_anchor_point()
-
-            if psnr_gain < self.threshold:
-                print("Stop search at {} anchor points".format(self.current_cache_profile.count_anchor_points()))
+        while True:
+            item = q0.get()
+            if item == 'end':
                 break
+            else:
+                chunk_idx = item
+                print('_analyze_cache_profiles: start {} chunk'.format(chunk_idx))
 
-            self.current_cache_profile.add_anchor_point(anchor_point)
-            self.cache_profiles.append(copy.deepcopy(self.current_cache_profile))
+                start_idx = chunk_idx * self.gop
+                end_idx = (chunk_idx + 1) * self.gop
+                postfix = 'chunk{:04d}'.format(chunk_idx)
+                log_dir = os.path.join(self.content_dir, 'log', self.input_video, self.model.name, postfix)
+                profile_dir = os.path.join(self.content_dir, 'profile', self.input_video, postfix)
+                os.makedirs(profile_dir, exist_ok=True)
 
-            logging.debug("{}-Cache profile: {} anchor points, average psnr {}, psnr gain: {}dB".format(self.__class__.__name__, self.current_cache_profile.count_anchor_points(), np.round(np.average(self.current_cache_profile.sr_cache_quality['estimated']), 2), np.round(psnr_gain, 2)))
+                frames = self._load_frames(chunk_idx)
+                cache_profiles = []
+                for i in range(len(frames)):
+                    num_anchor_points = i + 1
+                    cache_profile = CacheProfile.fromframes(frames, profile_dir, 'uniform_{}'.format(num_anchor_points))
+                    for j in range(num_anchor_points):
+                        idx = j * math.floor(len(frames) / num_anchor_points)
+                        cache_profile.add_anchor_point(frames[idx])
+                    cache_profile.save()
+                    cache_profiles.append(cache_profile)
+                    command = '{} --codec=vp9 --noblit --frame-buffers=50 --skip={} --limit={} --content-dir={} \
+                --input-video={} --compare-video={} --postfix={} --decode-mode=2 --dnn-mode=2 --cache-policy=1 \
+                --save-quality --save-metadata --dnn-name={} --cache-profile={}'.format(self.vpxdec_path, start_idx, end_idx - start_idx, self.content_dir, self.input_video, self.compare_video, postfix, self.model.name, cache_profile.path)
+                    q2.put([command, i])
 
-    #TODO: MSE-based
-    def select_anchor_point(self):
-        max_psnr_gain = 0
-        index = 0
+                for _ in range(len(frames)):
+                    idx = q3.get()
+                    quality = []
+                    path = os.path.join(log_dir, cache_profiles[idx].name, 'quality.txt')
+                    with open(path, 'r') as f:
+                        lines = f.readlines()
+                        for line in lines:
+                            line = line.strip()
+                            quality.append(float(line.split('\t')[1]))
+                    cache_profiles[idx].set_measured_quality(quality)
 
-        if self.current_cache_profile.sr_cache_quality['estimated'] is None:
-            prev_psnr_sum = 0
-        else:
-            prev_psnr_sum = np.sum(self.current_cache_profile.sr_cache_quality['estimated'])
+                #load dnn quality
+                dnn_quality = []
+                sr_image_dir = os.path.join(self.content_dir, 'image', self.input_video, self.model.name, postfix)
+                hr_image_dir = os.path.join(self.content_dir, 'image', self.compare_video, postfix)
+                video_path = os.path.join(self.content_dir, 'video', self.compare_video)
+                video_info = profile_video(video_path)
+                with tf.device('cpu:0'):
+                    valid_raw_ds = valid_raw_dataset(sr_image_dir, hr_image_dir, video_info['height'], video_info['width'], \
+                                                    1, pattern='[0-9][0-9][0-9][0-9].raw')
+                    for idx, img in enumerate(valid_raw_ds):
+                        sr = img[0][0]
+                        hr = img[1][0]
+                        psnr = tf.image.psnr(hr, sr, max_val=255)[0].numpy()
+                        dnn_quality.append(psnr)
 
-        """
-        for i, anchor_point in enumerate(self.anchor_points):
-            curr_psnr_sum = np.sum(estimate_quality(self.current_cache_profile, anchor_point))
-            psnr_gain = curr_psnr_sum - prev_psnr_sum
-            if anchor_point.video_index == 21 and anchor_point.super_index == 0:
-                return self.anchor_points.pop(i), psnr_gain
-        """
+                log_path = os.path.join(log_dir, 'aps_baseline.txt')
+                with open(log_path, 'w') as f:
+                    for cache_profile in sorted(cache_profiles):
+                        quality_error = np.percentile(np.asarray(dnn_quality) - np.asarray(cache_profile.measured_quality), [90, 95, 100], interpolation='nearest')
+                        quality_error = '\t'.join(str(np.round(x, 2)) for x in quality_error)
+                        log = '{}\t{:.2f}\t{}\n'.format(len(cache_profile.anchor_points), np.average(cache_profile.measured_quality), quality_error)
+                        f.write(log)
 
-        for i, anchor_point in enumerate(self.anchor_points):
-            curr_psnr_sum = np.sum(estimate_quality(self.current_cache_profile, anchor_point))
-            psnr_gain = curr_psnr_sum - prev_psnr_sum
-            if psnr_gain > max_psnr_gain:
-                max_psnr_gain = psnr_gain
-                index = i
-            logging.info("{}-Anchor point: video index {} super index {} psrn gain {}dB".format(self.__class__.__name__, anchor_point.video_index, anchor_point.super_index, psnr_gain))
+                q1.put(chunk_idx)
+                print('_analyze_cache_profiles: end {} chunk'.format(chunk_idx))
 
-        if self.current_cache_profile.sr_cache_quality['estimated'] is not None:
-            start_idx = 0 if self.start_idx is None else self.start_idx
-            end_idx = self.frames[-1].video_idx if self.end_idx is None else self.end_idx
-            print(self.current_cache_profile.sr_cache_quality['estimated'][start_idx:end_idx + 1])
+        for decoder in decoders:
+            q2.put('end')
 
-        return self.anchor_points.pop(index), max_psnr_gain
+        for decoder in decoders:
+            decoder.join()
 
-#Option: a) Number of anchor points, b) Average PSNR
-class BaselineAPS(APS):
-    def __init__(self, args, threshold):
-        super(BaselineAPS, self).__init__(args)
-        self.threshold = threshold
-        self.current_cache_profile = None
+    def start_process(self):
+        self.p0.start()
+        self.p1.start()
 
-    def select_anchor_points(self):
-        total_gain = 0
-        num_anchor_points = 1
-        start_idx = 0 if self.start_idx is None else self.start_idx
-        end_idx = self.frames[-1].video_idx if self.end_idx is None else self.end_idx
+    def stop_process(self):
+        self.q0.put('end')
+        self.q1.put('end')
 
-        while num_anchor_points < len(self.anchor_points):
-            self.current_cache_profile = CacheProfile()
-            for i in range(num_anchor_points):
-                index = i * math.floor(len(self.anchor_points)/num_anchor_points)
-                self.current_cache_profile.add_anchor_point(self.anchor_points[index])
+        self.p0.join()
+        self.p1.join()
 
-            if np.average(self.current_cache_profile.sr_cache_quality['estimated'][start_idx:end_idx + 1]) >= self.threshold:
-                print("Stop search at {} anchor points".format(self.current_cache_profile.count_anchor_points()))
-                break
+    def run_asynchrnous(self, chunk_idx):
+        self.q0.put(chunk_idx)
 
-            self.cache_profiles.append(copy.deepcopy(self.current_cache_profile))
-            num_anchor_points += 1
+    def run_synchrnous(self, chunk_idx):
+        self.q0.put(chunk_idx)
+        self.q2.get()
 
-            logging.debug("{}-Cache profile: {} anchor points, {}dB".format(self.__class__.__name__, self.current_cache_profile.count_anchor_points(), np.round(np.average(self.current_cache_profile.sr_cache_quality['estimated'][start_idx:end_idx + 1]),2)))
+    def debug_asynchrnous(self, chunk_idx):
+        #self.q0.put(chunk_idx)
+        #self.q0.put('end')
+        #self._prepare_anchor_points(self.q1, self.q2)
+        self.q1.put(chunk_idx)
+        self.q1.put('end')
+        self._analyze_cache_profiles(self.q1, self.q2)
 
 if __name__ == '__main__':
-    aps = OptimizedAPS(args)
-    aps.prepare_frame()
-    aps.prepare_video_quality()
-    aps.prepare_anchor_point()
-    aps.evaluate_anchor_points()
-    aps.select_anchor_points()
-"""
-    aps.save_cache_profiles()
-    aps.run_cache_profiles()
-    aps.prepare_cache_quality()
-    aps.evaluate_cache_profiles()
-    threshold = aps.get_highest_quality()
-    print("OptimizedAPS threshold is {}".format(threshold))
+    parser = argparse.ArgumentParser(description='Cache Erosion Analyzer')
 
-    aps = BaselineAPS(args, threshold)
-    aps.prepare_frame()
-    aps.prepare_video_quality()
-    aps.prepare_anchor_point()
-    aps.select_anchor_points()
-    aps.save_cache_profiles()
-    aps.run_cache_profiles()
-    aps.prepare_cache_quality()
-    aps.evaluate_cache_profiles()
-"""
+    #options for libvpx
+    parser.add_argument('--vpxdec_path', type=str, required=True)
+    parser.add_argument('--content_dir', type=str, required=True)
+    parser.add_argument('--checkpoint_dir', type=str, required=True)
+    parser.add_argument('--input_video_name', type=str, required=True)
+    parser.add_argument('--compare_video_name', type=str, required=True)
+    parser.add_argument('--num_decoders', type=int, default=1)
+    parser.add_argument('--gop', type=int, required=True)
+
+    #options for edsr_s (DNN)
+    parser.add_argument('--num_filters', type=int, required=True)
+    parser.add_argument('--num_blocks', type=int, required=True)
+
+    #opttions for anchor point selector
+    parser.add_argument('--quality_diff', type=float, required=True)
+
+    args = parser.parse_args()
+
+    input_video_path = os.path.join(args.content_dir, 'video', args.input_video_name)
+    compare_video_path = os.path.join(args.content_dir, 'video', args.compare_video_name)
+    input_video_info = profile_video(input_video_path)
+    compare_video_info = profile_video(compare_video_path)
+
+    scale = int(compare_video_info['height'] / input_video_info['height'])
+    edsr_s = EDSR_S(args.num_blocks, args.num_filters, scale, None)
+    checkpoint_dir = os.path.join(args.checkpoint_dir, edsr_s.name)
+
+    aps_baseline = APS_Baseline(edsr_s, checkpoint_dir, args.vpxdec_path, args.content_dir, args.input_video_name, args.compare_video_name, args.num_decoders, args.gop, args.quality_diff)
+    aps_baseline.start_process()
+    aps_baseline.run_synchrnous(5)
+    aps_baseline.stop_process()
