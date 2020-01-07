@@ -18,6 +18,7 @@ from tool.tf import single_raw_dataset, valid_raw_dataset
 from tool.ffprobe import profile_video
 from tool.libvpx import Frame, CacheProfile, get_num_threads
 from dnn.model.edsr_s import EDSR_S
+from dnn.utility import resolve_bilinear
 
 #deprecated: convert raw to png
 """
@@ -107,7 +108,8 @@ class APS_v1():
         compare_raw_ds = iter(single_raw_dataset(hr_image_dir, compare_video_info['height'], compare_video_info['width'], \
                                             pattern='[0-9][0-9][0-9][0-9].raw'))
 
-        psnr_values = []
+        sr_psnr_values = []
+        #bilinear_psnr_values = []
         for idx, img in enumerate(input_raw_ds):
             lr = img[0]
             lr = tf.cast(lr, tf.float32)
@@ -117,24 +119,36 @@ class APS_v1():
             sr = tf.round(sr)
             sr = tf.cast(sr, tf.uint8)
 
-            name = os.path.basename(img[1].numpy()[0].decode())
+            lr_name = os.path.basename(img[1].numpy()[0].decode())
             sr_image = tf.squeeze(sr).numpy()
-            sr_image.tofile(os.path.join(sr_image_dir, name))
+            sr_image.tofile(os.path.join(sr_image_dir, lr_name))
 
-            if re.match('\d\d\d\d.raw', name):
-                hr = next(compare_raw_ds)
-                psnr_value = tf.image.psnr(hr[0], sr, max_val=255)[0].numpy()
-                psnr_values.append(psnr_value)
-                #hr_name = os.path.basename(hr[1].numpy()[0].decode())
-                #print(name, hr_name)
+            if re.match('\d\d\d\d.raw', lr_name):
+                hr, hr_name = next(compare_raw_ds)
 
+                #bilinear = resolve_bilinear(lr, compare_video_info['height'], compare_video_info['width'])
+                #bilinear = tf.cast(bilinear, tf.uint8)
+                #bilinear_psnr_value = tf.image.psnr(hr, bilinear, max_val=255)[0].numpy()
+                #bilinear_psnr_values.append(bilinear_psnr_value)
+
+                sr_psnr_value = tf.image.psnr(hr[0], sr, max_val=255)[0].numpy()
+                sr_psnr_values.append(sr_psnr_value)
+
+                #validate name
+                #hr_name = os.path.basename(hr_name.numpy()[0].decode())
+                #print(lr_name, hr_name)
+
+            #validate image
             #sr_image = tf.image.encode_png(tf.squeeze(sr))
             #tf.io.write_file(os.path.join('.', '{0:04d}.png'.format(idx+1)), sr_image)
 
         log_path = os.path.join(log_dir, 'quality_sr.txt')
-        print(log_path)
         with open(log_path, 'w') as f:
-            f.write('\n'.join(str(np.round(psnr_value, 2)) for psnr_value in psnr_values))
+            f.write('\n'.join(str(np.round(sr_psnr_value, 2)) for sr_psnr_value in sr_psnr_values))
+
+        #log_path = os.path.join(log_dir, 'quality_bilinear.txt')
+        #with open(log_path, 'w') as f:
+        #    f.write('\n'.join(str(np.round(bilinear_psnr_value, 2)) for bilinear_psnr_value in bilinear_psnr_values))
 
         end_time = time.time()
         return end_time - start_time
@@ -144,7 +158,7 @@ class APS_v1():
         checkpoint = self.model.load_checkpoint(self.checkpoint_dir)
 
         log_dir = os.path.join(self.content_dir, 'log', self.input_video, self.model.name)
-        log_path = os.path.join(log_dir, '{}_latency_0.txt'.format(self.__class__.__name__))
+        log_path = os.path.join(log_dir, 'latency_{}_0.txt'.format(self.__class__.__name__))
         log_file = open(log_path, 'w')
 
         while True:
@@ -155,8 +169,10 @@ class APS_v1():
                 start_time = time.time()
                 chunk_idx = item
                 print('_prepare_anchor_points: start {} chunk'.format(chunk_idx))
-                elapsed_time1 = self._prepare_lr_frames(chunk_idx)
-                elapsed_time2 = self._prepare_hr_frames(chunk_idx)
+                elapsed_time1 = 0
+                elapsed_time2 = 0
+                #elapsed_time1 = self._prepare_lr_frames(chunk_idx)
+                #elapsed_time2 = self._prepare_hr_frames(chunk_idx)
                 elapsed_time3 = self._prepare_sr_frames(chunk_idx, checkpoint.model)
                 q1.put(chunk_idx)
                 print('_prepare_anchor_points: end {} chunk'.format(chunk_idx))
@@ -233,7 +249,7 @@ class APS_v1():
         decoders = [mp.Process(target=self._execute_command, args=(q2, q3)) for i in range(self.num_decoders)]
 
         log_dir = os.path.join(self.content_dir, 'log', self.input_video, self.model.name)
-        log_path = os.path.join(log_dir, '{}_latency_1.txt'.format(self.__class__.__name__))
+        log_path = os.path.join(log_dir, 'latency_{}_1.txt'.format(self.__class__.__name__))
         log_file = open(log_path, 'w')
 
         for decoder in decoders:
@@ -259,7 +275,7 @@ class APS_v1():
                 frames = self._load_frames(chunk_idx)
                 ap_cache_profiles = []
                 for idx, frame in enumerate(frames):
-                    ap_cache_profile = CacheProfile.fromframes(frames, profile_dir, 'ap_{}'.format(frame.name))
+                    ap_cache_profile = CacheProfile.fromframes(frames, profile_dir, 'frame_{}'.format(frame.name))
                     ap_cache_profile.add_anchor_point(frame)
                     ap_cache_profile.save()
                     ap_cache_profiles.append(ap_cache_profile)
@@ -329,7 +345,7 @@ class APS_v1():
         decoders = [mp.Process(target=self._execute_command, args=(q2, q3)) for i in range(self.num_decoders)]
 
         log_dir = os.path.join(self.content_dir, 'log', self.input_video, self.model.name)
-        log_path = os.path.join(log_dir, '{}_latency_2.txt'.format(self.__class__.__name__))
+        log_path = os.path.join(log_dir, 'latency_{}_2.txt'.format(self.__class__.__name__))
         log_file = open(log_path, 'w')
 
         for decoder in decoders:
@@ -392,10 +408,10 @@ class APS_v1():
                     ap_cache_profile = ap_cache_profiles.pop(idx)
                     #print('_select_cache_profile: {} anchor points, {} chunk'.format(ap_cache_profile.anchor_points[0].name, chunk_idx))
                     if len(cache_profiles) == 0:
-                        cache_profile = CacheProfile.fromcacheprofile(ap_cache_profile, profile_dir, 'cp_{}'.format(len(ap_cache_profile.anchor_points)))
+                        cache_profile = CacheProfile.fromcacheprofile(ap_cache_profile, profile_dir, '{}_{}'.format(self.__class__.__name__, len(ap_cache_profile.anchor_points)))
                         cache_profile.set_estimated_quality(ap_cache_profile.measured_quality)
                     else:
-                        cache_profile = CacheProfile.fromcacheprofile(cache_profiles[-1], profile_dir, 'cp_{}'.format(len(cache_profiles[-1].anchor_points) + 1))
+                        cache_profile = CacheProfile.fromcacheprofile(cache_profiles[-1], profile_dir, '{}_{}'.format(self.__class__.__name__, len(cache_profiles[-1].anchor_points) + 1))
                         cache_profile.add_anchor_point(ap_cache_profile.anchor_points[0])
                         cache_profile.set_estimated_quality(self._estimate_quality(cache_profiles[-1], ap_cache_profile))
                     cache_profile.save()
@@ -444,7 +460,7 @@ class APS_v1():
                 selected_cache_profile.save()
 
                 #save a log
-                log_path = os.path.join(log_dir, '{}_quality.txt'.format(self.__class__.__name__))
+                log_path = os.path.join(log_dir, 'quality_{}.txt'.format(self.__class__.__name__))
                 with open(log_path, 'w') as f:
                     for cache_profile in cache_profiles:
                         quality_error = np.percentile(np.asarray(dnn_quality) - np.asarray(cache_profile.measured_quality), [90, 95, 100], interpolation='nearest')
@@ -531,6 +547,7 @@ if __name__ == '__main__':
     checkpoint_dir = os.path.join(args.checkpoint_dir, edsr_s.name)
 
     aps_v1 = APS_v1(edsr_s, checkpoint_dir, args.vpxdec_path, args.content_dir, args.input_video_name, args.compare_video_name, args.num_decoders, args.gop, args.quality_diff)
-    aps_v1.start_process()
-    aps_v1.run_synchrnous(5)
-    aps_v1.stop_process()
+    #aps_v1.start_process()
+    #aps_v1.run_synchrnous(5)
+    #aps_v1.stop_process()
+    aps_v1.debug_asynchrnous(5)
