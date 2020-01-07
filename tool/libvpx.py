@@ -1,7 +1,6 @@
 import math
 import os
 import struct
-import copy
 
 class Frame():
     def __init__(self, video_index, super_index):
@@ -99,6 +98,9 @@ def get_num_threads(resolution):
     else:
         num_threads = 2
     return num_threads
+
+def count_mac_for_cache(width, height, channel):
+    return width * height * channel * 8
 
 if __name__ == '__main__':
     frame_list = [Frame(0,1)]

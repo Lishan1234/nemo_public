@@ -58,6 +58,7 @@ class Summary():
         log_dir = os.path.join(self.content_dir, 'log', self.input_video, self.model.name)
         log = None
 
+        #cache quality
         with open(os.path.join(log_dir, postfix, 'quality_{}.txt'.format(APS_v1.__name__)), 'r') as f:
             lines = f.readlines()
             for line in lines:
@@ -68,13 +69,16 @@ class Summary():
                 quality_diff = line[3]
                 quality_error_90 = line[4]
                 quality_error_95 = line[5]
-                #quality_error_100 = line[6]
-                quality_error_100 = 0
+                quality_error_100 = line[6]
+                quality_estimate = line[7]
 
                 if float(quality_diff) < self.quality_diff:
                     break
 
-        #TODO:
+        #select a cache profile
+        #TODO
+
+        #bilinear quality
         bilinear_psnr_values = []
         with open(os.path.join(log_dir, postfix, 'quality_bilinear.txt'.format(APS_Baseline.__name__)), 'r') as f:
             lines = f.readlines()
@@ -84,10 +88,21 @@ class Summary():
                 bilinear_psnr_values.append(bilinear_psnr_value)
         quality_bilinear = np.average(bilinear_psnr_values)
 
-        log = '{}\t{}\t{}\t{}\t{}\t{}'.format(num_anchor_points, quality, quality_bilinear, quality_sr, quality_diff, quality_error_90, quality_error_95, quality_error_100)
+        log = '{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}'.format(num_anchor_points, quality, quality_bilinear, quality_sr, quality_diff, quality_error_90, quality_error_95, quality_error_100, quality_estimate)
 
-        #TODO: mac // cache in libvpx
+        compare_video_path = os.path.join(args.content_dir, 'video', args.compare_video_name)
+        compare_video_info = profile_video(compare_video_path)
+        dnn_mac = self.model.mac
+        assert(dnn_mac is not None)
 
+        cache_mac = count_mac_for_cache(compare_video_info['height'], compare_video_info['width'], 3)
+        total_dnn_mac = num_anchor_points * dnn_mac
+        total_cache_mac = (self.gop - num_anchor_points) * cache_mac
+        total_mac = total_dnn_mac
+        baseline_mac = dnn_mac * self.gop
+        normalized_mac = (total_mac / baseline_mac)
+
+        #latency
         with open(os.path.join(log_dir, 'latency_{}_0.txt'.format(APS_v1.__name__)), 'r') as f0, \
              open(os.path.join(log_dir, 'latency_{}_1.txt'.format(APS_v1.__name__)), 'r') as f1, \
              open(os.path.join(log_dir, 'latency_{}_2.txt'.format(APS_v1.__name__)), 'r') as f2:
