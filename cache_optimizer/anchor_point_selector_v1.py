@@ -461,13 +461,18 @@ class APS_v1():
                 selected_cache_profile.save()
 
                 #save a log
+                quality_dnn = np.average(dnn_quality)
                 log_path = os.path.join(log_dir, 'quality_{}.txt'.format(self.__class__.__name__))
                 with open(log_path, 'w') as f:
                     for cache_profile in cache_profiles:
-                        quality_error = np.percentile(np.asarray(dnn_quality) - np.asarray(cache_profile.measured_quality), [90, 95, 100], interpolation='nearest')
-                        quality_error = '\t'.join(str(np.round(x, 2)) for x in quality_error)
-                        log = '{}\t{:.2f}\t{:.2f}\t{}\n'.format(len(cache_profile.anchor_points), np.average(cache_profile.estimated_quality), \
-                                                np.average(cache_profile.measured_quality), quality_error)
+                        quality_cache_measured = np.average(cache_profile.measured_quality)
+                        quality_diff = quality_dnn - quality_cache_measured
+                        quality_cache_error = np.percentile(np.asarray(dnn_quality) - np.asarray(cache_profile.measured_quality), [90, 95, 100], interpolation='nearest')
+                        quality_cache_error = '\t'.join(str(np.round(x, 2)) for x in quality_cache_error)
+                        quality_cache_estimated = np.average(cache_profile.estimated_quality)
+
+                        log = '{}\t{:.2f}\t{:.2f}\t{:.2f}\t{}\t{:.2f}\n'.format(len(cache_profile.anchor_points), quality_cache_measured, quality_dnn, \
+                                                                quality_diff, quality_cache_error, quality_cache_estimated)
                         f.write(log)
 
                 q1.put(chunk_idx)
@@ -567,8 +572,12 @@ if __name__ == '__main__':
     parser.add_argument('--num_filters', type=int, required=True)
     parser.add_argument('--num_blocks', type=int, required=True)
 
-    #opttions for anchor point selector
+    #options for anchor point selector
     parser.add_argument('--quality_diff', type=float, required=True)
+
+    #options for mode
+    parser.add_argument('--chunk_idx', default=None)
+    parser.add_argument('--mode', default='async', choices=['async', 'sync', 'debug'])
 
     args = parser.parse_args()
 
@@ -582,9 +591,13 @@ if __name__ == '__main__':
     checkpoint_dir = os.path.join(args.checkpoint_dir, edsr_s.name)
 
     aps_v1 = APS_v1(edsr_s, checkpoint_dir, args.vpxdec_path, args.content_dir, args.input_video_name, args.compare_video_name, args.num_decoders, args.gop, args.quality_diff)
-    aps_v1.start_process()
-    #aps_v1.run_synchrnous()
-    aps_v1.run_asynchrnous()
-    aps_v1.stop_process()
-
-    #aps_v1.debug_synchrnous()
+    if args.mode == 'async':
+        aps_v1.start_process()
+        aps_v1.run_asynchrnous(args.chunk_idx)
+        aps_v1.stop_process()
+    elif args.mode == 'sync':
+        aps_v1.start_process()
+        aps_v1.run_synchrnous(args.chunk_idx)
+        aps_v1.stop_process()
+    elif args.mode == 'debug':
+        aps_v1.debug_synchrnous(args.chunk_idx)

@@ -229,12 +229,17 @@ class APS_Baseline():
                         line = line.strip()
                         dnn_quality.append(float(line))
 
+                quality_dnn = np.average(dnn_quality)
                 log_path = os.path.join(log_dir, 'quality_{}.txt'.format(self.__class__.__name__))
                 with open(log_path, 'w') as f:
                     for cache_profile in sorted(cache_profiles):
-                        quality_error = np.percentile(np.asarray(dnn_quality) - np.asarray(cache_profile.measured_quality), [90, 95, 100], interpolation='nearest')
-                        quality_error = '\t'.join(str(np.round(x, 2)) for x in quality_error)
-                        log = '{}\t{:.2f}\t{}\n'.format(len(cache_profile.anchor_points), np.average(cache_profile.measured_quality), quality_error)
+                        quality_cache_measured = np.average(cache_profile.measured_quality)
+                        quality_diff = quality_dnn - quality_cache_measured
+                        quality_cache_error = np.percentile(np.asarray(dnn_quality) - np.asarray(cache_profile.measured_quality), [90, 95, 100], interpolation='nearest')
+                        quality_cache_error = '\t'.join(str(np.round(x, 2)) for x in quality_cache_error)
+
+                        log = '{}\t{:.2f}\t{:.2f}\t{:.2f}\t{}\n'.format(len(cache_profile.anchor_points), quality_cache_measured, quality_dnn, \
+                                                                quality_diff, quality_cache_error)
                         f.write(log)
 
                 q1.put(chunk_idx)
@@ -280,7 +285,7 @@ class APS_Baseline():
             self.q0.put(chunk_idx)
             self.q1.get()
 
-    def debug_asynchrnous(self, chunk_idx=None):
+    def debug_synchrnous(self, chunk_idx=None):
         if chunk_idx is None:
             input_video_path = os.path.join(self.content_dir, 'video', self.input_video)
             input_video_info = profile_video(input_video_path)
@@ -311,8 +316,12 @@ if __name__ == '__main__':
     parser.add_argument('--num_filters', type=int, required=True)
     parser.add_argument('--num_blocks', type=int, required=True)
 
-    #opttions for anchor point selector
+    #options for anchor point selector
     parser.add_argument('--quality_diff', type=float, required=True)
+
+    #option for mode
+    parser.add_argument('--chunk_idx', default=None)
+    parser.add_argument('--mode', default='async', choices=['async', 'sync', 'debug'])
 
     args = parser.parse_args()
 
@@ -326,8 +335,13 @@ if __name__ == '__main__':
     checkpoint_dir = os.path.join(args.checkpoint_dir, edsr_s.name)
 
     aps_baseline = APS_Baseline(edsr_s, checkpoint_dir, args.vpxdec_path, args.content_dir, args.input_video_name, args.compare_video_name, args.num_decoders, args.gop, args.quality_diff)
-    aps_baseline.start_process()
-    #aps_baseline.run_asynchrnous()
-    aps_baseline.run_asynchrnous()
-    aps_baseline.stop_process()
-    #aps_baseline.debug_asynchrnous(0)
+    if args.mode == 'async':
+        aps_baseline.start_process()
+        aps_baseline.run_asynchrnous(args.chunk_idx)
+        aps_baseline.stop_process()
+    elif args.mode == 'sync':
+        aps_baseline.start_process()
+        aps_baseline.run_synchrnous(args.chunk_idx)
+        aps_baseline.stop_process()
+    elif args.mode == 'debug':
+        aps_baseline.debug_synchrnous(args.chunk_idx)

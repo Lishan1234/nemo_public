@@ -8,4 +8,5 @@ python anchor_point_selector_v1.py --vpxdec_path /home/hyunho/MobiNAS/third_part
                                 --num_blocks 8 \
                                 --num_filters 64 \
                                 --checkpoint_dir /ssd1/data-sigcomm2020/game-lol/checkpoint/240p_s0_d60_encoded.webm.uniform_1.00 \
-                                --quality_diff 0.2
+                                --quality_diff 0.2 \
+                                --mode debug
