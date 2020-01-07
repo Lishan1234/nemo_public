@@ -455,7 +455,7 @@ class APS_v1():
                 elapsed_time3 = end_time3 - start_time3
 
                 #save a selected cache profile
-                selected_cache_profile = CacheProfile.fromcacheprofile(cache_profiles[idx], profile_dir, 'cp_final_{}'.format(len(cache_profiles[idx].anchor_points)))
+                selected_cache_profile = CacheProfile.fromcacheprofile(cache_profiles[idx], profile_dir, '{}'.format(self.__class__.__name__))
                 selected_cache_profile.save()
 
                 #save a log
