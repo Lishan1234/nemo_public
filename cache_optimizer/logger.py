@@ -21,6 +21,8 @@ class Logger():
         self.compare_video = compare_video
         self.gop = gop
         self.quality_diff = quality_diff
+        self.count_chunks = 1
+        self.start_time = None
 
     def prepare_bilinear(self, chunk_idx):
         start_idx = chunk_idx * self.gop
@@ -114,12 +116,18 @@ class Logger():
             line1 = f1.readlines()[chunk_idx].strip().split('\t')
             line2 = f2.readlines()[chunk_idx].strip().split('\t')
 
-            elapsed_time0 = np.round(float(line2[-1]) - float(line0[-2]), 2)
-            elapsed_time1 = line0[1]
-            elapsed_time2 = line1[1]
-            elapsed_time3 = line2[1]
+            elapsed_time0 = float(line2[-1]) - float(line0[-2])
+            if self.start_time is None:
+                elapsed_time1 = elapsed_time0
+                self.start_time = float(line0[-2])
+            else:
+                elapsed_time1 = float(line2[-1]) - self.start_time
+            throughput = self.count_chunks / elapsed_time1
+            elapsed_time2 = float(line0[1])
+            elapsed_time3 = float(line1[1])
+            elapsed_time4 = float(line2[1])
 
-        latency_log = '{}\t{}\t{}\t{}\t{}\n'.format(chunk_idx, elapsed_time0, elapsed_time1, elapsed_time2, elapsed_time3)
+        latency_log = '{}\t{:.2f}\t{:.2f}\t{:.4f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(chunk_idx, elapsed_time0, elapsed_time1, throughput, elapsed_time2, elapsed_time3, elapsed_time4)
         latency_file.write(latency_log)
         latency_file.flush()
 
