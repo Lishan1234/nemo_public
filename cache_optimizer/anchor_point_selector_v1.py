@@ -169,10 +169,8 @@ class APS_v1():
                 start_time = time.time()
                 chunk_idx = item
                 print('_prepare_anchor_points: start {} chunk'.format(chunk_idx))
-                elapsed_time1 = 0
-                elapsed_time2 = 0
-                #elapsed_time1 = self._prepare_lr_frames(chunk_idx)
-                #elapsed_time2 = self._prepare_hr_frames(chunk_idx)
+                elapsed_time1 = self._prepare_lr_frames(chunk_idx)
+                elapsed_time2 = self._prepare_hr_frames(chunk_idx)
                 elapsed_time3 = self._prepare_sr_frames(chunk_idx, checkpoint.model)
                 q1.put(chunk_idx)
                 print('_prepare_anchor_points: end {} chunk'.format(chunk_idx))
@@ -513,10 +511,8 @@ class APS_v1():
             num_chunks = int(input_video_info['duration'] // (self.gop / input_video_info['frame_rate']))
             for i in range(num_chunks):
                 self.q0.put(i)
-                break
             for i in range(num_chunks):
                 self.q3.get()
-                break
         else:
             self.q0.put(chunk_idx)
 
@@ -528,7 +524,6 @@ class APS_v1():
             for i in range(num_chunks):
                 self.q0.put(i)
                 self.q3.get()
-                break
         else:
             self.q0.put(chunk_idx)
             self.q3.get()
@@ -546,7 +541,6 @@ class APS_v1():
                 self._analyze_anchor_points(self.q1, self.q2)
                 self.q2.put('end')
                 self._select_cache_profile(self.q2, self.q3)
-                break
         else:
             self.q0.put(chunk_idx)
             self.q0.put('end')

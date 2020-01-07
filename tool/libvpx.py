@@ -1,6 +1,7 @@
 import math
 import os
 import struct
+import copy
 
 class Frame():
     def __init__(self, video_index, super_index):

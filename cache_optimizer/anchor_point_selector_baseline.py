@@ -269,7 +269,6 @@ class APS_Baseline():
             num_chunks = int(input_video_info['duration'] // (self.gop / input_video_info['frame_rate']))
             for i in range(num_chunks):
                 self.q0.put(i)
-                break
         else:
             self.q0.put(chunk_idx)
 
@@ -292,7 +291,6 @@ class APS_Baseline():
             num_chunks = int(input_video_info['duration'] // (self.gop / input_video_info['frame_rate']))
             for i in range(num_chunks):
                 self.q0.put(i)
-                break
             self.q0.put('end')
             self._analyze_cache_profiles(self.q0, self.q1)
         else:
