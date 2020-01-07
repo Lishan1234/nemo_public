@@ -371,6 +371,7 @@ class APS_v1():
 
                 #load dnn quality
                 start_time1 = time.time()
+                #deprecated
                 """
                 dnn_quality = []
                 sr_image_dir = os.path.join(self.content_dir, 'image', self.input_video, self.model.name, postfix)
@@ -500,21 +501,55 @@ class APS_v1():
         self.p1.join()
         self.p2.join()
 
-    def run_asynchrnous(self, chunk_idx):
-        self.q0.put(chunk_idx)
+    def run_asynchrnous(self, chunk_idx=None):
+        if chunk_idx is None:
+            input_video_path = os.path.join(self.content_dir, 'video', self.input_video)
+            input_video_info = profile_video(input_video_path)
+            num_chunks = int(input_video_info['duration'] // (self.gop / input_video_info['frame_rate']))
+            for i in range(num_chunks):
+                self.q0.put(i)
+                break
+            for i in range(num_chunks):
+                self.q3.get()
+                break
+        else:
+            self.q0.put(chunk_idx)
 
-    def run_synchrnous(self, chunk_idx):
-        self.q0.put(chunk_idx)
-        self.q3.get()
+    def run_synchrnous(self, chunk_idx=None):
+        if chunk_idx is None:
+            input_video_path = os.path.join(self.content_dir, 'video', self.input_video)
+            input_video_info = profile_video(input_video_path)
+            num_chunks = int(input_video_info['duration'] // (self.gop / input_video_info['frame_rate']))
+            for i in range(num_chunks):
+                self.q0.put(i)
+                self.q3.get()
+                break
+        else:
+            self.q0.put(chunk_idx)
+            self.q3.get()
 
-    def debug_asynchrnous(self, chunk_idx):
-        self.q0.put(chunk_idx)
-        self.q0.put('end')
-        self._prepare_anchor_points(self.q0, self.q1)
-        self.q1.put('end')
-        self._analyze_anchor_points(self.q1, self.q2)
-        self.q2.put('end')
-        self._select_cache_profile(self.q2, self.q3)
+    def debug_synchrnous(self, chunk_idx=None):
+        if chunk_idx is None:
+            input_video_path = os.path.join(self.content_dir, 'video', self.input_video)
+            input_video_info = profile_video(input_video_path)
+            num_chunks = int(input_video_info['duration'] // (self.gop / input_video_info['frame_rate']))
+            for i in range(num_chunks):
+                self.q0.put(i)
+                self.q0.put('end')
+                self._prepare_anchor_points(self.q0, self.q1)
+                self.q1.put('end')
+                self._analyze_anchor_points(self.q1, self.q2)
+                self.q2.put('end')
+                self._select_cache_profile(self.q2, self.q3)
+                break
+        else:
+            self.q0.put(chunk_idx)
+            self.q0.put('end')
+            self._prepare_anchor_points(self.q0, self.q1)
+            self.q1.put('end')
+            self._analyze_anchor_points(self.q1, self.q2)
+            self.q2.put('end')
+            self._select_cache_profile(self.q2, self.q3)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Cache Erosion Analyzer')
@@ -547,7 +582,9 @@ if __name__ == '__main__':
     checkpoint_dir = os.path.join(args.checkpoint_dir, edsr_s.name)
 
     aps_v1 = APS_v1(edsr_s, checkpoint_dir, args.vpxdec_path, args.content_dir, args.input_video_name, args.compare_video_name, args.num_decoders, args.gop, args.quality_diff)
-    #aps_v1.start_process()
-    #aps_v1.run_synchrnous(5)
-    #aps_v1.stop_process()
-    aps_v1.debug_asynchrnous(5)
+    aps_v1.start_process()
+    #aps_v1.run_synchrnous()
+    aps_v1.run_asynchrnous()
+    aps_v1.stop_process()
+
+    #aps_v1.debug_synchrnous()

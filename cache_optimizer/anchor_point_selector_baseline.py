@@ -20,19 +20,6 @@ from tool.ffprobe import profile_video
 from tool.libvpx import Frame, CacheProfile, get_num_threads
 from dnn.model.edsr_s import EDSR_S
 
-#deprecated: convert raw to png
-"""
-video_path = os.path.join(self.content_dir, 'video', self.compare_video)
-video_info = profile_video(video_path)
-images = glob.glob(os.path.join(hr_image_dir, '*.raw'))
-for idx, image in enumerate(images):
-    arr = np.fromfile(image, dtype=np.uint8)
-    arr = np.reshape(arr, (video_info['height'], video_info['width'], 3))
-    name = os.path.splitext(os.path.basename(image))[0]
-    name += '.png'
-    scipy.misc.imsave(os.path.join(hr_image_dir, name), arr)
-"""
-
 class APS_Baseline():
     def __init__(self, model, checkpoint_dir, vpxdec_path, content_dir, input_video, compare_video, num_decoders, gop, quality_diff):
         self.model = model
@@ -48,10 +35,10 @@ class APS_Baseline():
 
         self.q0 = mp.Queue()
         self.q1 = mp.Queue()
-        self.q2 = mp.Queue()
+        #self.q2 = mp.Queue()
 
-        self.p0 = mp.Process(target=self._prepare_anchor_points, args=(self.q0, self.q1))
-        self.p1 = mp.Process(target=self._analyze_cache_profiles, args=(self.q1, self.q2))
+        #self.p0 = mp.Process(target=self._prepare_anchor_points, args=(self.q0, self.q1))
+        self.p0 = mp.Process(target=self._analyze_cache_profiles, args=(self.q0, self.q1))
 
     def _prepare_hr_frames(self, chunk_idx):
         start_idx = chunk_idx * self.gop
@@ -211,7 +198,7 @@ class APS_Baseline():
                 cache_profiles = []
                 for i in range(len(frames)):
                     num_anchor_points = i + 1
-                    cache_profile = CacheProfile.fromframes(frames, profile_dir, 'uniform_{}'.format(num_anchor_points))
+                    cache_profile = CacheProfile.fromframes(frames, profile_dir, '{}_{}'.format(self.__class__.__name__, num_anchor_points))
                     for j in range(num_anchor_points):
                         idx = j * math.floor(len(frames) / num_anchor_points)
                         cache_profile.add_anchor_point(frames[idx])
@@ -234,21 +221,15 @@ class APS_Baseline():
                     cache_profiles[idx].set_measured_quality(quality)
 
                 #load dnn quality
+                log_path = os.path.join(log_dir, 'quality_sr.txt')
                 dnn_quality = []
-                sr_image_dir = os.path.join(self.content_dir, 'image', self.input_video, self.model.name, postfix)
-                hr_image_dir = os.path.join(self.content_dir, 'image', self.compare_video, postfix)
-                video_path = os.path.join(self.content_dir, 'video', self.compare_video)
-                video_info = profile_video(video_path)
-                with tf.device('cpu:0'):
-                    valid_raw_ds = valid_raw_dataset(sr_image_dir, hr_image_dir, video_info['height'], video_info['width'], \
-                                                    1, pattern='[0-9][0-9][0-9][0-9].raw')
-                    for idx, img in enumerate(valid_raw_ds):
-                        sr = img[0][0]
-                        hr = img[1][0]
-                        psnr = tf.image.psnr(hr, sr, max_val=255)[0].numpy()
-                        dnn_quality.append(psnr)
+                with open(log_path) as f:
+                    lines = f.readlines()
+                    for line in lines:
+                        line = line.strip()
+                        dnn_quality.append(float(line))
 
-                log_path = os.path.join(log_dir, 'aps_baseline.txt')
+                log_path = os.path.join(log_dir, 'quality_{}.txt'.format(self.__class__.__name__))
                 with open(log_path, 'w') as f:
                     for cache_profile in sorted(cache_profiles):
                         quality_error = np.percentile(np.asarray(dnn_quality) - np.asarray(cache_profile.measured_quality), [90, 95, 100], interpolation='nearest')
@@ -267,29 +248,52 @@ class APS_Baseline():
 
     def start_process(self):
         self.p0.start()
-        self.p1.start()
+        #self.p1.start()
 
     def stop_process(self):
         self.q0.put('end')
-        self.q1.put('end')
+        #self.q1.put('end')
 
         self.p0.join()
-        self.p1.join()
+        #self.p1.join()
 
-    def run_asynchrnous(self, chunk_idx):
-        self.q0.put(chunk_idx)
+    def run_asynchrnous(self, chunk_idx=None):
+        if chunk_idx is None:
+            input_video_path = os.path.join(self.content_dir, 'video', self.input_video)
+            input_video_info = profile_video(input_video_path)
+            num_chunks = int(input_video_info['duration'] // (self.gop / input_video_info['frame_rate']))
+            for i in range(num_chunks):
+                self.q0.put(i)
+                break
+        else:
+            self.q0.put(chunk_idx)
 
-    def run_synchrnous(self, chunk_idx):
-        self.q0.put(chunk_idx)
-        self.q2.get()
+    def run_synchrnous(self, chunk_idx=None):
+        if chunk_idx is None:
+            input_video_path = os.path.join(self.content_dir, 'video', self.input_video)
+            input_video_info = profile_video(input_video_path)
+            num_chunks = int(input_video_info['duration'] // (self.gop / input_video_info['frame_rate']))
+            for i in range(num_chunks):
+                self.q0.put(i)
+                self.q1.get()
+        else:
+            self.q0.put(chunk_idx)
+            self.q1.get()
 
-    def debug_asynchrnous(self, chunk_idx):
-        #self.q0.put(chunk_idx)
-        #self.q0.put('end')
-        #self._prepare_anchor_points(self.q1, self.q2)
-        self.q1.put(chunk_idx)
-        self.q1.put('end')
-        self._analyze_cache_profiles(self.q1, self.q2)
+    def debug_asynchrnous(self, chunk_idx=None):
+        if chunk_idx is None:
+            input_video_path = os.path.join(self.content_dir, 'video', self.input_video)
+            input_video_info = profile_video(input_video_path)
+            num_chunks = int(input_video_info['duration'] // (self.gop / input_video_info['frame_rate']))
+            for i in range(num_chunks):
+                self.q0.put(i)
+                break
+            self.q0.put('end')
+            self._analyze_cache_profiles(self.q0, self.q1)
+        else:
+            self.q0.put(chunk_idx)
+            self.q0.put('end')
+            self._analyze_cache_profiles(self.q0, self.q1)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Cache Erosion Analyzer')
@@ -323,5 +327,7 @@ if __name__ == '__main__':
 
     aps_baseline = APS_Baseline(edsr_s, checkpoint_dir, args.vpxdec_path, args.content_dir, args.input_video_name, args.compare_video_name, args.num_decoders, args.gop, args.quality_diff)
     aps_baseline.start_process()
-    aps_baseline.run_synchrnous(5)
+    #aps_baseline.run_asynchrnous()
+    aps_baseline.run_asynchrnous()
     aps_baseline.stop_process()
+    #aps_baseline.debug_asynchrnous(0)
