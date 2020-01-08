@@ -4,7 +4,7 @@ import json
 import os
 
 def profile_video(video_path):
-    cmd = "ffprobe -v quiet -print_format json -show_streams"
+    cmd = "ffprobe -v quiet -print_format json -show_streams -show_entries format"
     args = shlex.split(cmd)
     args.append(video_path)
 
@@ -15,6 +15,7 @@ def profile_video(video_path):
     #height, width
     height = ffprobeOutput['streams'][0]['height']
     width = ffprobeOutput['streams'][0]['width']
+    duration = float(ffprobeOutput['format']['duration'])
 
     #fps
     fps_line = ffprobeOutput['streams'][0]['avg_frame_rate']
@@ -24,5 +25,6 @@ def profile_video(video_path):
     result['height'] = height
     result['width'] = width
     result['frame_rate'] = frame_rate
+    result['duration'] = duration
 
     return result
