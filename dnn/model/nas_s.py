@@ -1,0 +1,77 @@
+import tensorflow as tf
+from tensorflow.keras import layers
+from tensorflow.keras import Model
+
+def residual_block(x_in, num_filters):
+    x = layers.Conv2D(num_filters, 3, padding='same', activation='relu')(x_in)
+    x = layers.Conv2D(num_filters, 3, padding='same')(x)
+    x = layers.Add()([x_in, x])
+    return x
+
+class NAS_S():
+    def __init__(self, num_blocks, num_filters, \
+                    scale):
+        self.num_blocks = num_blocks
+        self.num_filters = num_filters
+        self.scale = scale
+
+        #name
+        self.name = self.__class__.__name__
+        self.name += '_B{}'.format(self.num_blocks)
+        self.name += '_F{}'.format(self.num_filters)
+        self.name += '_S{}'.format(self.scale)
+
+    def build_model(self):
+        x_in = layers.Input(shape=(None, None, 3))
+
+        x = b = layers.Conv2D(self.num_filters, 3, padding='same')(x_in)
+
+        for i in range(self.num_blocks):
+            b = residual_block(b, self.num_filters)
+        b = layers.Conv2D(self.num_filters, 3, padding='same')(b)
+        x = layers.Add()([x, b])
+
+        x = layers.Conv2DTranspose(self.num_filters, 5, self.scale, padding='same')(x)
+        b = layers.Conv2D(3, 3, padding='same')(b)
+
+        model = Model(inputs=x_in, outputs=x, name=self.name)
+
+        return model
+
+    def load_checkpoint(self, checkpoint_dir):
+        model = self.build_model()
+        checkpoint = tf.train.Checkpoint(model=model)
+        checkpoint_manager = tf.train.CheckpointManager(checkpoint=checkpoint,
+                                                        directory=checkpoint_dir, max_to_keep=3)
+        checkpoint_path = checkpoint_manager.latest_checkpoint
+        print('checkpoint: {}'.format(checkpoint_path))
+        assert(checkpoint_path is not None)
+        checkpoint.restore(checkpoint_path).expect_partial()
+
+        return checkpoint
+
+    #TODO: need to measure MAC
+    def count_mac(self):
+        """
+        if self.num_blocks == 8 and self.num_filters == 8:
+            return 1513 * 1000 * 1000
+        elif self.num_blocks == 8 and self.num_filters == 16:
+            return 6011 * 1000 * 1000
+        elif self.num_blocks == 8 and self.num_filters == 32:
+            return 23958 * 1000 * 1000
+        elif self.num_blocks == 8 and self.num_filters == 48:
+            return 53840 * 1000 * 1000
+        elif self.num_blocks == 8 and self.num_filters == 64:
+            return 95657 * 1000 * 1000
+        else:
+            return None
+        """
+        return None
+
+if __name__ == '__main__':
+    tf.enable_eager_execution()
+    with tf.device('/gpu:0'):
+        model = NAS_S(4, 32, 4).build_model()
+        input_tensor = tf.random.uniform((1, 200, 200, 3), 0, 255)
+        output_tensor = model(input_tensor)
+        print(model.name, output_tensor.shape)
