@@ -5,5 +5,4 @@ python logger.py --content_dir /ssd1/data-sigcomm2020/game-lol \
                 --gop 120 \
                 --num_blocks 8 \
                 --num_filters 64 \
-                --quality_diff 0.25 \
-                --chunk_idx 0
+                --quality_diff 0.2 

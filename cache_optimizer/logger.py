@@ -215,10 +215,12 @@ class Logger():
             input_video_info = profile_video(input_video_path)
             num_chunks = int(input_video_info['duration'] // (self.gop / input_video_info['frame_rate']))
             for i in range(num_chunks):
+                self.prepare_bilinear(i)
                 num_anchor_points = self.aps_v1(i, f0, f1, f2)
                 self.aps_baseline_0(i, f3)
                 self.aps_baseline_1(i, f4, num_anchor_points)
         else:
+            self.prepare_bilinear(chunk_idx)
             num_anchor_points = self.aps_v1(chunk_idx, f0, f1, f2)
             self.aps_baseline_0(chunk_idx, f3)
             self.aps_baseline_1(chunk_idx, f4, num_anchor_points)
