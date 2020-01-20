@@ -32,7 +32,7 @@ class NAS_S():
         x = layers.Add()([x, b])
 
         x = layers.Conv2DTranspose(self.num_filters, 5, self.scale, padding='same')(x)
-        b = layers.Conv2D(3, 3, padding='same')(b)
+        x = layers.Conv2D(3, 3, padding='same')(x)
 
         model = Model(inputs=x_in, outputs=x, name=self.name)
 
