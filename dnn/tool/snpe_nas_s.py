@@ -8,7 +8,7 @@ import numpy as np
 
 from dnn.model.nas_s import NAS_S
 from dnn.utility import FFmpegOption
-from tool.snpe import snpe_convert_model, snpe_dlc_viewer
+from tool.snpe import snpe_convert_model, snpe_dlc_viewer, snpe_benchmark
 from tool.ffprobe import profile_video
 
 #TODO: a) meausre latency (with a pretrained model), b) measure quality by sampling 1.0 fps
@@ -39,8 +39,8 @@ class Profiler():
         #script
 
     def measure_latency(self, device_id, runtime, total_run, total_num, perf='default'):
-        json_path = self._create_json(device_id, runtime, perf)
-        self._snpe_benchmark(json_path)
+        json_path = self._create_json(device_id, runtime, total_run, total_num)
+        snpe_benchmark(json_path)
 
         output_json_path = os.path.join(result_dir, 'latest_results', 'benchmark_stats_{}.json'.format(self.model.name))
         assert(os.path.exists(output_json_path))
@@ -58,7 +58,7 @@ class Profiler():
         pass
 
     def _create_json(self, device_id, runtime, total_run, total_num, perf='default'):
-        result_dir = os.path.join(self.log_dir, device_id, runtime, str(self.nhwc[0]))
+        result_dir = os.path.join(self.log_dir, device_id, runtime)
         os.makedirs(result_dir, exist_ok=True)
         json_path = os.path.join(result_dir, 'benchmark.json')
 
@@ -111,8 +111,8 @@ if __name__ == '__main__':
     parser.add_argument('--runtime', type=str, required=True)
 
     #test
-    parser.add_argument('--total_run', type=int, default=10)
-    parser.add_argument('--total_num', type=int, default=1)
+    parser.add_argument('--total_run', type=int, default=5)
+    parser.add_argument('--total_num', type=int, default=5)
 
     args = parser.parse_args()
 
@@ -139,4 +139,4 @@ if __name__ == '__main__':
     profiler.setup()
 
     #measurement
-    #profiler.measure_latency(args.device_id, args.runtime, args.total_run, args.total_num)
+    profiler.measure_latency(args.device_id, args.runtime, args.total_run, args.total_num)

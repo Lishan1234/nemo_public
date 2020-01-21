@@ -18,6 +18,7 @@ SNPE_ROOT = os.path.join(os.environ['MOBINAS_CODE_ROOT'], 'third_party', 'snpe')
 assert(os.path.exists(TENSORFLOW_ROOT))
 assert(os.path.exists(SNPE_ROOT))
 
+#TODO: fix
 def snpe_dlc_viewer(dlc_path, html_path):
     setup_cmd = 'source {}/bin/envsetup.sh -t {}'.format(SNPE_ROOT, TENSORFLOW_ROOT)
     snpe_cmd = 'python {}/bin/x86_64-linux-clang/snpe-dlc-viewer\
