@@ -1,13 +1,25 @@
-import tensorflow as tf
 import subprocess
 import os
+import sys
 
-OPT_4_INFERENCE_SCRIPT              = 'optimize_for_inference.py'
-TENSORFLOW_HOME = os.environ['TENSORFLOW_HOME']
-SNPE_ROOT = os.environ['SNPE_ROOT']
+import tensorflow as tf
+
+from tool.tf import get_tensorflow_dir
+
+#check python version
+python_version = sys.version_info
+if not (python_version[0] == 3 and python_version[1] == 4):
+    raise RuntimeError('Unsupported Python version: {}'.format(python_version))
+
+#check tensorflow, snpe directory
+OPT_4_INFERENCE_SCRIPT  = 'optimize_for_inference.py'
+TENSORFLOW_ROOT = get_tensorflow_dir()
+SNPE_ROOT = os.path.join(os.environ['MOBINAS_CODE_ROOT'], 'third_party', 'snpe')
+assert(os.path.exists(TENSORFLOW_ROOT))
+assert(os.path.exists(SNPE_ROOT))
 
 def snpe_dlc_viewer(dlc_path, html_path):
-    setup_cmd = 'source {}/bin/envsetup.sh -t {}'.format(SNPE_ROOT, TENSORFLOW_HOME)
+    setup_cmd = 'source {}/bin/envsetup.sh -t {}'.format(SNPE_ROOT, TENSORFLOW_ROOT)
     snpe_cmd = 'python {}/bin/x86_64-linux-clang/snpe-dlc-viewer\
             -i {} \
             -s {}'.format(SNPE_ROOT, \
@@ -20,7 +32,7 @@ def snpe_dlc_viewer(dlc_path, html_path):
     print(proc_stdout)
 
 def snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, nhwc):
-    setup_cmd = 'source {}/bin/envsetup.sh -t {}'.format(SNPE_ROOT, TENSORFLOW_HOME)
+    setup_cmd = 'source {}/bin/envsetup.sh -t {}'.format(SNPE_ROOT, TENSORFLOW_ROOT)
     snpe_cmd = 'python {}/bin/x86_64-linux-clang/snpe-tensorflow-to-dlc \
             -i {} \
             --input_dim {} {} \
@@ -36,6 +48,63 @@ def snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, nhwc):
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True, executable='/bin/bash')
     proc_stdout = process.communicate()[0].strip()
     print(proc_stdout)
+
+def snpe_benchmark(json_path):
+    setup_cmd = 'source {}/bin/envsetup.sh -t {}'.format(SNPE_ROOT, TENSORFLOW_ROOT)
+    snpe_cmd = 'python {}/benchmarks/snpe_bench.py -c {} -json'.format(SNPE_ROOT, json_path)
+
+    cmd = '{}; {}'.format(setup_cmd, snpe_cmd)
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True, executable='/bin/bash')
+    proc_stdout = process.communicate()[0].strip()
+    print(proc_stdout)
+
+def snpe_convert_model(model, nhwc, checkpoint_dir):
+    #restore
+    checkpoint = tf.train.Checkpoint(model=model)
+    latest_checkpoint = tf.train.latest_checkpoint(checkpoint_dir)
+    if not latest_checkpoint:
+        raise RuntimeError('checkpoint does not exist: {}'.format(checkpoint_dir))
+
+    checkpoint_name = os.path.basename(latest_checkpoint).split('.')[0]
+    pb_name = '{}.pb'.format(checkpoint_name)
+    opt_pb_name = '{}_opt.pb'.format(checkpoint_name)
+    dlc_name = '{}.dlc'.format(checkpoint_name)
+    qnt_dlc_name = '{}_quantized.dlc'.format(checkpoint_name)
+
+    dlc_dict = {'model_name': model.name , \
+            'input_name': model.inputs[0].name, \
+            'output_name': model.outputs[0].name, \
+            'qnt_dlc_name': qnt_dlc_name, \
+            'dlc_name': dlc_name,
+            'dlc_path': os.path.join(checkpoint_dir, dlc_name)}
+
+    #save a frozen graph (.pb)
+    status = checkpoint.restore(latest_checkpoint)
+    sess = tf.keras.backend.get_session()
+    status.initialize_or_restore(sess)
+    graph = tf.get_default_graph()
+    frozen_graph = freeze_session(sess, output_names=[out.op.name for out in model.outputs])
+    tf.train.write_graph(frozen_graph, checkpoint_dir, pb_name, as_text=False)
+
+    #optimize a frozen graph
+    input_name = model.inputs[0].name.split(':')[0]
+    output_name = model.outputs[0].name.split(':')[0]
+    pb_path = os.path.join(checkpoint_dir, pb_name)
+    opt_pb_path = os.path.join(checkpoint_dir, opt_pb_name)
+    optimize_for_inference(pb_path, opt_pb_path, input_name, output_name)
+
+    #convert to a dlc (.dlc)
+    dlc_path = os.path.join(checkpoint_dir, dlc_name)
+    snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, nhwc)
+
+    #convcert to a quantized dlc (.quantized.dlc)
+    #TODO
+
+    #visualize a dlc
+    html_path = os.path.join(checkpoint_dir, '{}.html'.format(dlc_name))
+    snpe_dlc_viewer(dlc_path, html_path)
+
+    return dlc_dict
 
 def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
     """
@@ -66,7 +135,7 @@ def freeze_session(session, keep_var_names=None, output_names=None, clear_device
         return frozen_graph
 
 def find_optimize_for_inference():
-    for root, dirs, files in os.walk(TENSORFLOW_HOME):
+    for root, dirs, files in os.walk(TENSORFLOW_ROOT):
         if OPT_4_INFERENCE_SCRIPT in files:
             return os.path.join(root, OPT_4_INFERENCE_SCRIPT)
     return None
@@ -86,50 +155,3 @@ def optimize_for_inference(pb_path, opt_pb_path, input_name, output_name):
                '--input_names', input_name,
                '--output_names', output_name]
         subprocess.call(cmd)
-
-def convert_model(model, nhwc, checkpoint_dir):
-    #restore
-    checkpoint = tf.train.Checkpoint(model=model)
-    latest_checkpoint = tf.train.latest_checkpoint(checkpoint_dir)
-    if not latest_checkpoint:
-        raise RuntimeError('checkpoint does not exist: {}'.format(checkpoint_dir))
-
-    checkpoint_name = os.path.basename(latest_checkpoint).split('.')[0]
-    pb_name = '{}.pb'.format(checkpoint_name)
-    opt_pb_name = '{}_opt.pb'.format(checkpoint_name)
-    dlc_name = '{}.dlc'.format(checkpoint_name)
-    qnt_dlc_name = '{}_quantized.dlc'.format(checkpoint_name)
-
-    dlc_dict = {'model_name': model.name , \
-            'input_name': model.inputs[0].name, \
-            'output_name': model.outputs[0].name, \
-            'qnt_dlc_name': qnt_dlc_name, \
-            'dlc_name': dlc_name}
-
-    #save a frozen graph (.pb)
-    status = checkpoint.restore(latest_checkpoint)
-    sess = tf.keras.backend.get_session()
-    status.initialize_or_restore(sess)
-    graph = tf.get_default_graph()
-    frozen_graph = freeze_session(sess, output_names=[out.op.name for out in model.outputs])
-    tf.train.write_graph(frozen_graph, checkpoint_dir, pb_name, as_text=False)
-
-    #optimize a frozen graph
-    input_name = model.inputs[0].name.split(':')[0]
-    output_name = model.outputs[0].name.split(':')[0]
-    pb_path = os.path.join(checkpoint_dir, pb_name)
-    opt_pb_path = os.path.join(checkpoint_dir, opt_pb_name)
-    optimize_for_inference(pb_path, opt_pb_path, input_name, output_name)
-
-    #convert to a dlc (.dlc)
-    dlc_path = os.path.join(checkpoint_dir, dlc_name)
-    snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, nhwc)
-
-    #convcert to a quantized dlc (.quantized.dlc)
-    #TODO
-
-    #visualize a dlc
-    html_path = os.path.join(checkpoint_dir, '{}.html'.format(dlc_name))
-    snpe_dlc_viewer(dlc_path, html_path)
-
-    return dlc_dict

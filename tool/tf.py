@@ -1,9 +1,29 @@
 import glob
 import os
+import subprocess
 
 import tensorflow as tf
 from tensorflow.python.data.experimental import AUTOTUNE
 
+def get_tensorflow_dir():
+    tensorflow_dir = None
+
+    cmd = 'pip show tensorflow'
+    proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    lines = proc.stdout.readlines()
+    for line in lines:
+        line = line.decode().rstrip('\r\n')
+        if 'Version' in line:
+            tensorflow_ver = line.split(' ')[1]
+            if not tensorflow_ver.startswith('1.'):
+                raise RuntimeError('Tensorflow verion is wrong: {}'.format(tensorflow_ver))
+        if 'Location' in line:
+            tensorflow_dir = line.split(' ')[1]
+            tensorflow_dir = os.path.join(tensorflow_dir, 'tensorflow')
+    if tensorflow_dir is None:
+        raise RuntimeError('Tensorflow is not installed')
+
+    return tensorflow_dir
 
 def decode_png(filepath):
     file = tf.io.read_file(filepath)
