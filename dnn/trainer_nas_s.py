@@ -109,8 +109,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset_dir', type=str, required=True)
     parser.add_argument('--lr_video_name', type=str, required=True)
     parser.add_argument('--hr_video_name', type=str, required=True)
-    parser.add_argument('--ffmpeg_path', type=str, required=True)
-    parser.add_argument('--ffprobe_path', type=str, default='usr/bin/ffprobe')
+    parser.add_argument('--ffmpeg_path', type=str, default='/usr/bin/ffmpeg')
 
     #video metadata
     parser.add_argument('--filter_type', type=str, default='uniform')
@@ -134,6 +133,7 @@ if __name__ == '__main__':
     #setting
     lr_video_path = os.path.join(args.dataset_dir, 'video', args.lr_video_name)
     hr_video_path = os.path.join(args.dataset_dir, 'video', args.hr_video_name)
+    print(lr_video_path)
     assert(os.path.exists(lr_video_path))
     assert(os.path.exists(hr_video_path))
 

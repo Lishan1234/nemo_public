@@ -1,7 +1,10 @@
 import subprocess
 import os
 import sys
+import glob
 
+import numpy as np
+import imageio
 import tensorflow as tf
 
 from tool.tf import get_tensorflow_dir
@@ -58,6 +61,44 @@ def snpe_benchmark(json_path):
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True, executable='/bin/bash')
     proc_stdout = process.communicate()[0].strip()
     print(proc_stdout)
+
+def read_image(image_file):
+    image = imageio.imread(image_file, as_gray=False, pilmode='RGB')
+    image_ndarray = np.asarray(image) # read it
+    if len(image_ndarray.shape) != 3:
+        raise RuntimeError('Image shape' + str(image_ndarray.shape))
+    if (image_ndarray.shape[2] != 3):
+        raise RuntimeError('Require image with rgb but channel is %d' % image_ndarray.shape[2])
+    # reverse last dimension: rgb -> bgr
+    return image_ndarray
+
+def snpe_convert_dataset(image_dir, image_format, save_uint8=False):
+    #read file
+    image_files = sorted(glob.glob('{}/*.{}'.format(image_dir, image_format)))
+
+    #convert to raw images
+    raw_subdir = 'raw'
+    raw_list = []
+    os.makedirs(os.path.join(image_dir, raw_subdir), exist_ok=True)
+    for image_file in image_files:
+        raw = read_image(image_file)
+
+        if save_uint8:
+            raw = raw.astype(np.uint8)
+        else:
+            raw = raw.astype(np.float32)
+
+        filename, ext = os.path.splitext(image_file)
+        raw_file = os.path.join(raw_subdir, '{}.raw'.format(os.path.basename(filename)))
+        raw_list.append(raw_file)
+        raw.tofile(os.path.join(image_dir, raw_file))
+
+    #creat a image list file
+    raw_list_log = os.path.join(image_dir, 'target_raw_list.txt')
+    with open(raw_list_log, 'w') as f:
+        f.write('\n'.join(raw_list))
+
+    return os.path.join(image_dir, raw_subdir), raw_list_log
 
 def snpe_convert_model(model, nhwc, checkpoint_dir):
     #restore
