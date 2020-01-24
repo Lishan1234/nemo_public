@@ -5,6 +5,14 @@ import subprocess
 import tensorflow as tf
 from tensorflow.python.data.experimental import AUTOTUNE
 
+def resolve_bilinear(lr_batch, width, height):
+    lr_batch = tf.cast(lr_batch, tf.float32)
+    bilinear_batch = tf.image.resize_bilinear(lr_batch, (width, height))
+    bilinear_batch = tf.clip_by_value(bilinear_batch, 0, 255)
+    bilinear_batch = tf.round(bilinear_batch)
+    bilinear_batch = tf.cast(bilinear_batch, tf.uint8)
+    return bilinear_batch
+
 def get_tensorflow_dir():
     tensorflow_dir = None
 
@@ -75,3 +83,43 @@ def valid_raw_dataset(lr_image_dir, hr_image_dir, width, height, scale, repeat_c
     ds = ds.repeat(repeat_count)
     ds = ds.prefetch(buffer_size=AUTOTUNE)
     return ds
+
+def raw_bilinear_quality(lr_raw_dir, hr_raw_dir, nhwc, scale):
+    bilinear_psnr_values = []
+    valid_raw_ds = valid_raw_dataset(lr_raw_dir, hr_raw_dir, nhwc[1], nhwc[2],
+                                                    scale, precision=tf.float32)
+    for idx, imgs in enumerate(valid_raw_ds):
+        lr = imgs[0][0]
+        hr = imgs[1][0]
+
+        bilinear = resolve_bilinear(lr, nhwc[1] * scale, nhwc[2] * scale)
+        bilinear = tf.cast(bilinear, tf.uint8)
+        hr = tf.clip_by_value(hr, 0, 255)
+        hr = tf.round(hr)
+        hr = tf.cast(hr, tf.uint8)
+
+        bilinear_psnr_value = tf.image.psnr(bilinear, hr, max_val=255)[0].numpy()
+        bilinear_psnr_values.append(bilinear_psnr_value)
+
+    return bilinear_psnr_values
+
+def raw_sr_quality(sr_raw_dir, hr_raw_dir, nhwc, scale):
+    sr_psnr_values = []
+    valid_raw_ds = valid_raw_dataset(sr_raw_dir, hr_raw_dir, nhwc[1] * scale,
+                                                    nhwc[2] * scale,
+                                                    1, precision=tf.float32)
+    for idx, imgs in enumerate(valid_raw_ds):
+        sr = imgs[0][0]
+        hr = imgs[1][0]
+
+        sr = tf.clip_by_value(sr, 0, 255)
+        sr = tf.round(sr)
+        sr = tf.cast(sr, tf.uint8)
+        hr = tf.clip_by_value(hr, 0, 255)
+        hr = tf.round(hr)
+        hr = tf.cast(hr, tf.uint8)
+
+        sr_psnr_value = tf.image.psnr(sr, hr, max_val=255)[0].numpy()
+        sr_psnr_values.append(sr_psnr_value)
+
+    return sr_psnr_values

@@ -8,6 +8,7 @@ import imageio
 import tensorflow as tf
 
 from tool.tf import get_tensorflow_dir
+from tool.adb import adb_pull
 
 #check python version
 python_version = sys.version_info
@@ -62,6 +63,14 @@ def snpe_benchmark(json_path):
     proc_stdout = process.communicate()[0].strip()
     print(proc_stdout)
 
+def snpe_download_benchmark_output(device_id, device_dir, host_dir, raw_list, output_name):
+    with open(raw_list, 'r') as f:
+        lines = f.readlines()
+        for idx, line in enumerate(lines):
+            device_file = os.path.join(device_dir, 'Result_{}'.format(idx), '{}.raw'.format(output_name))
+            host_file = os.path.join(host_dir, line.split('/')[1])
+            adb_pull(device_file, host_file, device_id)
+
 def read_image(image_file):
     image = imageio.imread(image_file, as_gray=False, pilmode='RGB')
     image_ndarray = np.asarray(image) # read it
@@ -101,6 +110,8 @@ def snpe_convert_dataset(image_dir, image_format, save_uint8=False):
     return os.path.join(image_dir, raw_subdir), raw_list_log
 
 def snpe_convert_model(model, nhwc, checkpoint_dir):
+    assert(not tf.executing_eagerly()) #note: output layer name is wrong in TF v1.3 with eager execution
+
     #restore
     checkpoint = tf.train.Checkpoint(model=model)
     latest_checkpoint = tf.train.latest_checkpoint(checkpoint_dir)
@@ -140,6 +151,7 @@ def snpe_convert_model(model, nhwc, checkpoint_dir):
     #convert to a dlc (.dlc)
     dlc_path = os.path.join(checkpoint_dir, dlc_name)
     if not os.path.exists(dlc_path):
+        snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, nhwc)
         snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, nhwc)
 
     #convcert to a quantized dlc (.quantized.dlc)

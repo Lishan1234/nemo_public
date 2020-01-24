@@ -3,24 +3,51 @@ import subprocess
 import argparse
 import collections
 import json
+import importlib
 
 import numpy as np
-import tensorflow as tf
 
 from dnn.dataset import setup_images
 from dnn.model.nas_s import NAS_S
 from dnn.utility import FFmpegOption, resolve_bilinear
-from tool.snpe import snpe_convert_model, snpe_convert_dataset, snpe_dlc_viewer, snpe_benchmark
+from tool.snpe import snpe_convert_model, snpe_convert_dataset, snpe_dlc_viewer, snpe_benchmark, snpe_download_benchmark_output
 from tool.ffprobe import profile_video
 from tool.adb import adb_pull
-from tool.tf import valid_raw_dataset
-
-tf.enable_eager_execution()
+from tool.tf import valid_raw_dataset, raw_bilinear_quality, raw_sr_quality
 
 #TODO: a) meausre latency (with a pretrained model), b) measure quality by sampling 1.0 fps
 #TODO: class for dataset
 class Profiler():
     device_rootdir = '/data/local/tmp/snpebm'
+
+    @classmethod
+    def _create_json(cls, model, log_dir, device_id, runtime, dlc_path, raw_dir, raw_list, perf='default'):
+        result_dir = os.path.join(log_dir, device_id, runtime)
+        json_path = os.path.join(result_dir, 'benchmark.json')
+        os.makedirs(result_dir, exist_ok=True)
+
+        benchmark = collections.OrderedDict()
+        benchmark['Name'] = model.name
+        benchmark['HostRootPath'] = os.path.abspath(log_dir)
+        benchmark['HostResultsDir'] = os.path.abspath(result_dir)
+        benchmark['DevicePath'] = cls.device_rootdir
+        benchmark['Devices'] = [device_id]
+        benchmark['HostName'] = 'localhost'
+        benchmark['Runs'] = 1
+        benchmark['Model'] = collections.OrderedDict()
+        benchmark['Model']['Name'] = model.name
+        benchmark['Model']['Dlc'] = dlc_path
+        benchmark['Model']['InputList'] = raw_list
+        benchmark['Model']['Data'] = [raw_dir]
+        benchmark['Runtimes'] = [runtime]
+        benchmark['Measurements'] = ['timing']
+        benchmark['ProfilingLevel'] = 'detailed'
+        benchmark['BufferTypes'] = ['float']
+
+        with open(json_path, 'w') as outfile:
+            json.dump(benchmark, outfile, indent=4)
+
+        return json_path
 
     def __init__(self, model, log_dir, checkpoint_dir, lr_image_dir, hr_image_dir, image_format='png'):
         assert(os.path.exists(checkpoint_dir))
@@ -54,6 +81,19 @@ class Profiler():
         #TODO: remove result dir
         #snpe_benchmark(json_path)
 
+        #measure quality: a) download output raw images, b) measure PSNR
+        device_dir = os.path.join(self.device_rootdir, self.model.name, 'output')
+        host_dir = os.path.join(lr_raw_dir, self.model.name, runtime)
+        os.makedirs(host_dir, exist_ok=True)
+        #snpe_download_benchmark_output(device_id, device_dir, host_dir, lr_raw_list, dlc_profile['output_name'])
+
+        #del tensorflow
+        #importlib.reload(tensorflow)
+        bilinear_psnr_values = raw_bilinear_quality(lr_raw_dir, hr_raw_dir, self.model.nhwc, self.model.scale)
+        print(np.average(bilinear_psnr_values))
+        sr_psnr_values = raw_sr_quality(host_dir, hr_raw_dir, self.model.nhwc, self.model.scale)
+        print(np.average(sr_psnr_values))
+
         #measure latency
         #json_data = open(output_json_path).read()
         #data = json.loads(json_data)
@@ -62,98 +102,13 @@ class Profiler():
         #output_json_path = os.path.join(result_dir, 'latest_results', 'benchmark_stats_{}.json'.format(self.model.name))
         #assert(os.path.exists(output_json_path))
 
-        #measure quality: a) download output raw images, b) measure PSNR
-        device_dir = os.path.join(self.device_rootdir, self.model.name, 'output')
-        host_dir = os.path.join(lr_raw_dir, self.model.name, runtime)
-        os.makedirs(host_dir, exist_ok=True)
-        with open(lr_raw_list, 'r') as f:
-            lines = f.readlines()
-            for idx, line in enumerate(lines):
-                device_file = os.path.join(device_dir, 'Result_{}'.format(idx), '{}.raw'.format(dlc_profile['output_name']))
-                host_file = os.path.join(host_dir, line.split('/')[1])
-                #adb_pull(device_file, host_file, device_id)
-
-        bilinear_psnr_values = []
-        valid_raw_ds = valid_raw_dataset(lr_raw_dir, hr_raw_dir, self.model.nhwc[1], self.model.nhwc[2],
-                                                        self.model.scale, precision=tf.float32)
-        for idx, imgs in enumerate(valid_raw_ds):
-            lr = imgs[0][0]
-            hr = imgs[1][0]
-
-            bilinear = resolve_bilinear(lr, self.model.nhwc[1] * self.model.scale, self.model.nhwc[2] * self.model.scale)
-            bilinear = tf.cast(bilinear, tf.uint8)
-            hr = tf.clip_by_value(hr, 0, 255)
-            hr = tf.round(hr)
-            hr = tf.cast(hr, tf.uint8)
-
-            bilinear_psnr_value = tf.image.psnr(bilinear, hr, max_val=255)[0].numpy()
-            bilinear_psnr_values.append(bilinear_psnr_value)
-
-        sr_psnr_values = []
-        valid_raw_ds = valid_raw_dataset(host_dir, hr_raw_dir, self.model.nhwc[1] * self.model.scale,
-                                                        self.model.nhwc[2] * self.model.scale,
-                                                        1, precision=tf.float32)
-        for idx, imgs in enumerate(valid_raw_ds):
-            sr = imgs[0][0]
-            hr = imgs[1][0]
-
-            sr = tf.clip_by_value(sr, 0, 255)
-            sr = tf.round(sr)
-            sr = tf.cast(sr, tf.uint8)
-            hr = tf.clip_by_value(hr, 0, 255)
-            hr = tf.round(hr)
-            hr = tf.cast(hr, tf.uint8)
-
-            sr_psnr_value = tf.image.psnr(sr, hr, max_val=255)[0].numpy()
-            sr_psnr_values.append(sr_psnr_value)
-
         #measure size, parameters
         #TODO
+
 
         #log in as a json file
         #TODO: refer snpe.py
 
-
-    def measure_size(self):
-        #TODO
-        pass
-
-    def measure_quality(self):
-        #TODO
-        pass
-
-    @classmethod
-    def _create_json(cls, model, log_dir, device_id, runtime, dlc_path, raw_dir, raw_list, perf='default'):
-        result_dir = os.path.join(log_dir, device_id, runtime)
-        json_path = os.path.join(result_dir, 'benchmark.json')
-        os.makedirs(result_dir, exist_ok=True)
-
-        benchmark = collections.OrderedDict()
-        benchmark['Name'] = model.name
-        benchmark['HostRootPath'] = os.path.abspath(log_dir)
-        benchmark['HostResultsDir'] = os.path.abspath(result_dir)
-        benchmark['DevicePath'] = cls.device_rootdir
-        benchmark['Devices'] = [device_id]
-        benchmark['HostName'] = 'localhost'
-        benchmark['Runs'] = 1
-        benchmark['Model'] = collections.OrderedDict()
-        benchmark['Model']['Name'] = model.name
-        benchmark['Model']['Dlc'] = dlc_path
-        benchmark['Model']['InputList'] = raw_list
-        benchmark['Model']['Data'] = [raw_dir]
-        benchmark['Runtimes'] = [runtime]
-        benchmark['Measurements'] = ['timing']
-        benchmark['ProfilingLevel'] = 'detailed'
-        benchmark['BufferTypes'] = ['float']
-
-        with open(json_path, 'w') as outfile:
-            json.dump(benchmark, outfile, indent=4)
-
-        return json_path
-
-    def measure_all(self, device_id, runtime):
-        #TODO
-        pass
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
