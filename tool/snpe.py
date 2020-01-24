@@ -2,6 +2,8 @@ import subprocess
 import os
 import sys
 import glob
+import collections
+import json
 
 import numpy as np
 import imageio
@@ -10,13 +12,17 @@ import tensorflow as tf
 from tool.tf import get_tensorflow_dir
 from tool.adb import adb_pull
 
+DEVICE_ROOTDIR = '/data/local/tmp/snpebm'
+BENCHMARK_CONFIG_NAME = 'benchmark.json'
+BENCHMARK_RAW_LIST = 'target_raw_list.txt'
+OPT_4_INFERENCE_SCRIPT  = 'optimize_for_inference.py'
+
 #check python version
 python_version = sys.version_info
 if not (python_version[0] == 3 and python_version[1] == 4):
     raise RuntimeError('Unsupported Python version: {}'.format(python_version))
 
 #check tensorflow, snpe directory
-OPT_4_INFERENCE_SCRIPT  = 'optimize_for_inference.py'
 TENSORFLOW_ROOT = get_tensorflow_dir()
 SNPE_ROOT = os.path.join(os.environ['MOBINAS_CODE_ROOT'], 'third_party', 'snpe')
 assert(os.path.exists(TENSORFLOW_ROOT))
@@ -63,7 +69,7 @@ def snpe_benchmark(json_path):
     proc_stdout = process.communicate()[0].strip()
     print(proc_stdout)
 
-def snpe_download_benchmark_output(device_id, device_dir, host_dir, raw_list, output_name):
+def snpe_benchmark_output(device_id, device_dir, host_dir, raw_list, output_name):
     with open(raw_list, 'r') as f:
         lines = f.readlines()
         for idx, line in enumerate(lines):
@@ -101,13 +107,6 @@ def snpe_convert_dataset(image_dir, image_format, save_uint8=False):
         raw_file = os.path.join(raw_subdir, '{}.raw'.format(os.path.basename(filename)))
         raw_list.append(raw_file)
         raw.tofile(os.path.join(image_dir, raw_file))
-
-    #creat a image list file
-    raw_list_log = os.path.join(image_dir, 'target_raw_list.txt')
-    with open(raw_list_log, 'w') as f:
-        f.write('\n'.join(raw_list))
-
-    return os.path.join(image_dir, raw_subdir), raw_list_log
 
 def snpe_convert_model(model, nhwc, checkpoint_dir):
     assert(not tf.executing_eagerly()) #note: output layer name is wrong in TF v1.3 with eager execution
@@ -163,6 +162,41 @@ def snpe_convert_model(model, nhwc, checkpoint_dir):
         snpe_dlc_viewer(dlc_path, html_path)
 
     return dlc_dict
+
+def snpe_benchmark_config(device_id, runtime, model, dlc_file, log_dir, image_dir, perf='default'):
+    result_dir = os.path.join(log_dir, device_id, runtime)
+    raw_dir = os.path.join(image_dir, 'raw')
+    json_file = os.path.join(result_dir, BENCHMARK_CONFIG_NAME)
+    raw_list_file = os.path.join(result_dir, BENCHMARK_RAW_LIST)
+    os.makedirs(result_dir, exist_ok=True)
+
+    with open(raw_list_file, 'w') as f:
+        raw_files = sorted(glob.glob('{}/*.raw'.format(raw_dir)))
+        for raw_file in raw_files:
+            f.write('raw/{}\n'.format(os.path.basename(raw_file)))
+
+    benchmark = collections.OrderedDict()
+    benchmark['Name'] = model.name
+    benchmark['HostRootPath'] = os.path.abspath(log_dir)
+    benchmark['HostResultsDir'] = os.path.abspath(result_dir)
+    benchmark['DevicePath'] = DEVICE_ROOTDIR
+    benchmark['Devices'] = [device_id]
+    benchmark['HostName'] = 'localhost'
+    benchmark['Runs'] = 1
+    benchmark['Model'] = collections.OrderedDict()
+    benchmark['Model']['Name'] = model.name
+    benchmark['Model']['Dlc'] = dlc_file
+    benchmark['Model']['InputList'] = raw_list_file
+    benchmark['Model']['Data'] = [raw_dir]
+    benchmark['Runtimes'] = [runtime]
+    benchmark['Measurements'] = ['timing']
+    benchmark['ProfilingLevel'] = 'detailed'
+    benchmark['BufferTypes'] = ['float']
+
+    with open(json_file, 'w') as f:
+        json.dump(benchmark, f, indent=4)
+
+    return json_file
 
 def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
     """
