@@ -46,30 +46,30 @@ def valid_image_dataset(lr_image_dir, hr_image_dir, repeat_count=1):
     ds = ds.prefetch(buffer_size=AUTOTUNE)
     return ds
 
-def decode_raw(filepath, width, height):
+def decode_raw(filepath, width, height, precision):
     file = tf.io.read_file(filepath)
-    image = tf.decode_raw(file, tf.uint8)
+    image = tf.decode_raw(file, precision)
     image = tf.reshape(image, [width, height, 3])
     return image, filepath
 
-def raw_dataset(image_dir, width, height, pattern):
+def raw_dataset(image_dir, width, height, pattern, precision):
     images = sorted(glob.glob('{}/{}'.format(image_dir, pattern)))
     #images = sorted(glob.glob('{}/[0-9][0-9][0-9][0-9].raw'.format(image_dir)))
     ds = tf.data.Dataset.from_tensor_slices(images)
-    ds = ds.map(lambda x: decode_raw(x, width, height), num_parallel_calls=AUTOTUNE)
+    ds = ds.map(lambda x: decode_raw(x, width, height, precision), num_parallel_calls=AUTOTUNE)
     return ds, len(images)
 
-def single_raw_dataset(image_dir, width, height, repeat_count=1, pattern='*.raw'):
-    ds, length = raw_dataset(image_dir, width, height, pattern)
+def single_raw_dataset(image_dir, width, height, repeat_count=1, pattern='*.raw', precision=tf.uint8):
+    ds, length = raw_dataset(image_dir, width, height, pattern, precision)
     ds = ds
     ds = ds.batch(1)
     ds = ds.repeat(repeat_count)
     ds = ds.prefetch(buffer_size=AUTOTUNE)
     return ds
 
-def valid_raw_dataset(lr_image_dir, hr_image_dir, width, height, scale, repeat_count=1, pattern='*.raw'):
-    lr_ds, length = raw_dataset(lr_image_dir, width, height, pattern)
-    hr_ds, _ = raw_dataset(hr_image_dir, width * scale, height * scale, pattern)
+def valid_raw_dataset(lr_image_dir, hr_image_dir, width, height, scale, repeat_count=1, pattern='*.raw', precision=tf.uint8):
+    lr_ds, length = raw_dataset(lr_image_dir, width, height, pattern, precision)
+    hr_ds, _ = raw_dataset(hr_image_dir, width * scale, height * scale, pattern, precision)
     ds = tf.data.Dataset.zip((lr_ds, hr_ds))
     ds = ds.batch(1)
     ds = ds.repeat(repeat_count)

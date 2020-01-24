@@ -121,30 +121,34 @@ def snpe_convert_model(model, nhwc, checkpoint_dir):
             'dlc_path': os.path.join(checkpoint_dir, dlc_name)}
 
     #save a frozen graph (.pb)
-    status = checkpoint.restore(latest_checkpoint)
-    sess = tf.keras.backend.get_session()
-    status.initialize_or_restore(sess)
-    graph = tf.get_default_graph()
-    frozen_graph = freeze_session(sess, output_names=[out.op.name for out in model.outputs])
-    tf.train.write_graph(frozen_graph, checkpoint_dir, pb_name, as_text=False)
+    pb_path = os.path.join(checkpoint_dir, pb_name)
+    if not os.path.exists(pb_path):
+        status = checkpoint.restore(latest_checkpoint)
+        sess = tf.keras.backend.get_session()
+        status.initialize_or_restore(sess)
+        graph = tf.get_default_graph()
+        frozen_graph = freeze_session(sess, output_names=[out.op.name for out in model.outputs])
+        tf.train.write_graph(frozen_graph, checkpoint_dir, pb_name, as_text=False)
 
     #optimize a frozen graph
-    input_name = model.inputs[0].name.split(':')[0]
-    output_name = model.outputs[0].name.split(':')[0]
-    pb_path = os.path.join(checkpoint_dir, pb_name)
     opt_pb_path = os.path.join(checkpoint_dir, opt_pb_name)
-    optimize_for_inference(pb_path, opt_pb_path, input_name, output_name)
+    if not os.path.exists(opt_pb_path):
+        input_name = model.inputs[0].name.split(':')[0]
+        output_name = model.outputs[0].name.split(':')[0]
+        optimize_for_inference(pb_path, opt_pb_path, input_name, output_name)
 
     #convert to a dlc (.dlc)
     dlc_path = os.path.join(checkpoint_dir, dlc_name)
-    snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, nhwc)
+    if not os.path.exists(dlc_path):
+        snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, nhwc)
 
     #convcert to a quantized dlc (.quantized.dlc)
     #TODO
 
     #visualize a dlc
     html_path = os.path.join(checkpoint_dir, '{}.html'.format(dlc_name))
-    snpe_dlc_viewer(dlc_path, html_path)
+    if not os.path.exists(html_path):
+        snpe_dlc_viewer(dlc_path, html_path)
 
     return dlc_dict
 
