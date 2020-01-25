@@ -5,14 +5,6 @@ import subprocess
 import tensorflow as tf
 from tensorflow.python.data.experimental import AUTOTUNE
 
-def resolve_bilinear(lr_batch, width, height):
-    lr_batch = tf.cast(lr_batch, tf.float32)
-    bilinear_batch = tf.image.resize_bilinear(lr_batch, (width, height))
-    bilinear_batch = tf.clip_by_value(bilinear_batch, 0, 255)
-    bilinear_batch = tf.round(bilinear_batch)
-    bilinear_batch = tf.cast(bilinear_batch, tf.uint8)
-    return bilinear_batch
-
 def get_tensorflow_dir():
     tensorflow_dir = None
 
@@ -32,6 +24,14 @@ def get_tensorflow_dir():
         raise RuntimeError('Tensorflow is not installed')
 
     return tensorflow_dir
+
+def resolve_bilinear(lr_batch, width, height):
+    lr_batch = tf.cast(lr_batch, tf.float32)
+    bilinear_batch = tf.image.resize_bilinear(lr_batch, (width, height))
+    bilinear_batch = tf.clip_by_value(bilinear_batch, 0, 255)
+    bilinear_batch = tf.round(bilinear_batch)
+    bilinear_batch = tf.cast(bilinear_batch, tf.uint8)
+    return bilinear_batch
 
 def decode_png(filepath):
     file = tf.io.read_file(filepath)

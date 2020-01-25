@@ -2,18 +2,12 @@ import tensorflow as tf
 from tensorflow.keras import layers
 from tensorflow.keras import Model
 
-def residual_block(x_in, num_filters):
-    x = layers.Conv2D(num_filters, 3, padding='same', activation='relu')(x_in)
-    x = layers.Conv2D(num_filters, 3, padding='same')(x)
-    x = layers.Add()([x_in, x])
-    return x
-
 class NAS_S():
-    def __init__(self, num_blocks, num_filters, \
-                    scale):
+    def __init__(self, num_blocks, num_filters, scale):
         self.num_blocks = num_blocks
         self.num_filters = num_filters
         self.scale = scale
+        self.conv_idx = 0
 
         #name
         self.name = self.__class__.__name__
@@ -21,18 +15,32 @@ class NAS_S():
         self.name += '_F{}'.format(self.num_filters)
         self.name += '_S{}'.format(self.scale)
 
+    def conv_name(self):
+        if self.conv_idx== 0:
+            name = 'conv2d'
+        else:
+            name = 'conv2d_{}'.format(self.conv_idx)
+        self.conv_idx += 1
+        return name
+
+    def residual_block(self, x_in, num_filters):
+        x = layers.Conv2D(num_filters, 3, padding='same', activation='relu', name=self.conv_name())(x_in)
+        x = layers.Conv2D(num_filters, 3, padding='same', name=self.conv_name())(x)
+        x = layers.Add()([x_in, x])
+        return x
+
     def build_model(self):
         x_in = layers.Input(shape=(None, None, 3))
 
-        x = b = layers.Conv2D(self.num_filters, 3, padding='same')(x_in)
+        x = b = layers.Conv2D(self.num_filters, 3, padding='same', name=self.conv_name())(x_in)
 
         for i in range(self.num_blocks):
-            b = residual_block(b, self.num_filters)
-        b = layers.Conv2D(self.num_filters, 3, padding='same')(b)
+            b = self.residual_block(b, self.num_filters)
+        b = layers.Conv2D(self.num_filters, 3, padding='same', name=self.conv_name())(b)
         x = layers.Add()([x, b])
 
         x = layers.Conv2DTranspose(self.num_filters, 5, self.scale, padding='same')(x)
-        x = layers.Conv2D(3, 3, padding='same')(x)
+        x = layers.Conv2D(3, 3, padding='same', name=self.conv_name())(x)
 
         model = Model(inputs=x_in, outputs=x, name=self.name)
 

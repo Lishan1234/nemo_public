@@ -13,7 +13,6 @@ from dnn.utility import FFmpegOption, resolve_bilinear
 from tool.snpe import snpe_convert_model, snpe_convert_dataset, snpe_dlc_viewer, snpe_benchmark, snpe_download_benchmark_output
 from tool.ffprobe import profile_video
 from tool.adb import adb_pull
-from tool.tf import valid_raw_dataset, raw_bilinear_quality, raw_sr_quality
 
 #TODO: a) meausre latency (with a pretrained model), b) measure quality by sampling 1.0 fps
 #TODO: class for dataset

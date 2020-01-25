@@ -9,7 +9,6 @@ import numpy as np
 import imageio
 import tensorflow as tf
 
-from tool.tf import get_tensorflow_dir
 from tool.adb import adb_pull
 
 DEVICE_ROOTDIR = '/data/local/tmp/snpebm'
@@ -23,12 +22,11 @@ if not (python_version[0] == 3 and python_version[1] == 4):
     raise RuntimeError('Unsupported Python version: {}'.format(python_version))
 
 #check tensorflow, snpe directory
-TENSORFLOW_ROOT = get_tensorflow_dir()
+TENSORFLOW_ROOT = os.path.join(os.environ['MOBINAS_CODE_ROOT'], 'third_party', 'tensorflow')
 SNPE_ROOT = os.path.join(os.environ['MOBINAS_CODE_ROOT'], 'third_party', 'snpe')
 assert(os.path.exists(TENSORFLOW_ROOT))
 assert(os.path.exists(SNPE_ROOT))
 
-#TODO: fix
 def snpe_dlc_viewer(dlc_path, html_path):
     setup_cmd = 'source {}/bin/envsetup.sh -t {}'.format(SNPE_ROOT, TENSORFLOW_ROOT)
     snpe_cmd = 'python {}/bin/x86_64-linux-clang/snpe-dlc-viewer\
@@ -60,20 +58,26 @@ def snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, nhwc):
     proc_stdout = process.communicate()[0].strip()
     print(proc_stdout)
 
-def snpe_benchmark(json_path):
+def snpe_benchmark(json_file):
     setup_cmd = 'source {}/bin/envsetup.sh -t {}'.format(SNPE_ROOT, TENSORFLOW_ROOT)
-    snpe_cmd = 'python {}/benchmarks/snpe_bench.py -c {} -json'.format(SNPE_ROOT, json_path)
+    snpe_cmd = 'python {}/benchmarks/snpe_bench.py -c {} -json'.format(SNPE_ROOT, json_file)
 
     cmd = '{}; {}'.format(setup_cmd, snpe_cmd)
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True, executable='/bin/bash')
     proc_stdout = process.communicate()[0].strip()
     print(proc_stdout)
 
-def snpe_benchmark_output(device_id, device_dir, host_dir, raw_list, output_name):
-    with open(raw_list, 'r') as f:
+def snpe_benchmark_output(json_file, host_dir, output_name):
+    with open(json_file, 'r') as f:
+        json_data = json.load(f)
+        device_id = json_data['Devices'][0]
+        device_dir = os.path.join(json_data['DevicePath'], json_data['Name'])
+        raw_list_file = json_data['Model']['InputList']
+
+    with open(raw_list_file, 'r') as f:
         lines = f.readlines()
         for idx, line in enumerate(lines):
-            device_file = os.path.join(device_dir, 'Result_{}'.format(idx), '{}.raw'.format(output_name))
+            device_file = os.path.join(device_dir, 'output', 'Result_{}'.format(idx), '{}.raw'.format(output_name))
             host_file = os.path.join(host_dir, line.split('/')[1])
             adb_pull(device_file, host_file, device_id)
 
