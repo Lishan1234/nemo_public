@@ -2,15 +2,16 @@ import time
 import argparse
 import os
 
-from utility import FFmpegOption, upscale_factor
-from dataset import train_image_dataset, valid_image_dataset, setup_images
-from model.nas_s import NAS_S
-
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.metrics import Mean
 from tensorflow.keras.losses import MeanAbsoluteError
 from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
+
+from dnn.utility import FFmpegOption
+from dnn.dataset import train_image_dataset, valid_image_dataset, setup_images
+from dnn.model.nas_s import NAS_S
+from tool.ffprobe import profile_video
 
 class Trainer:
     def __init__(self, model, loss, learning_rate, checkpoint_dir, log_dir):
@@ -130,13 +131,16 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    #setting
+    #scale
     lr_video_path = os.path.join(args.dataset_dir, 'video', args.lr_video_name)
     hr_video_path = os.path.join(args.dataset_dir, 'video', args.hr_video_name)
-    print(lr_video_path)
     assert(os.path.exists(lr_video_path))
     assert(os.path.exists(hr_video_path))
+    lr_video_profile = profile_video(lr_video_path)
+    hr_video_profile = profile_video(hr_video_path)
+    scale = hr_video_profile['height'] // lr_video_profile['height']
 
+    #image
     ffmpeg_option = FFmpegOption(args.filter_type, args.filter_fps, None)
     lr_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(args.lr_video_name))
     hr_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(args.hr_video_name))
@@ -144,7 +148,6 @@ if __name__ == '__main__':
     setup_images(hr_video_path, hr_image_dir, args.ffmpeg_path, ffmpeg_option.filter())
 
     #dnn
-    scale = upscale_factor(lr_video_path, hr_video_path)
     nas_s = NAS_S(args.num_blocks, args.num_filters, scale)
     model = nas_s.build_model()
 

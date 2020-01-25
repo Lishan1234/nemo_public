@@ -10,11 +10,11 @@ from tensorflow.keras.metrics import Mean
 from tensorflow.keras.losses import MeanAbsoluteError
 from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 
-from dataset import valid_image_dataset, single_image_dataset, setup_images
-from model.nas_s import NAS_S
-from utility import resolve, resolve_bilinear, VideoMetadata, FFmpegOption, upscale_factor
-
-tf.enable_eager_execution()
+from dnn.dataset import valid_image_dataset, single_image_dataset, setup_images
+from dnn.model.nas_s import NAS_S
+from dnn.utility import VideoMetadata, FFmpegOption
+from tool.tf import resolve, resolve_bilinear
+from tool.ffprobe import profile_video
 
 class Tester:
     def __init__(self, model, checkpoint_dir, log_dir, image_dir):
@@ -64,7 +64,7 @@ class Tester:
                 tf.io.write_file(os.path.join(self.image_dir, '{0:04d}.png'.format(idx+1)), sr_image)
 
             duration = time.perf_counter() - self.now
-            print(f'PSNR(SR) = {sr_psnr_value:.3f}, PSNR(Bilinear) = {bilinear_psnr_value:3f} ({duration:.2f}s)')
+            print(f'{idx} frame: PSNR(SR) = {sr_psnr_value:.3f}, PSNR(Bilinear) = {bilinear_psnr_value:3f} ({duration:.2f}s)')
         print(f'Summary: PSNR(SR) = {np.average(sr_psnr_values):.3f}, PSNR(Bilinear) = {np.average(bilinear_psnr_values):3f}')
 
         #log
@@ -80,6 +80,8 @@ class Tester:
             print(f'Model restored from checkpoint at step {self.checkpoint.step.numpy()}.')
 
 if __name__ == '__main__':
+    tf.enable_eager_execution()
+
     parser = argparse.ArgumentParser()
 
     #directory, path
@@ -108,12 +110,16 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    #setting
+    #scale
     lr_video_path = os.path.join(args.dataset_dir, 'video', args.lr_video_name)
     hr_video_path = os.path.join(args.dataset_dir, 'video', args.hr_video_name)
     assert(os.path.exists(lr_video_path))
     assert(os.path.exists(hr_video_path))
+    lr_video_profile = profile_video(lr_video_path)
+    hr_video_profile = profile_video(hr_video_path)
+    scale = hr_video_profile['height'] // lr_video_profile['height']
 
+    #image
     ffmpeg_option = FFmpegOption(args.filter_type, args.filter_fps, None)
     lr_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(args.lr_video_name))
     hr_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(args.hr_video_name))
@@ -121,7 +127,6 @@ if __name__ == '__main__':
     setup_images(hr_video_path, hr_image_dir, args.ffmpeg_path, ffmpeg_option.filter())
 
     #dnn
-    scale = upscale_factor(lr_video_path, hr_video_path)
     nas_s = NAS_S(args.num_blocks, args.num_filters, scale)
     model = nas_s.build_model()
 
