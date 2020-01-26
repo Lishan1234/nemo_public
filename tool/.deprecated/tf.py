@@ -166,7 +166,7 @@ def raw_quality(lr_raw_dir, sr_raw_dir, hr_raw_dir, nhwc, scale):
         bilinear_psnr_values.append(bilinear_psnr_value)
         sr_psnr_value = tf.image.psnr(sr, hr, max_val=255)[0].numpy()
         sr_psnr_values.append(sr_psnr_value)
-        print(f'{idx} frame: PSNR(SR) = {sr_psnr_value:.3f}, PSNR(Bilinear) = {bilinear_psnr_value:3f}')
-    print(f'Summary: PSNR(SR) = {np.average(sr_psnr_values):.3f}, PSNR(Bilinear) = {np.average(bilinear_psnr_values):3f}')
+        print('{} frame: PSNR(SR)={:.2f}, PSNR(Bilinear)={:.2f}'.format(idx, sr_psnr_value, bilinear_psnr_value))
+    print('Summary: PSNR(SR)={:.2f}, PSNR(Bilinear)={:.2f}'.format(np.average(sr_psnr_values), np.average(bilinear_psnr_values)))
 
     return sr_psnr_values, bilinear_psnr_values

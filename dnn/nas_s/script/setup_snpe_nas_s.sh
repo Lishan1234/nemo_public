@@ -7,4 +7,4 @@ python $MOBINAS_CODE_ROOT/dnn/nas_s/setup_snpe_nas_s.py \
                 --num_filters 9 \
                 --device_id a152b92a \
                 --runtime GPU_FP16 \
-                --mode model
+                --mode all

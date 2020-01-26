@@ -10,6 +10,7 @@ import imageio
 import tensorflow as tf
 
 from tool.adb import adb_pull
+from dnn.utility import raw_quality
 
 DEVICE_ROOTDIR = '/data/local/tmp/snpebm'
 BENCHMARK_CONFIG_NAME = 'benchmark.json'
@@ -136,34 +137,30 @@ def snpe_convert_model(model, nhwc, checkpoint_dir):
 
     #save a frozen graph (.pb)
     pb_path = os.path.join(checkpoint_dir, pb_name)
-    if not os.path.exists(pb_path):
-        status = checkpoint.restore(latest_checkpoint)
-        sess = tf.keras.backend.get_session()
-        status.initialize_or_restore(sess)
-        graph = tf.get_default_graph()
-        frozen_graph = freeze_session(sess, output_names=[out.op.name for out in model.outputs])
-        tf.train.write_graph(frozen_graph, checkpoint_dir, pb_name, as_text=False)
+    status = checkpoint.restore(latest_checkpoint)
+    sess = tf.keras.backend.get_session()
+    status.initialize_or_restore(sess)
+    graph = tf.get_default_graph()
+    frozen_graph = freeze_session(sess, output_names=[out.op.name for out in model.outputs])
+    tf.train.write_graph(frozen_graph, checkpoint_dir, pb_name, as_text=False)
 
     #optimize a frozen graph
     opt_pb_path = os.path.join(checkpoint_dir, opt_pb_name)
-    if not os.path.exists(opt_pb_path):
-        input_name = model.inputs[0].name.split(':')[0]
-        output_name = model.outputs[0].name.split(':')[0]
-        optimize_for_inference(pb_path, opt_pb_path, input_name, output_name)
+    input_name = model.inputs[0].name.split(':')[0]
+    output_name = model.outputs[0].name.split(':')[0]
+    optimize_for_inference(pb_path, opt_pb_path, input_name, output_name)
 
     #convert to a dlc (.dlc)
     dlc_path = os.path.join(checkpoint_dir, dlc_name)
-    if not os.path.exists(dlc_path):
-        snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, nhwc)
-        snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, nhwc)
+    snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, nhwc)
+    snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, nhwc)
 
     #convcert to a quantized dlc (.quantized.dlc)
     #TODO
 
     #visualize a dlc
     html_path = os.path.join(checkpoint_dir, '{}.html'.format(dlc_name))
-    if not os.path.exists(html_path):
-        snpe_dlc_viewer(dlc_path, html_path)
+    snpe_dlc_viewer(dlc_path, html_path)
 
     return dlc_dict
 
@@ -201,6 +198,43 @@ def snpe_benchmark_config(device_id, runtime, model, dlc_file, log_dir, image_di
         json.dump(benchmark, f, indent=4)
 
     return json_file
+
+def snpe_benchmark_result(device_id, runtime,  model, lr_image_dir, hr_image_dir, log_dir, perf='default'):
+    #quality
+    lr_raw_dir = os.path.join(lr_image_dir, 'raw')
+    sr_raw_dir = os.path.join(lr_image_dir, model.name, runtime, 'raw')
+    hr_raw_dir = os.path.join(hr_image_dir, 'raw')
+    sr_psnr_values, bilinear_psnr_values = raw_quality(lr_raw_dir, sr_raw_dir, hr_raw_dir, model.nhwc, model.scale)
+    quality_log_file = os.path.join(log_dir, 'quality.txt')
+    with open(quality_log_file, 'w') as f:
+        f.write('Average\t{:.2f}\t{:.2f}\n'.format(np.average(sr_psnr_values), np.average(bilinear_psnr_values)))
+        for idx, psnr_values in enumerate(list(zip(sr_psnr_values, bilinear_psnr_values))):
+            f.write('{}\t{:.2f}\t{:.2f}\n'.format(idx, psnr_values[0], psnr_values[1]))
+    avg_bilinear_psnr = np.average(bilinear_psnr_values)
+    avg_sr_psnr = np.average(sr_psnr_values)
+
+    #latency
+    result_json_file = os.path.join(log_dir, 'latest_results', 'benchmark_stats_{}.json'.format(model.name))
+    assert(os.path.exists(result_json_file))
+    with open(result_json_file, 'r') as f:
+        json_data = json.load(f)
+        avg_latency = float(json_data['Execution_Data']['GPU_FP16']['Total Inference Time']['Avg_Time']) / 1000
+
+    #size
+    config_json_file = os.path.join(log_dir, 'benchmark.json')
+    with open(config_json_file, 'r') as f:
+        json_data = json.load(f)
+        dlc_file = json_data['Model']['Dlc']
+        size = os.path.getsize(dlc_file) / 1000
+
+    #log
+    summary_log_file = os.path.join(log_dir, 'summary.txt')
+    with open(summary_log_file, 'w') as f:
+        f.write('PSNR (dB)\t{:.2f}\t{:.2f}\n'.format(avg_sr_psnr, avg_bilinear_psnr))
+        f.write('Latency (msec)\t{:.2f}\n'.format(avg_latency))
+        f.write('Size (KB)\t{:.2f}\n'.format(size))
+
+    return avg_sr_psnr, avg_bilinear_psnr, avg_latency, size
 
 def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
     """

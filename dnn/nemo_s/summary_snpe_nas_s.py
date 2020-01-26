@@ -10,8 +10,48 @@ import tensorflow as tf
 
 from dnn.dataset import setup_images
 from dnn.model.nas_s import NAS_S
-from tool.snpe import snpe_benchmark_result
-from tool.video import FFmpegOption, profile_video
+from dnn.utility import FFmpegOption
+from tool.ffprobe import profile_video
+from tool.adb import adb_pull
+from tool.tf import valid_raw_dataset, raw_quality
+
+def summary(device_id, model, runtime, lr_image_dir, hr_image_dir, log_dir, perf='default'):
+    #quality
+    lr_raw_dir = os.path.join(lr_image_dir, 'raw')
+    sr_raw_dir = os.path.join(lr_image_dir, model.name, runtime, 'raw')
+    hr_raw_dir = os.path.join(hr_image_dir, 'raw')
+    sr_psnr_values, bilinear_psnr_values = raw_quality(lr_raw_dir, sr_raw_dir, hr_raw_dir, model.nhwc, model.scale)
+    quality_log_file = os.path.join(log_dir, 'quality.txt')
+    print(quality_log_file)
+    with open(quality_log_file, 'w') as f:
+        f.write('Average\t{:.2f}\t{:.2f}\n'.format(np.average(sr_psnr_values), np.average(bilinear_psnr_values)))
+        for idx, psnr_values in enumerate(list(zip(sr_psnr_values, bilinear_psnr_values))):
+            f.write('{}\t{:.2f}\t{:.2f}\n'.format(idx, psnr_values[0], psnr_values[1]))
+    avg_bilinear_psnr = np.average(bilinear_psnr_values)
+    avg_sr_psnr = np.average(sr_psnr_values)
+
+    #latency
+    result_json_file = os.path.join(log_dir, 'latest_results', 'benchmark_stats_{}.json'.format(model.name))
+    assert(os.path.exists(result_json_file))
+    with open(result_json_file, 'r') as f:
+        json_data = json.load(f)
+        avg_latency = float(json_data['Execution_Data']['GPU_FP16']['Total Inference Time']['Avg_Time']) / 1000
+
+    #size
+    config_json_file = os.path.join(log_dir, 'benchmark.json')
+    with open(config_json_file, 'r') as f:
+        json_data = json.load(f)
+        dlc_file = json_data['Model']['Dlc']
+        size = os.path.getsize(dlc_file) / 1000
+
+    #log
+    summary_log_file = os.path.join(log_dir, 'summary.txt')
+    with open(summary_log_file, 'w') as f:
+        f.write('PSNR (dB)\t{:.2f}\t{:.2f}\n'.format(avg_sr_psnr, avg_bilinear_psnr))
+        f.write('Latency (msec)\t{:.2f}\n'.format(avg_latency))
+        f.write('Size (KB)\t{:.2f}\n'.format(size))
+
+    return avg_sr_psnr, avg_bilinear_psnr, avg_latency, size
 
 if __name__ == '__main__':
     tf.enable_eager_execution()
@@ -53,8 +93,6 @@ if __name__ == '__main__':
     ffmpeg_option = FFmpegOption(args.filter_type, args.filter_fps, None)
 
     #summary
-    lr_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(args.lr_video_name))
-    hr_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(args.hr_video_name))
     log_file = os.path.join(args.dataset_dir, 'log', ffmpeg_option.summary(args.lr_video_name), 'summary_snpe_{}_{}.txt'.format(args.device_id, args.runtime))
     with open(log_file, 'w') as f:
         f.write('Model Name\tSR PSNR (dB)\tBilinear PSNR (dB)\tLatency (msec)\tSize (KB)\n')
@@ -64,7 +102,9 @@ if __name__ == '__main__':
             model.scale = scale
             model.nhwc = nhwc
 
+            lr_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(args.lr_video_name))
+            hr_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(args.hr_video_name))
             log_dir = os.path.join(args.dataset_dir, 'log', ffmpeg_option.summary(args.lr_video_name), model.name, 'snpe', args.device_id, args.runtime)
             os.makedirs(log_dir, exist_ok=True)
-            sr_psnr, bilinear_psnr, latency, size = snpe_benchmark_result(args.device_id, args.runtime, model, lr_image_dir, hr_image_dir, log_dir, perf='default')
+            sr_psnr, bilinear_psnr, latency, size = summary(args.device_id, model, args.runtime, lr_image_dir, hr_image_dir, log_dir, perf='default')
             f.write('{}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(model.name, sr_psnr, bilinear_psnr, latency, size))
