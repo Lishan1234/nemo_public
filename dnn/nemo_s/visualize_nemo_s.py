@@ -8,10 +8,9 @@ from tensorflow.keras.metrics import Mean
 from tensorflow.keras.losses import MeanAbsoluteError
 from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 
-from dnn.utility import FFmpegOption
 from dnn.dataset import train_image_dataset, valid_image_dataset, setup_images
 from dnn.model.nemo_s import NEMO_S
-from tool.ffprobe import profile_video
+from tool.video import profile_video, FFmpegOption
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -41,6 +40,7 @@ if __name__ == '__main__':
         init = tf.global_variables_initializer()
         sess.run(init)
         model = nemo_s.build_model()
-        log_dir = os.path.join('.log', model.name)
+
+        log_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '.log')
         os.makedirs(log_dir, exist_ok=True)
         summary_writer = tf.summary.FileWriter(log_dir, sess.graph)

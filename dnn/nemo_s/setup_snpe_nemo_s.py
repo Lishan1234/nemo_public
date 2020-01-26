@@ -9,21 +9,8 @@ import numpy as np
 
 from dnn.dataset import setup_images
 from dnn.model.nemo_s import NEMO_S
-from dnn.utility import FFmpegOption, resolve_bilinear
-from tool.snpe import snpe_convert_model, snpe_convert_dataset, snpe_dlc_viewer, snpe_benchmark, snpe_benchmark_config, snpe_benchmark_output
-from tool.ffprobe import profile_video
-from tool.adb import adb_pull
-
-def setup_dlc(model, checkpoint_dir):
-    dlc_profile = snpe_convert_model(model, model.nhwc, checkpoint_dir)
-
-    dlc_file =  os.path.join(checkpoint_dir, dlc_profile['dlc_name'])
-    html_file = os.path.join(checkpoint_dir, '{}.html'.format(dlc_profile['dlc_name']))
-    snpe_dlc_viewer(dlc_file, html_file)
-
-def setup_raw_images(lr_image_dir, hr_image_dir, image_format):
-    snpe_convert_dataset(lr_image_dir, image_format)
-    npe_convert_dataset(hr_image_dir, image_format)
+from tool.snpe import snpe_convert_model, snpe_dlc_viewer, snpe_convert_dataset
+from tool.video import profile_video, FFmpegOption
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -50,7 +37,7 @@ if __name__ == '__main__':
     parser.add_argument('--runtime', type=str)
 
     #mode
-    parser.add_argument('--mode', type=str, choices=['dlc', 'raw'], required=True)
+    parser.add_argument('--mode', type=str, choices=['model', 'image', 'all'], required=True)
 
     args = parser.parse_args()
 
@@ -64,7 +51,7 @@ if __name__ == '__main__':
     scale = hr_video_profile['height'] // lr_video_profile['height']
     nhwc = [1, lr_video_profile['height'], lr_video_profile['width'], 3]
 
-    if args.mode == 'dlc':
+    if args.mode == 'model':
         #model
         nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale)
         model = nemo_s.build_model()
@@ -75,9 +62,9 @@ if __name__ == '__main__':
         assert(os.path.exists(checkpoint_dir))
 
         #dlc
-        setup_dlc(model, checkpoint_dir)
+        snpe_convert_model(model, model.nhwc, checkpoint_dir)
 
-    elif args.mode == 'raw':
+    elif args.mode == 'image':
         #images
         test_ffmpeg_option = FFmpegOption(args.test_filter_type, args.test_filter_fps, None)
         lr_image_dir = os.path.join(args.dataset_dir, 'image', test_ffmpeg_option.summary(args.lr_video_name))
@@ -86,4 +73,29 @@ if __name__ == '__main__':
         setup_images(hr_video_path, hr_image_dir, args.ffmpeg_path, test_ffmpeg_option.filter())
 
         #raw images
-        setup_raw_images(lr_image_dir, hr_image_dir, args.image_format)
+        snpe_convert_dataset(lr_image_dir, args.image_format)
+        snpe_convert_dataset(hr_image_dir, args.image_format)
+
+    elif args.mode == 'all':
+        #model
+        nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale)
+        model = nemo_s.build_model()
+        model.scale = scale
+        model.nhwc = nhwc
+        train_ffmpeg_option = FFmpegOption(args.train_filter_type, args.train_filter_fps, None)
+        checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', train_ffmpeg_option.summary(args.lr_video_name), model.name)
+        assert(os.path.exists(checkpoint_dir))
+
+        #dlc
+        snpe_convert_model(model, model.nhwc, checkpoint_dir)
+
+        #images
+        test_ffmpeg_option = FFmpegOption(args.test_filter_type, args.test_filter_fps, None)
+        lr_image_dir = os.path.join(args.dataset_dir, 'image', test_ffmpeg_option.summary(args.lr_video_name))
+        hr_image_dir = os.path.join(args.dataset_dir, 'image', test_ffmpeg_option.summary(args.hr_video_name))
+        setup_images(lr_video_path, lr_image_dir, args.ffmpeg_path, test_ffmpeg_option.filter())
+        setup_images(hr_video_path, hr_image_dir, args.ffmpeg_path, test_ffmpeg_option.filter())
+
+        #raw images
+        snpe_convert_dataset(lr_image_dir, args.image_format)
+        snpe_convert_dataset(hr_image_dir, args.image_format)

@@ -9,27 +9,8 @@ import numpy as np
 
 from dnn.dataset import setup_images
 from dnn.model.nemo_s import NEMO_S
-from dnn.utility import FFmpegOption, resolve_bilinear
-from tool.snpe import snpe_convert_model, snpe_convert_dataset, snpe_dlc_viewer, snpe_benchmark, snpe_benchmark_config, snpe_benchmark_output
-from tool.ffprobe import profile_video
-from tool.adb import adb_pull
-
-def setup_benchmark_result(model, device_id, runtime, checkpoint_dir, log_dir, lr_image_dir, hr_image_dir, image_format='png'):
-    dlc_profile = snpe_convert_model(model, model.nhwc, checkpoint_dir)
-
-    dlc_file =  os.path.join(checkpoint_dir, dlc_profile['dlc_name'])
-    html_file = os.path.join(checkpoint_dir, '{}.html'.format(dlc_profile['dlc_name']))
-    snpe_dlc_viewer(dlc_file, html_file)
-
-    snpe_convert_dataset(lr_image_dir, image_format)
-    snpe_convert_dataset(hr_image_dir, image_format)
-
-    json_file = snpe_benchmark_config(device_id, runtime, model, dlc_file, log_dir, lr_image_dir)
-    snpe_benchmark(json_file)
-
-    host_dir = os.path.join(lr_image_dir, model.name, runtime, 'raw')
-    os.makedirs(host_dir, exist_ok=True)
-    snpe_benchmark_output(json_file, host_dir, dlc_profile['output_name'])
+from tool.snpe import snpe_convert_model, snpe_convert_dataset, snpe_benchmark, snpe_benchmark_config, snpe_benchmark_output
+from tool.video import profile_video, FFmpegOption
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -75,6 +56,7 @@ if __name__ == '__main__':
     train_ffmpeg_option = FFmpegOption(args.train_filter_type, args.train_filter_fps, None)
     checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', train_ffmpeg_option.summary(args.lr_video_name), model.name)
     assert(os.path.exists(checkpoint_dir))
+    dlc_profile = snpe_convert_model(model, model.nhwc, checkpoint_dir)
 
     #images
     test_ffmpeg_option = FFmpegOption(args.test_filter_type, args.test_filter_fps, None)
@@ -82,7 +64,16 @@ if __name__ == '__main__':
     hr_image_dir = os.path.join(args.dataset_dir, 'image', test_ffmpeg_option.summary(args.hr_video_name))
     setup_images(lr_video_path, lr_image_dir, args.ffmpeg_path, test_ffmpeg_option.filter())
     setup_images(hr_video_path, hr_image_dir, args.ffmpeg_path, test_ffmpeg_option.filter())
+    snpe_convert_dataset(lr_image_dir, args.image_format)
+    snpe_convert_dataset(hr_image_dir, args.image_format)
 
-    #benchmark
+    #run benchmark
     log_dir = os.path.join(args.dataset_dir, 'log', test_ffmpeg_option.summary(args.lr_video_name), model.name, 'snpe')
-    setup_benchmark_result(model, args.device_id, args.runtime, checkpoint_dir, log_dir, lr_image_dir, hr_image_dir, image_format=args.image_format)
+    dlc_file = os.path.join(checkpoint_dir, dlc_profile['dlc_name'])
+    json_file = snpe_benchmark_config(args.device_id, args.runtime, model, dlc_file, log_dir, lr_image_dir)
+    #snpe_benchmark(json_file)
+
+    #download benchmark output
+    host_dir = os.path.join(lr_image_dir, model.name, args.runtime, 'raw')
+    os.makedirs(host_dir, exist_ok=True)
+    snpe_benchmark_output(json_file, host_dir, dlc_profile['output_name'])
