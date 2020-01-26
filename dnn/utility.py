@@ -54,25 +54,25 @@ def raw_sr_quality(sr_raw_dir, hr_raw_dir, nhwc, scale):
 
     return sr_psnr_values
 
-def raw_quality(lr_raw_dir, sr_raw_dir, hr_raw_dir, nhwc, scale):
+def raw_quality(lr_raw_dir, sr_raw_dir, hr_raw_dir, nhwc, scale, precision=tf.float32):
     bilinear_psnr_values= []
     sr_psnr_values = []
     summary_raw_ds = summary_raw_dataset(lr_raw_dir, sr_raw_dir, hr_raw_dir, nhwc[1], nhwc[2],
-                                                    scale, precision=tf.float32)
+                                                    scale, precision=precision)
     for idx, imgs in enumerate(summary_raw_ds):
         lr = imgs[0][0]
         sr = imgs[1][0]
         hr = imgs[2][0]
 
-        hr = tf.clip_by_value(hr, 0, 255)
-        hr = tf.round(hr)
-        hr = tf.cast(hr, tf.uint8)
-        sr = tf.clip_by_value(sr, 0, 255)
-        sr = tf.round(sr)
-        sr = tf.cast(sr, tf.uint8)
+        if precision == tf.float32:
+            hr = tf.clip_by_value(hr, 0, 255)
+            hr = tf.round(hr)
+            hr = tf.cast(hr, tf.uint8)
+            sr = tf.clip_by_value(sr, 0, 255)
+            sr = tf.round(sr)
+            sr = tf.cast(sr, tf.uint8)
 
         bilinear = resolve_bilinear(lr, nhwc[1] * scale, nhwc[2] * scale)
-        bilinear = tf.cast(bilinear, tf.uint8)
         bilinear_psnr_value = tf.image.psnr(bilinear, hr, max_val=255)[0].numpy()
         bilinear_psnr_values.append(bilinear_psnr_value)
         sr_psnr_value = tf.image.psnr(sr, hr, max_val=255)[0].numpy()

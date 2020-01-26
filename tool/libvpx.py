@@ -2,6 +2,13 @@ import math
 import os
 import struct
 import copy
+import subprocess
+import shlex
+
+import tensorflow as tf
+
+from tool.video import profile_video
+from dnn.dataset import single_raw_dataset
 
 class Frame():
     def __init__(self, video_index, super_index):
@@ -88,6 +95,98 @@ class CacheProfile():
 
     def __lt__(self, other):
         return self.count_anchor_points() < other.count_anchor_points()
+
+def libvpx_save_frames(vpxdec_file, content_dir, video_name, gop, chunk_idx):
+    start_idx = chunk_idx * gop
+    end_idx = (chunk_idx + 1) * gop
+    postfix = 'chunk{:04d}'.format(chunk_idx)
+
+    lr_image_dir = os.path.join(content_dir, 'image', video_name, postfix)
+    os.makedirs(lr_image_dir, exist_ok=True)
+
+    command = '{} --codec=vp9 --noblit --frame-buffers=50 --skip={} --limit={} \
+            --content-dir={} --input-video={} --postfix={} --save-frame --save-metadata'.format(vpxdec_file, \
+            start_idx, end_idx - start_idx, content_dir, video_name, postfix)
+    subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+
+def libvpx_save_metadata(vpxdec_file, content_dir, video_name, gop, chunk_idx):
+    start_idx = chunk_idx * gop
+    end_idx = (chunk_idx + 1) * gop
+    postfix = 'chunk{:04d}'.format(chunk_idx)
+
+    lr_image_dir = os.path.join(content_dir, 'image', video_name, postfix)
+    os.makedirs(lr_image_dir, exist_ok=True)
+
+    command = '{} --codec=vp9 --noblit --frame-buffers=50 --skip={} --limit={} \
+            --content-dir={} --input-video={} --postfix={} --save-metadata'.format(vpxdec_file, \
+            start_idx, end_idx - start_idx, content_dir, video_name, postfix)
+    subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+
+def libvpx_load_frames(content_dir, video_name, gop, chunk_idx):
+    start_idx = chunk_idx * gop
+    end_idx = (chunk_idx + 1) * gop
+    postfix = 'chunk{:04d}'.format(chunk_idx)
+
+    frames = []
+    log_path = os.path.join(content_dir, 'log', video_name, postfix, 'metadata.txt')
+    with open(log_path, 'r') as f:
+        lines = f.readlines()
+        for line in lines:
+            line = line.strip()
+            current_video_frame = int(line.split('\t')[0])
+            current_super_frame = int(line.split('\t')[1])
+            frames.append(Frame(current_video_frame, current_super_frame))
+
+    return frames
+
+def libvpx_setup_sr_frames(vpxdec_file, content_dir, video_name, gop, chunk_idx, model):
+    start_idx = chunk_idx * gop
+    end_idx = (chunk_idx + 1) * gop
+    postfix = 'chunk{:04d}'.format(chunk_idx)
+
+    lr_image_dir = os.path.join(content_dir, 'image', video_name, postfix)
+    sr_image_dir = os.path.join(content_dir, 'image', video_name, model.name, postfix)
+    os.makedirs(sr_image_dir, exist_ok=True)
+
+    input_video_path = os.path.join(content_dir, 'video', video_name)
+    input_video_info = profile_video(input_video_path)
+
+    single_raw_ds = single_raw_dataset(lr_image_dir, input_video_info['height'], input_video_info['width'])
+    for idx, img in enumerate(single_raw_ds):
+        lr = img[0]
+        lr = tf.cast(lr, tf.float32)
+        sr = model(lr)
+
+        sr = tf.clip_by_value(sr, 0, 255)
+        sr = tf.round(sr)
+        sr = tf.cast(sr, tf.uint8)
+
+        sr_image = tf.squeeze(sr).numpy()
+        name = os.path.basename(img[1].numpy()[0].decode())
+        sr_image.tofile(os.path.join(sr_image_dir, name))
+
+        #validate
+        #sr_image = tf.image.encode_png(tf.squeeze(sr))
+        #tf.io.write_file(os.path.join('.', '{0:04d}.png'.format(idx+1)), sr_image)
+
+def measure_offline_cache_quality(vpxdec_file, content_dir, input_video, compare_video, postfix, model, cache_profile):
+    #run sr-integrated decoder
+    command = '{} --codec=vp9 --noblit --frame-buffers=50 --skip={} --limit={} --content-dir={} \
+    --input-video={} --compare-video={} --postfix={} --decode-mode=2 --dnn-mode=2 --cache-policy=1 \
+    --save-quality --dnn-name={} --cache-profile={}'.format(vpxdec_file, start_idx, end_idx - start_idx, content_dir, input_video, compare_video, postfix, model, cache_profile)
+    subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+
+    #load quality from a log file
+    log_dir = os.path.join(content_dir, 'log', input_video, model, postfix)
+    log_file = os.log_file.join(log_dir, cache_profiles[idx].name, 'quality.txt')
+    quality = []
+    with open(log_file, 'r') as f:
+        lines = f.readlines()
+        for line in lines:
+            line = line.strip()
+            quality.append(float(line.split('\t')[1]))
+
+    return quality
 
 #ref: https://developers.google.com/media/vp9/settings/vod
 def get_num_threads(resolution):
