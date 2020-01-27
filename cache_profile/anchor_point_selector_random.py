@@ -3,6 +3,7 @@ import sys
 import argparse
 import shlex
 import math
+import random
 
 import numpy as np
 import tensorflow as tf
@@ -12,7 +13,7 @@ from tool.libvpx import *
 from dnn.model.nas_s import NAS_S
 from dnn.utility import raw_quality
 
-class APS_Uniform():
+class APS_Random():
     def __init__(self, model, vpxdec_file, dataset_dir, lr_video_name, hr_video_name, gop, threshold):
         self.model = model
         self.vpxdec_file = vpxdec_file
@@ -51,9 +52,9 @@ class APS_Uniform():
                 #select anchor points uniformly
                 num_anchor_points = i + 1
                 cache_profile = CacheProfile.fromframes(frames, profile_dir, '{}_{}'.format(self.__class__.__name__, num_anchor_points))
-                for j in range(num_anchor_points):
-                    idx = j * math.floor(len(frames) / num_anchor_points)
-                    cache_profile.add_anchor_point(frames[idx])
+                random_frames = random.sample(frames, num_anchor_points)
+                for frame in random_frames:
+                    cache_profile.add_anchor_point(frame)
                 cache_profile.save()
 
                 #log

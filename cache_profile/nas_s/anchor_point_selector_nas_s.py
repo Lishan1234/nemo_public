@@ -5,6 +5,7 @@ import tensorflow as tf
 
 from tool.video import profile_video, FFmpegOption
 from cache_profile.anchor_point_selector_uniform import APS_Uniform
+from cache_profile.anchor_point_selector_random import APS_Random
 from dnn.model.nas_s import NAS_S
 
 if __name__ == '__main__':
@@ -54,10 +55,18 @@ if __name__ == '__main__':
         aps_uniform = APS_Uniform(checkpoint.model, args.vpxdec_file, args.dataset_dir, args.lr_video_name, args.hr_video_name, args.gop, args.threshold)
         if args.chunk_idx is None:
             num_chunks = int(lr_video_info['duration'] // (args.gop / lr_video_info['frame_rate']))
-            print(num_chunks)
-            #for i in range(num_chunks):
-            #    aps_uniform.run(i)
+            for i in range(num_chunks):
+                aps_uniform.run(i)
         else:
             aps_uniform.run(args.chunk_idx)
+    elif args.mode == 'random':
+        aps_random = APS_Random(checkpoint.model, args.vpxdec_file, args.dataset_dir, args.lr_video_name, args.hr_video_name, args.gop, args.threshold)
+        if args.chunk_idx is None:
+            num_chunks = int(lr_video_info['duration'] // (args.gop / lr_video_info['frame_rate']))
+            for i in range(num_chunks):
+                aps_random.run(i)
+        else:
+            aps_random.run(args.chunk_idx)
+
     else:
         raise NotImplementedError
