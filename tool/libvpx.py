@@ -96,7 +96,7 @@ class CacheProfile():
     def __lt__(self, other):
         return self.count_anchor_points() < other.count_anchor_points()
 
-def libvpx_save_frames(vpxdec_file, content_dir, video_name, gop, chunk_idx):
+def libvpx_save_frame(vpxdec_file, content_dir, video_name, gop, chunk_idx):
     start_idx = chunk_idx * gop
     end_idx = (chunk_idx + 1) * gop
     postfix = 'chunk{:04d}'.format(chunk_idx)
@@ -122,7 +122,7 @@ def libvpx_save_metadata(vpxdec_file, content_dir, video_name, gop, chunk_idx):
             start_idx, end_idx - start_idx, content_dir, video_name, postfix)
     subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
-def libvpx_load_frames(content_dir, video_name, gop, chunk_idx):
+def libvpx_load_frame_index(content_dir, video_name, gop, chunk_idx):
     start_idx = chunk_idx * gop
     end_idx = (chunk_idx + 1) * gop
     postfix = 'chunk{:04d}'.format(chunk_idx)
@@ -139,7 +139,7 @@ def libvpx_load_frames(content_dir, video_name, gop, chunk_idx):
 
     return frames
 
-def libvpx_setup_sr_frames(vpxdec_file, content_dir, video_name, gop, chunk_idx, model):
+def libvpx_setup_sr_frame(vpxdec_file, content_dir, video_name, gop, chunk_idx, model):
     start_idx = chunk_idx * gop
     end_idx = (chunk_idx + 1) * gop
     postfix = 'chunk{:04d}'.format(chunk_idx)
@@ -169,16 +169,89 @@ def libvpx_setup_sr_frames(vpxdec_file, content_dir, video_name, gop, chunk_idx,
         #sr_image = tf.image.encode_png(tf.squeeze(sr))
         #tf.io.write_file(os.path.join('.', '{0:04d}.png'.format(idx+1)), sr_image)
 
-def measure_offline_cache_quality(vpxdec_file, content_dir, input_video, compare_video, postfix, model, cache_profile):
+#TODO: later, add a DECODE_BILINEAR mode
+#TODO: check apply_dnn, NO_CACHE + DECODE_CACHE in libvpx
+#TODO: check log_dir
+def libvpx_bilinear_quality(vpxdec_file, content_dir, input_video_name, compare_video_name,  \
+                                skip=None, limit=None, postfix=None):
     #run sr-integrated decoder
-    command = '{} --codec=vp9 --noblit --frame-buffers=50 --skip={} --limit={} --content-dir={} \
-    --input-video={} --compare-video={} --postfix={} --decode-mode=2 --dnn-mode=2 --cache-policy=1 \
-    --save-quality --dnn-name={} --cache-profile={}'.format(vpxdec_file, start_idx, end_idx - start_idx, content_dir, input_video, compare_video, postfix, model, cache_profile)
+    command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} \
+    --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=0 \
+    --save-quality --save-metadata'.format(vpxdec_file, content_dir, input_video_name, \
+                                            compare_video_name)
+    if skip is not None:
+        command += ' --skip={}'.format(skip)
+    if limit is not None:
+        command += ' --limit={}'.format(limit)
+    if postfix is not None:
+        command += ' --postfix={}'.format(postfix)
+    subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    #subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL)
+
+    #load quality from a log file
+    log_dir = os.path.join(content_dir, 'log', input_video_name)
+    if postfix is not None:
+        log_dir = os.path.join(log_dir, postfix)
+    log_file = os.path.join(log_dir, 'cache_noframe', 'quality.txt')
+    quality = []
+    with open(log_file, 'r') as f:
+        lines = f.readlines()
+        for line in lines:
+            line = line.strip()
+            quality.append(float(line.split('\t')[1]))
+
+    return quality
+
+def libvpx_offline_dnn_quality(vpxdec_file, content_dir, input_video_name, compare_video_name,  \
+                                model_name, skip=None, limit=None, postfix=None):
+    #run sr-integrated decoder
+    command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} \
+    --input-video={} --compare-video={} --decode-mode=1 --dnn-mode=2 \
+    --save-quality --save-metadata --dnn-name={}'.format(vpxdec_file, content_dir, input_video_name, \
+                                            compare_video_name, model_name)
+    if skip is not None:
+        command += ' --skip={}'.format(skip)
+    if limit is not None:
+        command += ' --limit={}'.format(limit)
+    if postfix is not None:
+        command += ' --postfix={}'.format(postfix)
     subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
     #load quality from a log file
-    log_dir = os.path.join(content_dir, 'log', input_video, model, postfix)
-    log_file = os.log_file.join(log_dir, cache_profiles[idx].name, 'quality.txt')
+    log_dir = os.path.join(content_dir, 'log', input_video_name, model_name)
+    if postfix is not None:
+        log_dir = os.path.join(log_dir, postfix)
+    log_file = os.path.join(log_dir, 'quality.txt')
+    quality = []
+    with open(log_file, 'r') as f:
+        lines = f.readlines()
+        for line in lines:
+            line = line.strip()
+            quality.append(float(line.split('\t')[1]))
+
+    return quality
+
+def libvpx_offline_cache_quality(vpxdec_file, content_dir, input_video_name, compare_video_name,  \
+                                model_name, cache_profile, skip=None, limit=None, postfix=None):
+    #run sr-integrated decoder
+    command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} \
+    --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=2 --cache-policy=1 \
+    --save-quality --save-metadata --dnn-name={} --cache-profile={}'.format(vpxdec_file, content_dir, input_video_name, \
+                                                    compare_video_name, model_name, cache_profile.path)
+    if skip is not None:
+        command += ' --skip={}'.format(skip)
+    if limit is not None:
+        command += ' --limit={}'.format(limit)
+    if postfix is not None:
+        command += ' --postfix={}'.format(postfix)
+    subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    #subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL)
+
+    #load quality from a log file
+    log_dir = os.path.join(content_dir, 'log', input_video_name, model_name)
+    if postfix is not None:
+        log_dir = os.path.join(log_dir, postfix)
+    log_file = os.path.join(log_dir, os.path.basename(cache_profile.name), 'quality.txt')
     quality = []
     with open(log_file, 'r') as f:
         lines = f.readlines()

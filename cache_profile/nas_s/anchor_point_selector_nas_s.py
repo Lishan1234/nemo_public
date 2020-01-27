@@ -29,7 +29,7 @@ if __name__ == '__main__':
     #anchor point selector
     parser.add_argument('--threshold', type=float, required=True)
     parser.add_argument('--gop', type=int, required=True)
-    parser.add_argument('--chunk_idx', default=None)
+    parser.add_argument('--chunk_idx', default=None, type=int)
     parser.add_argument('--mode', choices=['uniform','random','our'], required=True)
 
     args = parser.parse_args()
@@ -50,5 +50,14 @@ if __name__ == '__main__':
     checkpoint.model.scale = scale
     checkpoint.model.nhwc = nhwc
 
-    aps_baseline = APS_Uniform(checkpoint.model, args.vpxdec_file, args.dataset_dir, args.lr_video_name, args.hr_video_name, args.gop, args.threshold)
-    aps_baseline.run(0)
+    if args.mode == 'uniform':
+        aps_uniform = APS_Uniform(checkpoint.model, args.vpxdec_file, args.dataset_dir, args.lr_video_name, args.hr_video_name, args.gop, args.threshold)
+        if args.chunk_idx is None:
+            num_chunks = int(lr_video_info['duration'] // (args.gop / lr_video_info['frame_rate']))
+            print(num_chunks)
+            #for i in range(num_chunks):
+            #    aps_uniform.run(i)
+        else:
+            aps_uniform.run(args.chunk_idx)
+    else:
+        raise NotImplementedError
