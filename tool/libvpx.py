@@ -261,6 +261,46 @@ def libvpx_offline_cache_quality(vpxdec_file, content_dir, input_video_name, com
 
     return quality
 
+def libvpx_offline_cache_quality_mt(q0, q1, vpxdec_file, content_dir, input_video_name, compare_video_name, model_name):
+    while True:
+        item = q0.get()
+        if item == 'end':
+            return
+        else:
+            cache_profile = item[0]
+            skip = item[1]
+            limit = item[2]
+            postfix = item[3]
+            idx = item[4]
+
+            #run sr-integrated decoder
+            command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} \
+            --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=2 --cache-policy=1 \
+            --save-quality --save-metadata --dnn-name={} --cache-profile={}'.format(vpxdec_file, content_dir, input_video_name, \
+                                                            compare_video_name, model_name, cache_profile.path)
+            if skip is not None:
+                command += ' --skip={}'.format(skip)
+            if limit is not None:
+                command += ' --limit={}'.format(limit)
+            if postfix is not None:
+                command += ' --postfix={}'.format(postfix)
+            subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            #subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL)
+
+            #load quality from a log file
+            log_dir = os.path.join(content_dir, 'log', input_video_name, model_name)
+            if postfix is not None:
+                log_dir = os.path.join(log_dir, postfix)
+            log_file = os.path.join(log_dir, os.path.basename(cache_profile.name), 'quality.txt')
+            quality = []
+            with open(log_file, 'r') as f:
+                lines = f.readlines()
+                for line in lines:
+                    line = line.strip()
+                    quality.append(float(line.split('\t')[1]))
+
+            q1.put((idx, quality))
+
 #ref: https://developers.google.com/media/vp9/settings/vod
 def get_num_threads(resolution):
     tile_size = 256

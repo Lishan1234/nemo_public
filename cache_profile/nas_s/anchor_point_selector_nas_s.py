@@ -6,6 +6,7 @@ import tensorflow as tf
 from tool.video import profile_video, FFmpegOption
 from cache_profile.anchor_point_selector_uniform import APS_Uniform
 from cache_profile.anchor_point_selector_random import APS_Random
+from cache_profile.anchor_point_selector_nemo import APS_NEMO
 from dnn.model.nas_s import NAS_S
 
 if __name__ == '__main__':
@@ -31,7 +32,8 @@ if __name__ == '__main__':
     parser.add_argument('--threshold', type=float, required=True)
     parser.add_argument('--gop', type=int, required=True)
     parser.add_argument('--chunk_idx', default=None, type=int)
-    parser.add_argument('--mode', choices=['uniform','random','our'], required=True)
+    parser.add_argument('--num_decoders', default=24, type=int)
+    parser.add_argument('--mode', choices=['uniform','random','nemo'], required=True)
 
     args = parser.parse_args()
 
@@ -67,6 +69,13 @@ if __name__ == '__main__':
                 aps_random.run(i)
         else:
             aps_random.run(args.chunk_idx)
-
+    elif args.mode == 'nemo':
+        aps_nemo = APS_NEMO(checkpoint.model, args.vpxdec_file, args.dataset_dir, args.lr_video_name, args.hr_video_name, args.gop, args.threshold, args.num_decoders)
+        if args.chunk_idx is None:
+            num_chunks = int(lr_video_info['duration'] // (args.gop / lr_video_info['frame_rate']))
+            for i in range(num_chunks):
+                aps_nemo.run(i)
+        else:
+            aps_nemo.run(args.chunk_idx)
     else:
         raise NotImplementedError
