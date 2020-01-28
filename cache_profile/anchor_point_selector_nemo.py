@@ -156,3 +156,21 @@ class APS_NEMO():
                     cache_profile.name = '{}_{}'.format(self.__class__.__name__, self.threshold)
                     cache_profile.save()
                     break
+
+    def summary(self):
+        log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name)
+        summary_log_file = os.path.join(log_dir, 'quality_{}_{:.2f}.txt'.format(self.__class__.__name__, self.threshold))
+        chunk_idx = 0
+        with open(summary_log_file, 'w') as s_f:
+            #iterate over chunks
+            while True:
+                chunk_log_dir = os.path.join(log_dir, 'chunk{:04d}'.format(chunk_idx))
+                if not os.path.exists(chunk_log_dir):
+                    break
+                else:
+                    chunk_log_file = os.path.join(chunk_log_dir, 'quality_{}_{:.2f}.txt'.format(self.__class__.__name__, self.threshold))
+                    with open(chunk_log_file, 'r') as c_f:
+                        lines = c_f.readlines()
+                        s_f.write('{}\t{}\n'.format(chunk_idx, lines[-1].strip()))
+                    chunk_idx += 1
+

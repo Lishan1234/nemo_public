@@ -9,4 +9,5 @@ python $MOBINAS_CODE_ROOT/cache_profile/nemo_s/anchor_point_selector_nemo_s.py \
                 --gop 120 \
                 --threshold 0.2 \
                 --mode nemo \
-                --chunk_idx 5
+                --task summary \
+                --chunk_idx 0
