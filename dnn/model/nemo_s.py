@@ -57,23 +57,17 @@ class NEMO_S():
 
         return checkpoint
 
-    #TODO: need to measure MAC
     def count_mac(self):
-        """
-        if self.num_blocks == 8 and self.num_filters == 8:
-            return 1513 * 1000 * 1000
-        elif self.num_blocks == 8 and self.num_filters == 16:
-            return 6011 * 1000 * 1000
+        if self.num_blocks == 8 and self.num_filters == 9:
+            return 1913 * 1000 * 1000
+        elif self.num_blocks == 8 and self.num_filters == 21:
+            return 10337 * 1000 * 1000
         elif self.num_blocks == 8 and self.num_filters == 32:
             return 23958 * 1000 * 1000
         elif self.num_blocks == 8 and self.num_filters == 48:
             return 53840 * 1000 * 1000
-        elif self.num_blocks == 8 and self.num_filters == 64:
-            return 95657 * 1000 * 1000
         else:
             return None
-        """
-        return None
 
 if __name__ == '__main__':
     tf.enable_eager_execution()
