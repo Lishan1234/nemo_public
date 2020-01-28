@@ -58,18 +58,6 @@ class NAS_S():
 
         return checkpoint
 
-    def count_mac(self):
-        if self.num_blocks == 8 and self.num_filters == 9:
-            return 3552 * 1000 * 1000
-        elif self.num_blocks == 8 and self.num_filters == 21:
-            return 31555 * 1000 * 1000
-        elif self.num_blocks == 8 and self.num_filters == 32:
-            return 101274 * 1000 * 1000
-        elif self.num_blocks == 8 and self.num_filters == 48:
-            return 320966 * 1000 * 1000
-        else:
-            return None
-
 if __name__ == '__main__':
     tf.enable_eager_execution()
     with tf.device('/gpu:0'):
