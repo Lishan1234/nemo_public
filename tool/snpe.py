@@ -164,7 +164,7 @@ def snpe_convert_model(model, nhwc, checkpoint_dir):
 
     return dlc_dict
 
-def snpe_benchmark_config(device_id, runtime, model, dlc_file, log_dir, image_dir, perf='default'):
+def snpe_benchmark_config(device_id, runtime, model_name, dlc_file, log_dir, image_dir, perf='default'):
     result_dir = os.path.join(log_dir, device_id, runtime)
     raw_dir = os.path.join(image_dir, 'raw')
     json_file = os.path.join(result_dir, BENCHMARK_CONFIG_NAME)
@@ -177,7 +177,7 @@ def snpe_benchmark_config(device_id, runtime, model, dlc_file, log_dir, image_di
             f.write('raw/{}\n'.format(os.path.basename(raw_file)))
 
     benchmark = collections.OrderedDict()
-    benchmark['Name'] = model.name
+    benchmark['Name'] = model_name
     benchmark['HostRootPath'] = os.path.abspath(log_dir)
     benchmark['HostResultsDir'] = os.path.abspath(result_dir)
     benchmark['DevicePath'] = DEVICE_ROOTDIR
@@ -185,10 +185,37 @@ def snpe_benchmark_config(device_id, runtime, model, dlc_file, log_dir, image_di
     benchmark['HostName'] = 'localhost'
     benchmark['Runs'] = 1
     benchmark['Model'] = collections.OrderedDict()
-    benchmark['Model']['Name'] = model.name
+    benchmark['Model']['Name'] = model_name
     benchmark['Model']['Dlc'] = dlc_file
     benchmark['Model']['InputList'] = raw_list_file
     benchmark['Model']['Data'] = [raw_dir]
+    benchmark['Runtimes'] = [runtime]
+    benchmark['Measurements'] = ['timing']
+    benchmark['ProfilingLevel'] = 'detailed'
+    benchmark['BufferTypes'] = ['float']
+
+    with open(json_file, 'w') as f:
+        json.dump(benchmark, f, indent=4)
+
+    return json_file
+
+def snpe_benchmark_random_config(device_id, runtime, model_name, dlc_file, log_dir, total_num=20, perf='default'):
+    result_dir = os.path.join(log_dir, device_id, runtime)
+    json_file = os.path.join(result_dir, BENCHMARK_CONFIG_NAME)
+    os.makedirs(result_dir, exist_ok=True)
+
+    benchmark = collections.OrderedDict()
+    benchmark['Name'] = model_name
+    benchmark['HostRootPath'] = os.path.abspath(log_dir)
+    benchmark['HostResultsDir'] = os.path.abspath(result_dir)
+    benchmark['DevicePath'] = DEVICE_ROOTDIR
+    benchmark['Devices'] = [device_id]
+    benchmark['HostName'] = 'localhost'
+    benchmark['Runs'] = 1
+    benchmark['Model'] = collections.OrderedDict()
+    benchmark['Model']['Name'] = model_name
+    benchmark['Model']['Dlc'] = dlc_file
+    benchmark['Model']['RandomInput'] = total_num
     benchmark['Runtimes'] = [runtime]
     benchmark['Measurements'] = ['timing']
     benchmark['ProfilingLevel'] = 'detailed'
