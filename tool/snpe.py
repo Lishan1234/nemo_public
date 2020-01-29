@@ -17,18 +17,20 @@ BENCHMARK_CONFIG_NAME = 'benchmark.json'
 BENCHMARK_RAW_LIST = 'target_raw_list.txt'
 OPT_4_INFERENCE_SCRIPT  = 'optimize_for_inference.py'
 
-#check python version
-python_version = sys.version_info
-if not (python_version[0] == 3 and python_version[1] == 4):
-    raise RuntimeError('Unsupported Python version: {}'.format(python_version))
-
 #check tensorflow, snpe directory
 TENSORFLOW_ROOT = os.path.join(os.environ['MOBINAS_CODE_ROOT'], 'third_party', 'tensorflow')
 SNPE_ROOT = os.path.join(os.environ['MOBINAS_CODE_ROOT'], 'third_party', 'snpe')
 assert(os.path.exists(TENSORFLOW_ROOT))
 assert(os.path.exists(SNPE_ROOT))
 
+def check_python_version():
+    #check python version
+    python_version = sys.version_info
+    if not (python_version[0] == 3 and python_version[1] == 4):
+        raise RuntimeError('Unsupported Python version: {}'.format(python_version))
+
 def snpe_dlc_viewer(dlc_path, html_path):
+    check_python_version()
     setup_cmd = 'source {}/bin/envsetup.sh -t {}'.format(SNPE_ROOT, TENSORFLOW_ROOT)
     snpe_cmd = 'python {}/bin/x86_64-linux-clang/snpe-dlc-viewer\
             -i {} \
@@ -42,6 +44,7 @@ def snpe_dlc_viewer(dlc_path, html_path):
     print(proc_stdout)
 
 def snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, nhwc):
+    check_python_version()
     setup_cmd = 'source {}/bin/envsetup.sh -t {}'.format(SNPE_ROOT, TENSORFLOW_ROOT)
     snpe_cmd = 'python {}/bin/x86_64-linux-clang/snpe-tensorflow-to-dlc \
             -i {} \
@@ -60,6 +63,7 @@ def snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, nhwc):
     print(proc_stdout)
 
 def snpe_benchmark(json_file):
+    check_python_version()
     setup_cmd = 'source {}/bin/envsetup.sh -t {}'.format(SNPE_ROOT, TENSORFLOW_ROOT)
     snpe_cmd = 'python {}/benchmarks/snpe_bench.py -c {} -json'.format(SNPE_ROOT, json_file)
 

@@ -72,7 +72,7 @@ def raw_quality(lr_raw_dir, sr_raw_dir, hr_raw_dir, nhwc, scale, precision=tf.fl
             sr = tf.round(sr)
             sr = tf.cast(sr, tf.uint8)
 
-        bilinear = resolve_bilinear(lr, nhwc[1] * scale, nhwc[2] * scale)
+        bilinear = resolve_bilinear_tf(lr, nhwc[1] * scale, nhwc[2] * scale)
         bilinear_psnr_value = tf.image.psnr(bilinear, hr, max_val=255)[0].numpy()
         bilinear_psnr_values.append(bilinear_psnr_value)
         sr_psnr_value = tf.image.psnr(sr, hr, max_val=255)[0].numpy()
@@ -90,9 +90,9 @@ def resolve(model, lr_batch):
     sr_batch = tf.cast(sr_batch, tf.uint8)
     return sr_batch
 
-def resolve_bilinear(lr_batch, height, width):
+def resolve_bilinear_tf(lr_batch, height, width):
     lr_batch = tf.cast(lr_batch, tf.float32)
-    bilinear_batch = tf.image.resize_bilinear(lr_batch, (height, width))
+    bilinear_batch = tf.image.resize_bilinear(lr_batch, (height, width), half_pixel_centers=True)
     bilinear_batch = tf.clip_by_value(bilinear_batch, 0, 255)
     bilinear_batch = tf.round(bilinear_batch)
     bilinear_batch = tf.cast(bilinear_batch, tf.uint8)
