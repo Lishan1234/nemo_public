@@ -46,7 +46,7 @@ class APS_Random():
 
         #select/evaluate anchor points
         log_file = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name, \
-                                postfix, 'quality_{}_{}.txt'.format(self.__class__.__name__, self.threshold))
+                postfix, 'quality_{}_{:.2f}.txt'.format(self.__class__.__name__, self.threshold))
         num_anchor_points = 0
         cache_mac = count_mac_for_cache(self.model.nhwc[1] * self.model.scale, self.model.nhwc[2] * self.model.scale, 3)
         dnn_mac = count_mac_for_dnn(self.model.name, self.model.nhwc[1], self.model.nhwc[2])

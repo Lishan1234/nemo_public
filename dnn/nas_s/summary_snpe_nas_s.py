@@ -68,3 +68,6 @@ if __name__ == '__main__':
             os.makedirs(log_dir, exist_ok=True)
             sr_psnr, bilinear_psnr, latency, size = snpe_benchmark_result(args.device_id, args.runtime, model, lr_image_dir, hr_image_dir, log_dir, perf='default')
             f.write('{}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(model.name, sr_psnr, bilinear_psnr, latency, size))
+            f.flush()
+
+            print('Summary: Finish {}'.format(model.name))

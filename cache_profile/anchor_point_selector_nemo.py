@@ -89,15 +89,11 @@ class APS_NEMO():
             #cache_profile.set_measured_quality(quality_cache)
             ap_cache_profiles.append(cache_profile)
 
-            break
-
         for frame in frames:
             item = q1.get()
             idx = item[0]
             quality = item[1]
             ap_cache_profiles[idx].set_measured_quality(quality)
-
-            break
 
         for decoder in decoders:
             q0.put('end')
