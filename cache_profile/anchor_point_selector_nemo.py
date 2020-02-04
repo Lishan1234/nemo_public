@@ -137,8 +137,9 @@ class APS_NEMO():
                 frame_count_1 = sum(map(lambda x : x >= 0.5, quality_diff))
                 frame_count_2 = sum(map(lambda x : x >= 1.0, quality_diff))
                 decode_cache_mac = dnn_mac * len(cache_profile.anchor_points) + cache_mac * (self.gop - len(cache_profile.anchor_points))
-                log = '{}\t{:.2f}\t{:.2f}\t{:.2f}\t{}\t{}\t{}\t{:.2f}\t{:.2f}\n'.format(len(cache_profile.anchor_points), \
+                log = '{}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{}\t{}\t{}\t{:.2f}\t{:.2f}\n'.format(len(cache_profile.anchor_points), \
                                         np.average(quality_cache), np.average(quality_dnn), np.average(quality_bilinear), \
+                                        np.average(cache_profile.estimated_quality), np.average(np.asarray(quality_cache) - np.asarray(cache_profile.estimated_quality)),
                                         frame_count_1, frame_count_2, '\t'.join(str(np.round(x, 2)) for x in quality_error), \
                                         decode_cache_mac / 1e9, decode_dnn_mac / 1e9)
                 f.write(log)
@@ -166,7 +167,17 @@ class APS_NEMO():
                 else:
                     chunk_log_file = os.path.join(chunk_log_dir, 'quality_{}_{:.2f}.txt'.format(self.__class__.__name__, self.threshold))
                     with open(chunk_log_file, 'r') as c_f:
+                        #quality & computation
                         lines = c_f.readlines()
-                        s_f.write('{}\t{}\n'.format(chunk_idx, lines[-1].strip()))
-                    chunk_idx += 1
 
+                        #esstimation error: min, max, 25%, 50%, 75%
+                        estimation_error = []
+                        for line in lines:
+                            line = line.strip().split('\t')
+                            estimation_error.append(line[5])
+                        estimation_error_percentile =  np.percentile(estimation_error, [0, 25, 50, 75, 100], interpolation='nearest')
+
+                        s_f.write('{}\t{}\t{}\n'.format(chunk_idx, lines[-1].strip(), '\t'.join(str(np.round(float(x), 2)) for x in estimation_error_percentile)))
+
+                    chunk_idx += 1
+                break

@@ -8,5 +8,6 @@ python $MOBINAS_CODE_ROOT/cache_profile/nas_s/anchor_point_selector_nas_s.py \
                 --num_filters 32 \
                 --gop 120 \
                 --threshold 0.2 \
+                --chunk_idx 5 \
                 --mode nemo \
-                --task profile
+                --task summary 
