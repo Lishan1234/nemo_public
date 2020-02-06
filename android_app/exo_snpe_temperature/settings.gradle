@@ -1,0 +1,2 @@
+include ':app', ':flironesdk'
+rootProject.name='exo_snpe_temperature'
