@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:context=".MainActivity">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1.0">
+
+        <android.opengl.GLSurfaceView
+            android:id="@+id/imageView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+
+                android:focusable="false"
+                android:focusableInTouchMode="false"
+
+            android:scaleType="fitCenter" />
+
+
+        <com.example.exo_snpe_temperature.TemperaturePointer
+            android:id="@+id/temperature_pointer1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+        <com.example.exo_snpe_temperature.TemperaturePointer
+            android:id="@+id/temperature_pointer2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/boundary"/>
+        <com.example.exo_snpe_temperature.TemperaturePointer
+            android:id="@+id/temperature_pointer3"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/boundary"/>
+        <com.example.exo_snpe_temperature.TemperaturePointer
+            android:id="@+id/temperature_pointer4"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/boundary"/>
+
+        <ImageView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:id="@+id/spotMeterIcon"
+            android:src="@android:drawable/ic_menu_mylocation"
+            android:alpha="0.9" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:id="@+id/spotMeterValue"
+            android:layout_gravity="center"
+            android:alpha="0.9"
+            android:paddingTop="39dp"
+            android:shadowColor="#000000"
+            android:shadowDx="0"
+            android:shadowDy="0"
+            android:shadowRadius="3" />
+
+
+        <TextView
+            android:layout_gravity="bottom"
+            android:id="@+id/test_state"
+            android:textSize="20sp"
+            android:textColor="@color/colorAccent"
+            android:text="test running"
+            android:visibility="invisible"
+            android:layout_margin="10dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+        <Button
+            android:onClick="onBeginLog"
+            android:layout_gravity="bottom|center"
+            android:text="start log"
+            android:id="@+id/start_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+    </FrameLayout>
+
+<!--    <FrameLayout-->
+<!--        android:layout_weight="0"-->
+<!--        android:layout_width="match_parent"-->
+<!--        android:layout_height="wrap_content">-->
+
+<!--        <Button-->
+<!--            android:layout_width="wrap_content"-->
+<!--            android:layout_height="wrap_content"-->
+<!--            android:id="@+id/beginTest"-->
+<!--            android:text="Start Log"-->
+<!--            android:onClick ="onBeginLog"/>-->
+
+<!--        <TextView-->
+<!--            android:id="@+id/testText"-->
+<!--            android:text="Test Running"-->
+<!--            android:layout_width="wrap_content"-->
+<!--            android:layout_height="wrap_content"-->
+<!--            android:textColor="@color/colorPrimaryDark"-->
+<!--            android:layout_gravity="center"-->
+<!--            android:textStyle="bold"-->
+<!--            android:visibility="invisible"/>-->
+
+<!--    </FrameLayout>-->
+</LinearLayout>

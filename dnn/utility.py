@@ -1,4 +1,3 @@
-#Reference: https://github.com/krasserm/super-resolution/blob/master/model/common.py
 import time
 import shlex
 import subprocess
@@ -9,6 +8,80 @@ import math
 import numpy as np
 import tensorflow as tf
 
+from dataset import valid_raw_dataset, summary_raw_dataset
+
+# ---------------------------------------
+# Inference
+# ---------------------------------------
+
+def raw_bilinear_quality(lr_raw_dir, hr_raw_dir, nhwc, scale):
+    bilinear_psnr_values = []
+    valid_raw_ds = valid_raw_dataset(lr_raw_dir, hr_raw_dir, nhwc[1], nhwc[2],
+                                                    scale, precision=tf.float32)
+    for idx, imgs in enumerate(valid_raw_ds):
+        lr = imgs[0][0]
+        hr = imgs[1][0]
+
+        bilinear = resolve_bilinear(lr, nhwc[1] * scale, nhwc[2] * scale)
+        bilinear = tf.cast(bilinear, tf.uint8)
+        hr = tf.clip_by_value(hr, 0, 255)
+        hr = tf.round(hr)
+        hr = tf.cast(hr, tf.uint8)
+
+        bilinear_psnr_value = tf.image.psnr(bilinear, hr, max_val=255)[0].numpy()
+        bilinear_psnr_values.append(bilinear_psnr_value)
+
+    return bilinear_psnr_values
+
+def raw_sr_quality(sr_raw_dir, hr_raw_dir, nhwc, scale):
+    sr_psnr_values = []
+    valid_raw_ds = valid_raw_dataset(sr_raw_dir, hr_raw_dir, nhwc[1] * scale,
+                                                    nhwc[2] * scale,
+                                                    1, precision=tf.float32)
+    for idx, imgs in enumerate(valid_raw_ds):
+        sr = imgs[0][0]
+        hr = imgs[1][0]
+
+        sr = tf.clip_by_value(sr, 0, 255)
+        sr = tf.round(sr)
+        sr = tf.cast(sr, tf.uint8)
+        hr = tf.clip_by_value(hr, 0, 255)
+        hr = tf.round(hr)
+        hr = tf.cast(hr, tf.uint8)
+
+        sr_psnr_value = tf.image.psnr(sr, hr, max_val=255)[0].numpy()
+        sr_psnr_values.append(sr_psnr_value)
+
+    return sr_psnr_values
+
+def raw_quality(lr_raw_dir, sr_raw_dir, hr_raw_dir, nhwc, scale, precision=tf.float32):
+    bilinear_psnr_values= []
+    sr_psnr_values = []
+    summary_raw_ds = summary_raw_dataset(lr_raw_dir, sr_raw_dir, hr_raw_dir, nhwc[1], nhwc[2],
+                                                    scale, precision=precision)
+    for idx, imgs in enumerate(summary_raw_ds):
+        lr = imgs[0][0]
+        sr = imgs[1][0]
+        hr = imgs[2][0]
+
+        if precision == tf.float32:
+            hr = tf.clip_by_value(hr, 0, 255)
+            hr = tf.round(hr)
+            hr = tf.cast(hr, tf.uint8)
+            sr = tf.clip_by_value(sr, 0, 255)
+            sr = tf.round(sr)
+            sr = tf.cast(sr, tf.uint8)
+
+        bilinear = resolve_bilinear_tf(lr, nhwc[1] * scale, nhwc[2] * scale)
+        bilinear_psnr_value = tf.image.psnr(bilinear, hr, max_val=255)[0].numpy()
+        bilinear_psnr_values.append(bilinear_psnr_value)
+        sr_psnr_value = tf.image.psnr(sr, hr, max_val=255)[0].numpy()
+        sr_psnr_values.append(sr_psnr_value)
+        print('{} frame: PSNR(SR)={:.2f}, PSNR(Bilinear)={:.2f}'.format(idx, sr_psnr_value, bilinear_psnr_value))
+    print('Summary: PSNR(SR)={:.2f}, PSNR(Bilinear)={:.2f}'.format(np.average(sr_psnr_values), np.average(bilinear_psnr_values)))
+
+    return sr_psnr_values, bilinear_psnr_values
+
 def resolve(model, lr_batch):
     lr_batch = tf.cast(lr_batch, tf.float32)
     sr_batch = model(lr_batch)
@@ -17,125 +90,10 @@ def resolve(model, lr_batch):
     sr_batch = tf.cast(sr_batch, tf.uint8)
     return sr_batch
 
-def resolve_bilinear(lr_batch, width, height):
+def resolve_bilinear_tf(lr_batch, height, width):
     lr_batch = tf.cast(lr_batch, tf.float32)
-    bilinear_batch = tf.image.resize_bilinear(lr_batch, (width, height))
+    bilinear_batch = tf.image.resize_bilinear(lr_batch, (height, width), half_pixel_centers=True)
     bilinear_batch = tf.clip_by_value(bilinear_batch, 0, 255)
     bilinear_batch = tf.round(bilinear_batch)
     bilinear_batch = tf.cast(bilinear_batch, tf.uint8)
     return bilinear_batch
-
-def evaluate(model, dataset):
-    psnr_values = []
-    for lr, hr in dataset:
-        sr = resolve(model, lr)
-        psnr_value = tf.image.psnr(hr, sr, max_val=255)[0]
-        psnr_values.append(psnr_value)
-    return psnr_values, tf.reduce_mean(psnr_values)
-
-class FFmpegOption():
-    def __init__(self, filter_type, filter_fps, upsample):
-        if filter_type not in ['key', 'uniform', 'none']:
-            raise ValueError('filter type is not valid: {}'.format(filter_type))
-        if filter_type is 'uniform' and filter_fps is None:
-            raise ValueError('filter fps is not set: {}'.format(filter_fps))
-        #if upsample not in ['bilinear']:
-        #    raise ValueError('upsample is not valid: {}'.format(upsample))
-
-        self.filter_type = filter_type
-        self.filter_fps = filter_fps
-        self.upsample = upsample
-
-    def summary(self, video_name):
-        if self.filter_type == 'key':
-            return '{}.key'.format(video_name)
-        elif self.filter_type == 'uniform':
-            return '{}.uniform_{:.2f}'.format(video_name, self.filter_fps)
-        elif self.filter_type == 'none':
-            return video_name
-
-    def filter(self):
-        if self.filter_type == 'key':
-            return '-vf "select=eq(pict_type\,I)" -vsync vfr'
-        elif self.filter_type == 'uniform':
-            return '-vf fps={}'.format(self.filter_fps)
-        elif self.filter_type == 'none':
-            return ''
-
-    def filter_rescale(self, width, height):
-        if self.filter_type == 'key':
-            return '-vf "select=eq(pict_type\,I)",scale={}:{} -vsync vfr -sws_flags {}'.format(width, height, self.upsample)
-        elif self.filter_type == 'uniform':
-            return '-vf fps={},scale={}:{} -sws_flags {}'.format(self.filter_fps, width, height, self.upsample)
-        elif self.filter_type == 'none':
-            return '-vf scale={}:{} -sws_flags {}'.format(width, height, self.upsample)
-
-#TODO: filter with a cache profile
-"""
-1. load a cache profile
-2. if a visible frame is set as a cnhor point
-    add to target frame list
-3. use ffmpeg to extract/save filtered frames with index from 2.
-link: https://stackoverflow.com/questions/38253406/extract-list-of-specific-frames-using-ffmpeg
-"""
-
-# ---------------------------------------
-# Video
-# ---------------------------------------
-
-class VideoMetadata():
-    def __init__(self, video_format, start_time, duration):
-        self.video_format = video_format
-        self.start_time = start_time
-        self.duration = duration
-
-    #TODO: add bitrate and vidoe_format
-    def summary(self, resolution, is_encoded):
-        name = '{}p'.format(resolution)
-        if self.start_time is not None:
-            name += '_s{}'.format(self.start_time)
-        if self.duration is not None:
-            name += '_d{}'.format(self.duration)
-        if is_encoded: name += '_encoded'
-        name += '.{}'.format(self.video_format)
-        return name
-
-def video_size(video_path):
-    cmd = "ffprobe -v quiet -print_format json -show_streams"
-    args = shlex.split(cmd)
-    args.append(video_path)
-
-    # run the ffprobe process, decode stdout into utf-8 & convert to JSON
-    ffprobeOutput = subprocess.check_output(args).decode('utf-8')
-    ffprobeOutput = json.loads(ffprobeOutput)
-
-    # for example, find height and width
-    height = ffprobeOutput['streams'][0]['height']
-    width = ffprobeOutput['streams'][0]['width']
-
-    return width, height
-
-def video_fps(video_path):
-    cmd = "ffprobe -v quiet -print_format json -show_streams"
-    args = shlex.split(cmd)
-    args.append(video_path)
-
-    # run the ffprobe process, decode stdout into utf-8 & convert to JSON
-    ffprobeOutput = subprocess.check_output(args).decode('utf-8')
-    ffprobeOutput = json.loads(ffprobeOutput)
-
-    # for example, find height and width
-    info = ffprobeOutput['streams'][0]['avg_frame_rate']
-    frame_rate = float(info.split('/')[0]) / float(info.split('/')[1])
-
-    return frame_rate
-
-def upscale_factor(lr_video_path, hr_video_path):
-    assert(os.path.exists(lr_video_path))
-    assert(os.path.exists(hr_video_path))
-
-    _, lr_height = video_size(lr_video_path)
-    _, hr_height = video_size(hr_video_path)
-
-    scale = math.floor(hr_height/lr_height)
-    return scale

@@ -10,7 +10,7 @@ import tensorflow as tf
 from tensorflow.python.framework import tensor_shape
 from tensorflow.python.data.experimental import AUTOTUNE
 
-from utility import FFmpegOption, VideoMetadata
+from tool.video import FFmpegOption, VideoMetadata
 
 #TODO: check memory usage for multiple resolutions (e.g., share target resolution frames)
 #TODO: check available memory to decide load on memory or on storage
@@ -54,9 +54,6 @@ def random_crop_feature(lr_image, feature_image, hr_image, lr_crop_size, scale):
     hr_image_cropped = hr_image[hr_h:hr_h + hr_crop_size, hr_w:hr_w + hr_crop_size]
 
     return lr_image_cropped, feature_image_cropped, hr_image_cropped
-
-def resize(lr_image, hr_image):
-    pass
 
 def image_dataset(image_dir):
     images = sorted(glob.glob('{}/*.png'.format(image_dir)))
@@ -119,6 +116,46 @@ def valid_feature_dataset(lr_dir, feature_dir, hr_dir):
     ds = tf.data.Dataset.zip((lr_ds, feature_ds, hr_ds))
     ds = ds.batch(1)
     ds = ds.repeat(1)
+    ds = ds.prefetch(buffer_size=AUTOTUNE)
+    return ds
+
+def decode_raw(filepath, width, height, precision):
+    file = tf.io.read_file(filepath)
+    image = tf.decode_raw(file, precision)
+    image = tf.reshape(image, [width, height, 3])
+    return image, filepath
+
+def raw_dataset(image_dir, width, height, pattern, precision):
+    images = sorted(glob.glob('{}/{}'.format(image_dir, pattern)))
+    #images = sorted(glob.glob('{}/[0-9][0-9][0-9][0-9].raw'.format(image_dir)))
+    ds = tf.data.Dataset.from_tensor_slices(images)
+    ds = ds.map(lambda x: decode_raw(x, width, height, precision), num_parallel_calls=AUTOTUNE)
+    return ds, len(images)
+
+def single_raw_dataset(image_dir, width, height, repeat_count=1, pattern='*.raw', precision=tf.uint8):
+    ds, length = raw_dataset(image_dir, width, height, pattern, precision)
+    ds = ds
+    ds = ds.batch(1)
+    ds = ds.repeat(repeat_count)
+    ds = ds.prefetch(buffer_size=AUTOTUNE)
+    return ds
+
+def valid_raw_dataset(lr_image_dir, hr_image_dir, width, height, scale, repeat_count=1, pattern='*.raw', precision=tf.uint8):
+    lr_ds, length = raw_dataset(lr_image_dir, width, height, pattern, precision)
+    hr_ds, _ = raw_dataset(hr_image_dir, width * scale, height * scale, pattern, precision)
+    ds = tf.data.Dataset.zip((lr_ds, hr_ds))
+    ds = ds.batch(1)
+    ds = ds.repeat(repeat_count)
+    ds = ds.prefetch(buffer_size=AUTOTUNE)
+    return ds
+
+def summary_raw_dataset(lr_image_dir, sr_image_dir, hr_image_dir, width, height, scale, repeat_count=1, pattern='*.raw', precision=tf.uint8):
+    lr_ds, length = raw_dataset(lr_image_dir, width, height, pattern, precision)
+    hr_ds, _ = raw_dataset(hr_image_dir, width * scale, height * scale, pattern, precision)
+    sr_ds, _ = raw_dataset(sr_image_dir, width * scale, height * scale, pattern, precision)
+    ds = tf.data.Dataset.zip((lr_ds, sr_ds, hr_ds))
+    ds = ds.batch(1)
+    ds = ds.repeat(repeat_count)
     ds = ds.prefetch(buffer_size=AUTOTUNE)
     return ds
 
