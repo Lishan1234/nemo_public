@@ -9,7 +9,7 @@ from tensorflow.keras.losses import MeanAbsoluteError
 from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 
 from dnn.dataset import train_image_dataset, valid_image_dataset, setup_images
-from dnn.model.nas_s import NAS_S
+from dnn.model.nemo_s import NEMO_S
 from tool.video import profile_video, FFmpegOption
 
 if __name__ == '__main__':
@@ -23,7 +23,6 @@ if __name__ == '__main__':
     #architecture
     parser.add_argument('--num_filters', type=int, required=True)
     parser.add_argument('--num_blocks', type=int, required=True)
-    parser.add_argument('--upsample_type', type=str, required=True)
 
     args = parser.parse_args()
 
@@ -35,12 +34,12 @@ if __name__ == '__main__':
     lr_video_profile = profile_video(lr_video_path)
     hr_video_profile = profile_video(hr_video_path)
     scale = hr_video_profile['height'] // lr_video_profile['height']
-    nas_s = NAS_S(args.num_blocks, args.num_filters, scale, args.upsample_type)
+    nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale)
 
     with tf.Graph().as_default(), tf.Session() as sess:
         init = tf.global_variables_initializer()
         sess.run(init)
-        model = nas_s.build_model()
+        model = nemo_s.build_model()
 
         log_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '.log')
         os.makedirs(log_dir, exist_ok=True)

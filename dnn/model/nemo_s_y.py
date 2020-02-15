@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.keras import layers
 from tensorflow.keras import Model
 
-class NEMO_S():
+class NEMO_S_Y():
     def __init__(self, num_blocks, num_filters, scale, upsample_type='deconv'):
         assert(upsample_type == 'deconv' or upsample_type == 'subpixel')
         self.num_blocks = num_blocks
@@ -33,7 +33,7 @@ class NEMO_S():
         return x
 
     def build_model(self, resolution=None):
-        x_in = layers.Input(shape=(None, None, 3))
+        x_in = layers.Input(shape=(None, None, 1))
 
         x = b = layers.Conv2D(self.num_filters, 3, padding='same', name=self.conv_name())(x_in)
 
@@ -44,17 +44,17 @@ class NEMO_S():
 
         if self.upsample_type == 'deconv':
             if self.scale in [2, 3, 4]:
-                x = layers.Conv2DTranspose(3, 5, self.scale, padding='same')(x)
+                x = layers.Conv2DTranspose(1, 5, self.scale, padding='same')(x)
             else:
                 raise NotImplementedError
         elif self.upsample_type == 'subpixel':
             if self.scale == 2 or self.scale ==  3:
-                x = layers.Conv2D(3 * (self.scale ** 2), 3, padding='same', name=self.conv_name())(x)
+                x = layers.Conv2D(1 * (self.scale ** 2), 3, padding='same', name=self.conv_name())(x)
                 x = layers.Lambda(lambda x:tf.nn.depth_to_space(x, self.scale))(inputs=x)
             elif self.scale == 4:
-                x = layers.Conv2D(3 * 4, 3, padding='same', name=self.conv_name())(x)
+                x = layers.Conv2D(1 * 4, 3, padding='same', name=self.conv_name())(x)
                 x = layers.Lambda(lambda x:tf.nn.depth_to_space(x, 2))(inputs=x)
-                x = layers.Conv2D(3 * 4, 3, padding='same', name=self.conv_name())(x)
+                x = layers.Conv2D(1 * 4, 3, padding='same', name=self.conv_name())(x)
                 x = layers.Lambda(lambda x:tf.nn.depth_to_space(x, 2))(inputs=x)
             else:
                 raise NotImplementedError
@@ -83,7 +83,7 @@ class NEMO_S():
 if __name__ == '__main__':
     tf.enable_eager_execution()
     with tf.device('/gpu:0'):
-        model = NEMO_S(4, 32, 4).build_model()
-        input_tensor = tf.random.uniform((1, 200, 200, 3), 0, 255)
+        model = NEMO_S_Y(4, 32, 4, 'subpixel').build_model()
+        input_tensor = tf.random.uniform((1, 200, 200, 1), 0, 255)
         output_tensor = model(input_tensor)
         print(model.name, output_tensor.shape)

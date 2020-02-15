@@ -7,6 +7,8 @@ from tensorflow.keras.metrics import Mean
 from tensorflow.keras.losses import MeanAbsoluteError
 from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 
+from dnn.utility import resolve_bilinear
+
 class SingleTrainer:
     def __init__(self, model, loss, learning_rate, checkpoint_dir, log_dir):
         self.now = None
@@ -25,16 +27,27 @@ class SingleTrainer:
         return self.checkpoint.model
 
     def evaluate(self, dataset):
-        psnr_values = []
-        for lr, hr in dataset:
+        sr_psnr_values = []
+        bilinear_psnr_values = []
+        for idx, ds in enumerate(dataset):
+            lr = ds[0]
+            hr = ds[1]
+            if idx == 0:
+                height = tf.shape(hr)[1]
+                width = tf.shape(hr)[2]
+
             lr = tf.cast(lr, tf.float32)
             sr = self.checkpoint.model(lr)
             sr = tf.clip_by_value(sr, 0, 255)
             sr = tf.round(sr)
             sr = tf.cast(sr, tf.uint8)
-            psnr_value = tf.image.psnr(sr, hr, max_val=255)[0]
-            psnr_values.append(psnr_value)
-        return tf.reduce_mean(psnr_values)
+            sr_psnr_value = tf.image.psnr(sr, hr, max_val=255)[0]
+            sr_psnr_values.append(sr_psnr_value)
+
+            bilinear = resolve_bilinear(lr, height, width)
+            bilinear_psnr_value = tf.image.psnr(bilinear, hr, max_val=255)[0]
+            bilinear_psnr_values.append(bilinear_psnr_value)
+        return tf.reduce_mean(sr_psnr_values), tf.reduce_mean(bilinear_psnr_values)
 
     def train(self, train_dataset, valid_dataset, steps, evaluate_every=1000, save_best_only=False):
         loss_mean = Mean()
@@ -51,17 +64,18 @@ class SingleTrainer:
                 loss_value = loss_mean.result()
                 loss_mean.reset_states()
 
-                psnr_value = self.evaluate(valid_dataset)
+                sr_psnr_value, bilinear_psnr_value = self.evaluate(valid_dataset)
 
                 duration = time.perf_counter() - self.now
-                print(f'{step}/{steps}: loss = {loss_value.numpy():.3f}, PSNR = {psnr_value.numpy():3f} ({duration:.2f}s)')
+                print(f'{step}/{steps}: loss = {loss_value.numpy():.3f}, PSNR(SR) = {sr_psnr_value.numpy():3f}, PSNR(Bilinear) = {bilinear_psnr_value.numpy():3f} ({duration:.2f}s)')
 
-                self.checkpoint.psnr = psnr_value
+                self.checkpoint.psnr = sr_psnr_value
                 self.checkpoint_manager.save()
 
                 with self.writer.as_default(), tf.contrib.summary.always_record_summaries():
                     tf.contrib.summary.scalar('Training_Loss_SR', loss_value, step=self.checkpoint.step.numpy())
-                    tf.contrib.summary.scalar('Validation_PSNR_SR', psnr_value, step=self.checkpoint.step.numpy())
+                    tf.contrib.summary.scalar('Validation_PSNR_SR', sr_psnr_value, step=self.checkpoint.step.numpy())
+                    tf.contrib.summary.scalar('Validation_PSNR_BILINEAR', bilinear_psnr_value, step=self.checkpoint.step.numpy())
                     tf.contrib.summary.flush(self.writer)
 
                 self.now = time.perf_counter()

@@ -37,6 +37,7 @@ if __name__ == '__main__':
     #architecture
     parser.add_argument('--num_filters', type=int, required=True)
     parser.add_argument('--num_blocks', type=int, required=True)
+    parser.add_argument('--upsample_type', type=str, required=True)
 
     #log
     parser.add_argument('--custom_tag', type=str, default=None)
@@ -60,7 +61,7 @@ if __name__ == '__main__':
     setup_images(hr_video_path, hr_image_dir, args.ffmpeg_path, ffmpeg_option.filter())
 
     #dnn
-    nas_s = NAS_S(args.num_blocks, args.num_filters, scale)
+    nas_s = NAS_S(args.num_blocks, args.num_filters, scale, args.upsample_type)
     model = nas_s.build_model()
 
     #dataset

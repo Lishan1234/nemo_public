@@ -5,12 +5,13 @@ import shlex
 import subprocess
 import json
 import struct
+import re
 
 import tensorflow as tf
 from tensorflow.python.framework import tensor_shape
 from tensorflow.python.data.experimental import AUTOTUNE
 
-from tool.video import FFmpegOption, VideoMetadata
+from tool.video import FFmpegOption, VideoMetadata, profile_video
 
 #TODO: check memory usage for multiple resolutions (e.g., share target resolution frames)
 #TODO: check available memory to decide load on memory or on storage
@@ -23,6 +24,20 @@ def setup_images(video_path, image_dir, ffmpeg_path, ffmpeg_option):
         video_name = os.path.basename(video_path)
         cmd = '{} -i {} {} {}/%04d.png'.format(ffmpeg_path, video_path, ffmpeg_option, image_dir)
         os.system(cmd)
+
+def setup_yuv_images(vpxdec_file, content_dir, video_file, filter_fps):
+    image_dir = os.path.join(content_dir, 'image', os.path.basename(video_file), 'libvpx')
+    if not os.path.exists(image_dir):
+        #fps
+        video_profile = profile_video(video_file)
+        fps = video_profile['frame_rate']
+        filter_interval = math.floor(fps / filter_fps)
+
+        #decode
+        command = '{} --codec=vp9 --progress --summary --noblit --threads=1 --frame-buffers=50  \
+        --content-dir={} --input-video={} --filter-interval={} --postfix=libvpx --save-yuvframe'.format(vpxdec_file,
+                        content_dir, os.path.basename(video_file), filter_interval)
+        subprocess.check_call(shlex.split(command), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
 def random_crop(lr_image, hr_image, lr_crop_size, scale):
     lr_image_shape = tf.shape(lr_image)[:2]
@@ -55,23 +70,25 @@ def random_crop_feature(lr_image, feature_image, hr_image, lr_crop_size, scale):
 
     return lr_image_cropped, feature_image_cropped, hr_image_cropped
 
-def image_dataset(image_dir):
-    images = sorted(glob.glob('{}/*.png'.format(image_dir)))
+def image_dataset(image_dir, exp):
+    m = re.compile(exp)
+    images = sorted([os.path.join(image_dir, f) for f in os.listdir(image_dir) if m.search(f)])
+    #images = sorted(glob.glob('{}/*.png'.format(image_dir)))
     ds = tf.data.Dataset.from_tensor_slices(images)
     ds = ds.map(tf.io.read_file)
     ds = ds.map(lambda x: tf.image.decode_png(x, channels=3), num_parallel_calls=AUTOTUNE)
     return ds, len(images)
 
-def single_image_dataset(image_dir):
-    ds, _ = image_dataset(image_dir)
+def single_image_dataset(image_dir, exp='.png'):
+    ds, _ = image_dataset(image_dir, exp)
     ds = ds.batch(1)
     ds = ds.repeat(1)
     ds = ds.prefetch(buffer_size=AUTOTUNE)
     return ds
 
-def train_image_dataset(lr_dir, hr_dir, batch_size, patch_size, scale, load_on_memory, repeat_count=None):
-    lr_ds, num_images = image_dataset(lr_dir)
-    hr_ds, num_images = image_dataset(hr_dir)
+def train_image_dataset(lr_dir, hr_dir, batch_size, patch_size, scale, load_on_memory, repeat_count=None, exp='.png'):
+    lr_ds, num_images = image_dataset(lr_dir, exp)
+    hr_ds, num_images = image_dataset(hr_dir, exp)
     print('number of images: {}'.format(num_images))
 
     ds = tf.data.Dataset.zip((lr_ds, hr_ds))
@@ -83,9 +100,9 @@ def train_image_dataset(lr_dir, hr_dir, batch_size, patch_size, scale, load_on_m
     ds = ds.prefetch(buffer_size=AUTOTUNE)
     return ds
 
-def valid_image_dataset(lr_dir, hr_dir, repeat_count=1):
-    lr_ds, _ = image_dataset(lr_dir)
-    hr_ds, _ = image_dataset(hr_dir)
+def valid_image_dataset(lr_dir, hr_dir, repeat_count=1, exp='.png'):
+    lr_ds, _ = image_dataset(lr_dir, exp)
+    hr_ds, _ = image_dataset(hr_dir, exp)
 
     ds = tf.data.Dataset.zip((lr_ds, hr_ds))
     ds = ds.batch(1)
@@ -119,40 +136,55 @@ def valid_feature_dataset(lr_dir, feature_dir, hr_dir):
     ds = ds.prefetch(buffer_size=AUTOTUNE)
     return ds
 
-def decode_raw(filepath, width, height, precision):
+def decode_raw(filepath, width, height, channel, precision):
     file = tf.io.read_file(filepath)
     image = tf.decode_raw(file, precision)
-    image = tf.reshape(image, [width, height, 3])
-    return image, filepath
+    image = tf.reshape(image, [height, width, channel])
+    #return image, filepath
+    return image
 
-def raw_dataset(image_dir, width, height, pattern, precision):
-    images = sorted(glob.glob('{}/{}'.format(image_dir, pattern)))
+def raw_dataset(image_dir, width, height, channel, exp, precision):
+    m = re.compile(exp)
+    images = sorted([os.path.join(image_dir, f) for f in os.listdir(image_dir) if m.search(f)])
+    #images = sorted(glob.glob('{}/{}'.format(image_dir, pattern)))
     #images = sorted(glob.glob('{}/[0-9][0-9][0-9][0-9].raw'.format(image_dir)))
     ds = tf.data.Dataset.from_tensor_slices(images)
-    ds = ds.map(lambda x: decode_raw(x, width, height, precision), num_parallel_calls=AUTOTUNE)
+    ds = ds.map(lambda x: decode_raw(x, width, height, channel, precision), num_parallel_calls=AUTOTUNE)
     return ds, len(images)
 
-def single_raw_dataset(image_dir, width, height, repeat_count=1, pattern='*.raw', precision=tf.uint8):
-    ds, length = raw_dataset(image_dir, width, height, pattern, precision)
+def single_raw_dataset(image_dir, width, height, exp, repeat_count=1, precision=tf.uint8):
+    ds, length = raw_dataset(image_dir, width, height, exp, precision)
     ds = ds
     ds = ds.batch(1)
     ds = ds.repeat(repeat_count)
     ds = ds.prefetch(buffer_size=AUTOTUNE)
     return ds
 
-def valid_raw_dataset(lr_image_dir, hr_image_dir, width, height, scale, repeat_count=1, pattern='*.raw', precision=tf.uint8):
-    lr_ds, length = raw_dataset(lr_image_dir, width, height, pattern, precision)
-    hr_ds, _ = raw_dataset(hr_image_dir, width * scale, height * scale, pattern, precision)
+def train_raw_dataset(lr_image_dir, hr_image_dir, width, height, channel, scale, batch_size, patch_size, load_on_memory, exp, repeat_count=None, precision=tf.uint8):
+    lr_ds, length = raw_dataset(lr_image_dir, width, height, channel, exp, precision)
+    hr_ds, _ = raw_dataset(hr_image_dir, width * scale, height * scale, channel, exp, precision)
+    ds = tf.data.Dataset.zip((lr_ds, hr_ds))
+    if load_on_memory: ds = ds.cache()
+    ds = ds.shuffle(buffer_size=length)
+    ds = ds.map(lambda lr, hr: random_crop(lr, hr, patch_size, scale), num_parallel_calls=AUTOTUNE)
+    ds = ds.batch(batch_size)
+    ds = ds.repeat(repeat_count)
+    ds = ds.prefetch(buffer_size=AUTOTUNE)
+    return ds
+
+def valid_raw_dataset(lr_image_dir, hr_image_dir, width, height, channel, scale, exp, repeat_count=1, precision=tf.uint8):
+    lr_ds, length = raw_dataset(lr_image_dir, width, height, channel, exp, precision)
+    hr_ds, _ = raw_dataset(hr_image_dir, width * scale, height * scale, channel, exp, precision)
     ds = tf.data.Dataset.zip((lr_ds, hr_ds))
     ds = ds.batch(1)
     ds = ds.repeat(repeat_count)
     ds = ds.prefetch(buffer_size=AUTOTUNE)
     return ds
 
-def summary_raw_dataset(lr_image_dir, sr_image_dir, hr_image_dir, width, height, scale, repeat_count=1, pattern='*.raw', precision=tf.uint8):
-    lr_ds, length = raw_dataset(lr_image_dir, width, height, pattern, precision)
-    hr_ds, _ = raw_dataset(hr_image_dir, width * scale, height * scale, pattern, precision)
-    sr_ds, _ = raw_dataset(sr_image_dir, width * scale, height * scale, pattern, precision)
+def summary_raw_dataset(lr_image_dir, sr_image_dir, hr_image_dir, width, height, channel, scale, exp, repeat_count=1, precision=tf.uint8):
+    lr_ds, length = raw_dataset(lr_image_dir, width, height, channel, exp, precision)
+    hr_ds, _ = raw_dataset(hr_image_dir, width * scale, height * scale, channel, exp, precision)
+    sr_ds, _ = raw_dataset(sr_image_dir, width * scale, height * scale, channel, exp, precision)
     ds = tf.data.Dataset.zip((lr_ds, sr_ds, hr_ds))
     ds = ds.batch(1)
     ds = ds.repeat(repeat_count)
