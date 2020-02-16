@@ -81,4 +81,4 @@ if __name__ == '__main__':
     #download benchmark output
     host_dir = os.path.join(lr_image_dir, model.name, args.runtime, 'raw')
     os.makedirs(host_dir, exist_ok=True)
-    #snpe_benchmark_output(json_file, host_dir, dlc_profile['output_name'])
+    snpe_benchmark_output(json_file, host_dir, dlc_profile['output_name'])

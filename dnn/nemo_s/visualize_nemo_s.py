@@ -23,6 +23,7 @@ if __name__ == '__main__':
     #architecture
     parser.add_argument('--num_filters', type=int, required=True)
     parser.add_argument('--num_blocks', type=int, required=True)
+    parser.add_argument('--upsample_type', type=str, required=True)
 
     args = parser.parse_args()
 
@@ -34,7 +35,7 @@ if __name__ == '__main__':
     lr_video_profile = profile_video(lr_video_path)
     hr_video_profile = profile_video(hr_video_path)
     scale = hr_video_profile['height'] // lr_video_profile['height']
-    nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale)
+    nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale, args.upsample_type)
 
     with tf.Graph().as_default(), tf.Session() as sess:
         init = tf.global_variables_initializer()

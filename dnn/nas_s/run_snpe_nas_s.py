@@ -75,7 +75,7 @@ if __name__ == '__main__':
     #run benchmark
     log_dir = os.path.join(args.dataset_dir, 'log', test_ffmpeg_option.summary(args.lr_video_name), model.name, 'snpe')
     dlc_file = os.path.join(checkpoint_dir, dlc_profile['dlc_name'])
-    json_file = snpe_benchmark_config(args.device_id, args.runtime, model.name, dlc_file, log_dir, lr_image_dir)
+    json_file = snpe_benchmark_config(args.device_id, args.runtime, model.name, dlc_file, log_dir, os.path.join(lr_image_dir, 'raw'))
     snpe_benchmark(json_file)
 
     #download benchmark output

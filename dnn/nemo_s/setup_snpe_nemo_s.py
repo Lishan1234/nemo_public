@@ -31,6 +31,7 @@ if __name__ == '__main__':
     #architecture
     parser.add_argument('--num_filters', type=int)
     parser.add_argument('--num_blocks', type=int)
+    parser.add_argument('--upsample_type', type=str, required=True)
 
     #device
     parser.add_argument('--device_id', type=str)
@@ -53,8 +54,12 @@ if __name__ == '__main__':
 
     if args.mode == 'model':
         #model
-        nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale)
-        model = nemo_s.build_model()
+        nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale, args.upsample_type)
+        if (hr_video_profile['height'] % lr_video_profile['height'] == 0 and
+                hr_video_profile['width'] % lr_video_profile['width'] == 0):
+            model = nemo_s.build_model()
+        else:
+            model = nemo_s.build_model(resolution=(hr_video_profile['height'], hr_video_profile['width']))
         model.scale = scale
         model.nhwc = nhwc
         train_ffmpeg_option = FFmpegOption(args.train_filter_type, args.train_filter_fps, None)
@@ -78,8 +83,12 @@ if __name__ == '__main__':
 
     elif args.mode == 'all':
         #model
-        nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale)
-        model = nemo_s.build_model()
+        nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale, args.upsample_type)
+        if (hr_video_profile['height'] % lr_video_profile['height'] == 0 and
+                hr_video_profile['width'] % lr_video_profile['width'] == 0):
+            model = nemo_s.build_model()
+        else:
+            model = nemo_s.build_model(resolution=(hr_video_profile['height'], hr_video_profile['width']))
         model.scale = scale
         model.nhwc = nhwc
         train_ffmpeg_option = FFmpegOption(args.train_filter_type, args.train_filter_fps, None)
