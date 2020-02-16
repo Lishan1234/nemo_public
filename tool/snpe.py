@@ -168,17 +168,16 @@ def snpe_convert_model(model, nhwc, checkpoint_dir):
 
     return dlc_dict
 
-def snpe_benchmark_config(device_id, runtime, model_name, dlc_file, log_dir, image_dir, perf='default'):
+def snpe_benchmark_config(device_id, runtime, model_name, dlc_file, log_dir, raw_dir, perf='default', exp='*.raw'):
     result_dir = os.path.join(log_dir, device_id, runtime)
-    raw_dir = os.path.join(image_dir, 'raw')
     json_file = os.path.join(result_dir, BENCHMARK_CONFIG_NAME)
     raw_list_file = os.path.join(result_dir, BENCHMARK_RAW_LIST)
     os.makedirs(result_dir, exist_ok=True)
 
     with open(raw_list_file, 'w') as f:
-        raw_files = sorted(glob.glob('{}/*.raw'.format(raw_dir)))
+        raw_files = sorted(glob.glob('{}/{}'.format(raw_dir, exp)))
         for raw_file in raw_files:
-            f.write('raw/{}\n'.format(os.path.basename(raw_file)))
+            f.write('{}/{}\n'.format(os.path.basename(raw_dir), os.path.basename(raw_file)))
 
     benchmark = collections.OrderedDict()
     benchmark['Name'] = model_name

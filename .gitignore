@@ -6,3 +6,4 @@ __pycache__
 temp_data/
 .log/
 third_party/caffe
+**/ffmpeg2pass-0.log
