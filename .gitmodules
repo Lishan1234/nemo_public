@@ -7,3 +7,6 @@
 [submodule "third_party/ExoPlayer"]
 	path = third_party/ExoPlayer
 	url = https://github.com/kaist-ina/ExoPlayer
+[submodule "third_party/snpe"]
+	path = third_party/snpe
+	url = http://143.248.53.100:11111/root/snpe.git
