@@ -11,7 +11,7 @@ from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 
 from dnn.dataset import raw_dataset, train_raw_dataset, valid_raw_dataset, setup_yuv_images
 from dnn.model.nemo_s_y import NEMO_S_Y
-from dnn.test import SingleTester
+from dnn.test import SingleYUVTester
 from dnn.utility import resolve, resolve_bilinear
 from tool.video import profile_video, VideoMetadata, FFmpegOption
 
@@ -54,8 +54,10 @@ if __name__ == '__main__':
     lr_video_profile = profile_video(lr_video_file)
     hr_video_profile = profile_video(hr_video_file)
     scale = hr_video_profile['height'] // lr_video_profile['height']
-    width = lr_video_profile['width']
-    height = lr_video_profile['height']
+    lr_width = int(lr_video_profile['width'])
+    lr_height = int(lr_video_profile['height'])
+    hr_width = int(hr_video_profile['width'])
+    hr_height = int(hr_video_profile['height'])
 
     #image
     ffmpeg_option = FFmpegOption(args.filter_type, args.filter_fps, None)
@@ -73,15 +75,15 @@ if __name__ == '__main__':
         model = nemo_s_y.build_model(resolution=(hr_video_profile['height'], hr_video_profile['width']))
 
     #dataset
-    lr_y_ds = raw_dataset(lr_image_dir, width, height, 1, '\d\d\d\d.y', tf.uint8)
-    lr_u_ds = raw_dataset(lr_image_dir, width / 2, height / 2, 1, '\d\d\d\d.u', tf.uint8)
-    lr_v_ds = raw_dataset(lr_image_dir, width / 2, height / 2, 1, '\d\d\d\d.v', tf.uint8)
-    lr_yuv_ds = tf.dataset.Dataset.zip((lr_y_ds, lr_u_ds, lr_v_ds))
-    hr_y_ds = raw_dataset(hr_image_dir, width, height, 1, '\d\d\d\d.y', tf.uint8)
-    hr_u_ds = raw_dataset(hr_image_dir, width / 2, height / 2, 1, '\d\d\d\d.u', tf.uint8)
-    hr_v_ds = raw_dataset(hr_image_dir, width / 2, height / 2, 1, '\d\d\d\d.v', tf.uint8)
-    hr_yuv_ds = tf.dataset.Dataset.zip((hr_y_ds, hr_u_ds, hr_v_ds))
-    yuv_ds = tf.dataset.Dataset.zip((lr_yuv_ds, hr_yuv_ds))
+    lr_y_ds = raw_dataset(lr_image_dir, lr_width, lr_height, 1, '\d\d\d\d.y', tf.uint8)
+    lr_u_ds = raw_dataset(lr_image_dir, lr_width // 2, lr_height // 2, 1, '\d\d\d\d.u', tf.uint8)
+    lr_v_ds = raw_dataset(lr_image_dir, lr_width // 2, lr_height // 2, 1, '\d\d\d\d.v', tf.uint8)
+    lr_yuv_ds = tf.data.Dataset.zip((lr_y_ds[0], lr_u_ds[0], lr_v_ds[0]))
+    hr_y_ds = raw_dataset(hr_image_dir, hr_width, hr_height, 1, '\d\d\d\d.y', tf.uint8)
+    hr_u_ds = raw_dataset(hr_image_dir, hr_width // 2, hr_height // 2, 1, '\d\d\d\d.u', tf.uint8)
+    hr_v_ds = raw_dataset(hr_image_dir, hr_width // 2, hr_height // 2, 1, '\d\d\d\d.v', tf.uint8)
+    hr_yuv_ds = tf.data.Dataset.zip((hr_y_ds[0], hr_u_ds[0], hr_v_ds[0]))
+    valid_ds = tf.data.Dataset.zip((lr_yuv_ds, hr_yuv_ds))
 
     #trainer
     checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option.summary(args.lr_video_name), model.name)
@@ -90,5 +92,5 @@ if __name__ == '__main__':
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(image_dir, exist_ok=True)
-    tester = SingleTester(model, checkpoint_dir, log_dir, image_dir)
-    #tester.test(valid_ds, args.save_image)
+    tester = SingleYUVTester(model, checkpoint_dir, log_dir, image_dir)
+    tester.test(valid_ds, args.save_image)
