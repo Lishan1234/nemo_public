@@ -72,7 +72,8 @@ if __name__ == '__main__':
 
     #trainer
     checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option.summary(args.lr_video_name), model.name)
-    log_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '.log', ffmpeg_option.summary(args.lr_video_name), model.name)
+    log_dir = os.path.join(args.dataset_dir, 'tensorflow', ffmpeg_option.summary(args.lr_video_name), model.name)
+    #log_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '.log', ffmpeg_option.summary(args.lr_video_name), model.name)
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
     trainer = SingleTrainerV1(model, checkpoint_dir, log_dir)
