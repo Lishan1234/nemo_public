@@ -77,39 +77,44 @@ class Encoder():
 
     def encode_1080p_lossless(self):
         input_video_path = os.path.join(self.video_dir, "2160p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
-        output_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
+        #output_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
+        output_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.mp4".format(self.start_time, self.duration))
 
         if os.path.exists(output_video_path):
             logging.info("{} already exists".format(output_video_path))
-            #return
-
-        cmd = "{} -i {} -vf scale=1920x1080 -threads {} -c:v libvpx-vp9 -lossless 1  -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
+            return
+        #cmd = "{} -i {} -vf scale=1920x1080 -threads {} -c:v libvpx-vp9 -lossless 1  -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
+        cmd = "{} -i {} -vf scale=1920x1080 -threads {} -c:v libx265 -crf 0 -preset ultrafast -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
         os.system(cmd)
 
     def encode_960p_v1_lossless(self):
         input_video_path = os.path.join(self.video_dir, "2160p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
-        output_video_path = os.path.join(self.video_dir, "960p_240p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
+        #output_video_path = os.path.join(self.video_dir, "960p_240p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
+        output_video_path = os.path.join(self.video_dir, "960p_240p_s{}_d{}.mp4".format(self.start_time, self.duration, self.video_fmt))
 
         if os.path.exists(output_video_path):
             logging.info("{} already exists".format(output_video_path))
             return
 
-        cmd = "{} -i {} -vf scale=1704x960 -threads {} -c:v libvpx-vp9 -lossless 1  -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
+        #cmd = "{} -i {} -vf scale=1704x960 -threads {} -c:v libvpx-vp9 -lossless 1  -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
+        cmd = "{} -i {} -vf scale=1704x960 -threads {} -c:v libx265 -crf 0 -preset ultrafast -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
         os.system(cmd)
 
     def encode_960p_v2_lossless(self):
         input_video_path = os.path.join(self.video_dir, "2160p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
-        output_video_path = os.path.join(self.video_dir, "960p_480p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
+        #output_video_path = os.path.join(self.video_dir, "960p_480p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
+        output_video_path = os.path.join(self.video_dir, "960p_480p_s{}_d{}.mp4".format(self.start_time, self.duration, self.video_fmt))
 
         if os.path.exists(output_video_path):
             logging.info("{} already exists".format(output_video_path))
             return
 
-        cmd = "{} -i {} -vf scale=1708x960 -threads {} -c:v libvpx-vp9 -lossless 1  -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
+        #cmd = "{} -i {} -vf scale=1708x960 -threads {} -c:v libvpx-vp9 -lossless 1  -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
+        cmd = "{} -i {} -vf scale=1708x960 -threads {} -c:v libx265 -crf 0 -preset ultrafast -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
         os.system(cmd)
 
     def encode_240p(self):
-        input_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
+        input_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.mp4".format(self.start_time, self.duration))
         output_video_path = os.path.join(self.video_dir, "240p_s{}_d{}_encoded.{}".format(self.start_time, self.duration, self.video_fmt))
 
         if os.path.exists(output_video_path):
@@ -127,7 +132,7 @@ class Encoder():
         os.system(cmd)
 
     def encode_360p(self):
-        input_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
+        input_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.mp4".format(self.start_time, self.duration))
         output_video_path = os.path.join(self.video_dir, "360p_s{}_d{}_encoded.{}".format(self.start_time, self.duration, self.video_fmt))
 
         if os.path.exists(output_video_path):
@@ -145,7 +150,7 @@ class Encoder():
         os.system(cmd)
 
     def encode_480p(self):
-        input_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
+        input_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.mp4".format(self.start_time, self.duration))
         output_video_path = os.path.join(self.video_dir, "480p_s{}_d{}_encoded.{}".format(self.start_time, self.duration, self.video_fmt))
 
         if os.path.exists(output_video_path):
@@ -163,7 +168,7 @@ class Encoder():
         os.system(cmd)
 
     def encode_720p(self):
-        input_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
+        input_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.mp4".format(self.start_time, self.duration))
         output_video_path = os.path.join(self.video_dir, "720p_s{}_d{}_encoded.{}".format(self.start_time, self.duration, self.video_fmt))
 
         if os.path.exists(output_video_path):
@@ -238,22 +243,30 @@ class Encoder():
         start_time = time.time()
         self.cut_2160p()
         print('elaspsed_time (1/9): {}sec'.format(time.time() - start_time))
+        start_time = time.time()
         self.encode_1080p_lossless()
-        print('elaspsed_time (7/9): {}sec'.format(time.time() - start_time))
-        self.encode_960p_v1_lossless()
-        print('elaspsed_time (8/9): {}sec'.format(time.time() - start_time))
-        self.encode_960p_v2_lossless()
-        print('elaspsed_time (9/9): {}sec'.format(time.time() - start_time))
-        self.encode_240p()
         print('elaspsed_time (2/9): {}sec'.format(time.time() - start_time))
-        self.encode_360p()
+        start_time = time.time()
+        self.encode_960p_v1_lossless()
         print('elaspsed_time (3/9): {}sec'.format(time.time() - start_time))
-        self.encode_480p()
+        start_time = time.time()
+        self.encode_960p_v2_lossless()
         print('elaspsed_time (4/9): {}sec'.format(time.time() - start_time))
-        self.encode_720p()
+        start_time = time.time()
+        self.encode_240p()
         print('elaspsed_time (5/9): {}sec'.format(time.time() - start_time))
-        self.encode_1080p()
+        start_time = time.time()
+        self.encode_360p()
         print('elaspsed_time (6/9): {}sec'.format(time.time() - start_time))
+        start_time = time.time()
+        self.encode_480p()
+        print('elaspsed_time (7/9): {}sec'.format(time.time() - start_time))
+        start_time = time.time()
+        self.encode_720p()
+        print('elaspsed_time (8/9): {}sec'.format(time.time() - start_time))
+        start_time = time.time()
+        self.encode_1080p()
+        print('elaspsed_time (9/9): {}sec'.format(time.time() - start_time))
         #self.encode_1440p()
         #print('elaspsed_time (10/11): {}sec'.format(time.time() - start_time))
         #self.encode_2160p()
