@@ -2,7 +2,7 @@
 	path = third_party/libvpx
 	url = https://github.com/kaist-ina/libvpx
 [submodule "third_party/snpe"]
-	path = third_party/snpe
+	path = third_party/snpe-1.32.0
 	url = https://github.com/kaist-ina/snpe.git
 [submodule "third_party/tensorflow"]
 	path = third_party/tensorflow

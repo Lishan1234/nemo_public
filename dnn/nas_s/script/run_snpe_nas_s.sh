@@ -4,6 +4,7 @@ python $MOBINAS_CODE_ROOT/dnn/nas_s/run_snpe_nas_s.py \
                 --lr_video_name 240p_s0_d60_encoded.webm \
                 --hr_video_name 960p_s0_d60.webm \
                 --num_blocks 8 \
-                --num_filters 9 \
-                --device_id a152b92a \
+                --num_filters 16 \
+                --upsample_type subpixel \
+                --device_id 7b7f59d1 \
                 --runtime GPU_FP16 

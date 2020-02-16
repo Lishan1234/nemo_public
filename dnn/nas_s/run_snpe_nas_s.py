@@ -31,6 +31,7 @@ if __name__ == '__main__':
     #architecture
     parser.add_argument('--num_filters', type=int)
     parser.add_argument('--num_blocks', type=int)
+    parser.add_argument('--upsample_type', type=str, required=True)
 
     #device
     parser.add_argument('--device_id', type=str)
@@ -49,8 +50,12 @@ if __name__ == '__main__':
     nhwc = [1, lr_video_profile['height'], lr_video_profile['width'], 3]
 
     #model
-    nas_s = NAS_S(args.num_blocks, args.num_filters, scale)
-    model = nas_s.build_model()
+    nas_s = NAS_S(args.num_blocks, args.num_filters, scale, args.upsample_type)
+    if (hr_video_profile['height'] % lr_video_profile['height'] == 0 and
+        hr_video_profile['width'] % lr_video_profile['width'] == 0):
+        model = nas_s.build_model()
+    else:
+        model = nas_s.build_model(resolution=(hr_video_profile['height'], hr_video_profile['width']))
     model.scale = scale
     model.nhwc = nhwc
     train_ffmpeg_option = FFmpegOption(args.train_filter_type, args.train_filter_fps, None)
