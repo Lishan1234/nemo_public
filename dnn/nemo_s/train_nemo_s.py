@@ -37,6 +37,7 @@ if __name__ == '__main__':
     #architecture
     parser.add_argument('--num_filters', type=int, required=True)
     parser.add_argument('--num_blocks', type=int, required=True)
+    parser.add_argument('--upsample_type', type=str, required=True)
 
     #log
     parser.add_argument('--custom_tag', type=str, default=None)
@@ -60,7 +61,7 @@ if __name__ == '__main__':
     setup_images(hr_video_path, hr_image_dir, args.ffmpeg_path, ffmpeg_option.filter())
 
     #dnn
-    nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale)
+    nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale, args.upsample_type)
     model = nemo_s.build_model()
 
     #dataset
@@ -69,7 +70,8 @@ if __name__ == '__main__':
 
     #trainer
     checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option.summary(args.lr_video_name), model.name)
-    log_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '.log', ffmpeg_option.summary(args.lr_video_name), model.name)
+    log_dir = os.path.join(args.dataset_dir, 'tensorflow', ffmpeg_option.summary(args.lr_video_name), model.name)
+    #log_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '.log', ffmpeg_option.summary(args.lr_video_name), model.name)
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
     trainer = SingleTrainerV1(model, checkpoint_dir, log_dir)

@@ -111,7 +111,54 @@ static mobinas_cfg online_sr(const char *content_dir, const char *input_video, c
     return mobinas_cfg;
 }
 
+static mobinas_cfg offline_sr(const char *content_dir, const char *input_video, const char *compare_video, const char *dnn_name, const char *dnn_file) {
+    mobinas_cfg_t mobinas_cfg = {0};
 
+    sprintf(mobinas_cfg.log_dir, "%s/log/%s/%s", content_dir, input_video, dnn_name);
+    sprintf(mobinas_cfg.input_frame_dir, "%s/image/%s", content_dir, input_video);
+    sprintf(mobinas_cfg.sr_frame_dir, "%s/image/%s", content_dir, compare_video);
+//    sprintf(mobinas_cfg.sr_frame_dir, "%s/image/%s/%s", content_dir, input_video, dnn_name);
+//    sprintf(mobinas_cfg.sr_compare_frame_dir, "%s/image/%s", content_dir, compare_video);
+    _mkdir(mobinas_cfg.log_dir);
+    _mkdir(mobinas_cfg.input_frame_dir);
+    _mkdir(mobinas_cfg.sr_frame_dir);
+    _mkdir(mobinas_cfg.sr_compare_frame_dir);
+
+    mobinas_cfg.save_frame = 1;
+    mobinas_cfg.save_quality = 0;
+    mobinas_cfg.save_latency = 0;
+    mobinas_cfg.save_metadata = 0;
+
+    mobinas_cfg.decode_mode = DECODE_SR;
+    mobinas_cfg.dnn_mode = OFFLINE_DNN;
+
+    sprintf(mobinas_cfg.dnn_path, "%s/checkpoint/%s/%s", content_dir, dnn_name, dnn_file);
+
+    return mobinas_cfg;
+}
+
+static mobinas_cfg cache(const char *content_dir, const char *input_video, const char *compare_video, const char *dnn_name, const char *dnn_file) {
+    mobinas_cfg_t mobinas_cfg = {0};
+
+    sprintf(mobinas_cfg.log_dir, "%s/log/%s/%s", content_dir, input_video, dnn_name);
+    sprintf(mobinas_cfg.input_frame_dir, "%s/image/%s", content_dir, input_video);
+    sprintf(mobinas_cfg.sr_frame_dir, "%s/image/%s/%s", content_dir, input_video, dnn_name);
+    sprintf(mobinas_cfg.sr_compare_frame_dir, "%s/image/%s", content_dir, compare_video);
+    _mkdir(mobinas_cfg.log_dir);
+    _mkdir(mobinas_cfg.input_frame_dir);
+    _mkdir(mobinas_cfg.sr_frame_dir);
+    _mkdir(mobinas_cfg.sr_compare_frame_dir);
+
+    mobinas_cfg.save_frame = 1;
+    mobinas_cfg.save_quality = 0;
+    mobinas_cfg.save_latency = 0;
+    mobinas_cfg.save_metadata = 0;
+
+    mobinas_cfg.decode_mode = DECODE_CACHE;
+    mobinas_cfg.dnn_mode = NO_DNN;
+
+    return mobinas_cfg;
+}
 
 JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxdec
         (JNIEnv *env, jclass jobj)
@@ -125,20 +172,22 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxdec
     vpxdec_cfg_t vpxdec_cfg = {0};
     vpxdec_cfg.arg_skip = 0;
     vpxdec_cfg.threads = 1;
-    vpxdec_cfg.stop_after = 240;
+    vpxdec_cfg.stop_after = 12;
     vpxdec_cfg.num_external_frame_buffers = 50;
 
-    sprintf(vpxdec_cfg.video_path, "%s/video/%s", content_dir, input_video);
-    mobinas_cfg setup_mobinas_cfg = setup(content_dir, input_video);
-    setup_mobinas_cfg.save_frame = 0;
-    setup_mobinas_cfg.save_metadata = 1;
-    decode(&setup_mobinas_cfg, &vpxdec_cfg);
-
-//    sprintf(vpxdec_cfg.video_path, "%s/video/%s", content_dir, compare_video);
-//    mobinas_cfg setup_mobinas_cfg = setup(content_dir, compare_video);
-//    decode(&setup_mobinas_cfg, &vpxdec_cfg);
+    mobinas_cfg setup_mobinas_cfg;
+    mobinas_cfg cache_mobinas_cfg;
+    mobinas_cfg dnn_mobinas_cfg;
 
 //    sprintf(vpxdec_cfg.video_path, "%s/video/%s", content_dir, input_video);
-//    mobinas_cfg online_mobinas_cfg = online_sr(content_dir, input_video, compare_video, dnn_name, dnn_file);
-//    decode(&online_mobinas_cfg, &vpxdec_cfg);
+//    setup_mobinas_cfg = setup(content_dir, input_video);
+//    decode(&setup_mobinas_cfg, &vpxdec_cfg);
+
+//    sprintf(vpxdec_cfg.video_path, "%s/video/%s", content_dir, compare_video);
+//    setup_mobinas_cfg = setup(content_dir, compare_video);
+//    decode(&setup_mobinas_cfg, &vpxdec_cfg);
+
+    sprintf(vpxdec_cfg.video_path, "%s/video/%s", content_dir, input_video);
+    dnn_mobinas_cfg = online_sr(content_dir, input_video, compare_video, dnn_name, dnn_file);
+    decode(&dnn_mobinas_cfg, &vpxdec_cfg);
 }

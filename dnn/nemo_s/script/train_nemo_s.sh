@@ -5,5 +5,6 @@ python $MOBINAS_CODE_ROOT/dnn/nemo_s/train_nemo_s.py --dataset_dir $MOBINAS_DATA
                 --hr_video_name 960p_s0_d60.webm \
                 --num_blocks 8 \
                 --num_filters 4 \
+                --upsample_type deconv \
                 --num_steps 100000 \
                 --load_on_memory 

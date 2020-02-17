@@ -90,7 +90,7 @@ def resolve(model, lr_batch):
     sr_batch = tf.cast(sr_batch, tf.uint8)
     return sr_batch
 
-def resolve_bilinear_tf(lr_batch, height, width):
+def resolve_bilinear(lr_batch, height, width):
     lr_batch = tf.cast(lr_batch, tf.float32)
     bilinear_batch = tf.image.resize_bilinear(lr_batch, (height, width), half_pixel_centers=True)
     bilinear_batch = tf.clip_by_value(bilinear_batch, 0, 255)

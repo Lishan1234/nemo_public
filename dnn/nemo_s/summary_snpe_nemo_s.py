@@ -32,6 +32,7 @@ if __name__ == '__main__':
     #architecture
     parser.add_argument('--num_filters', type=int, nargs='+')
     parser.add_argument('--num_blocks', type=int, nargs='+')
+    parser.add_argument('--upsample_type', type=str, required=True)
 
     #device
     parser.add_argument('--device_id', type=str)
@@ -59,7 +60,7 @@ if __name__ == '__main__':
     with open(log_file, 'w') as f:
         f.write('Model Name\tSR PSNR (dB)\tBilinear PSNR (dB)\tLatency (msec)\tSize (KB)\n')
         for num_blocks, num_filters in zip(args.num_blocks, args.num_filters):
-            nemo_s = NEMO_S(num_blocks, num_filters, scale)
+            nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale, args.upsample_type)
             model = nemo_s.build_model()
             model.scale = scale
             model.nhwc = nhwc
