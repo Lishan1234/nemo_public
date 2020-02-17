@@ -15,6 +15,8 @@
  */
 package com.google.android.exoplayer2.decoder;
 
+import android.util.Log;
+
 import androidx.annotation.Nullable;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.util.Assertions;
@@ -30,7 +32,7 @@ public abstract class SimpleDecoder<
 
   private final Object lock;
   private final ArrayDeque<I> queuedInputBuffers;
-  private final ArrayDeque<O> queuedOutputBuffers;
+  public final ArrayDeque<O> queuedOutputBuffers;
   private final I[] availableInputBuffers;
   private final O[] availableOutputBuffers;
 
@@ -253,6 +255,9 @@ public abstract class SimpleDecoder<
       // Make the input buffer available again.
       releaseInputBufferInternal(inputBuffer);
     }
+
+
+//    Log.e("exo_queue",queuedOutputBuffers.size()+"");
 
     return true;
   }

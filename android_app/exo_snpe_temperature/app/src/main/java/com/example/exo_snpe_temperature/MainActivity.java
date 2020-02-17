@@ -64,13 +64,15 @@ public class MainActivity extends AppCompatActivity implements Device.Delegate, 
 
     //added
     private static final long ONE_MINUTE = 60 * 1000;
-    private static final long TEST_DURATION = ONE_MINUTE * 30;
+    private static final long TEST_DURATION = ONE_MINUTE * 2;
     private static final long UPDATE_TEMP_FREQ_MS = 1000;
     private static final long UPDATE_PIC_FREQ_MS = ONE_MINUTE;
 
     private long startTime;
     private long lastUpdateTimeTemp;
     private long lastUpdateTimePic;
+
+    private long firstTime = -1;//needs to be -1
     private boolean testRunning = false;
     private String testPath;
     private TextView textView;
@@ -193,10 +195,10 @@ public class MainActivity extends AppCompatActivity implements Device.Delegate, 
 
     private String createLogFile(){
         Calendar cal = Calendar.getInstance();
-        SimpleDateFormat dateFormat = new SimpleDateFormat("hh:mm:ss:SS");
-        String time = dateFormat.format(cal.getTime());
-        time = time.replaceAll(":","_");
 
+        SimpleDateFormat dateFormat = new SimpleDateFormat("MM-dd-HH-mm-ss");
+        String time = dateFormat.format(cal.getTime());
+        time = time.replaceAll("-","_");
         File dir = new File("/sdcard/TemperatureTesting/temperature_"+time);
         if(!dir.exists()){
             dir.mkdir();
@@ -205,7 +207,10 @@ public class MainActivity extends AppCompatActivity implements Device.Delegate, 
         File file = new File("/sdcard/TemperatureTesting/temperature_" + time + "/temperature.csv");
         try{
             fos = new FileOutputStream(file, false);
+            fos.write(",1,2,3,4\n".getBytes());
         } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
             e.printStackTrace();
         }
 
@@ -326,14 +331,21 @@ public class MainActivity extends AppCompatActivity implements Device.Delegate, 
         //if test running and update frequency satisfied
         if (testRunning) {
             if (shouldUpdateTemp() && renderedImage.imageType() == RenderedImage.ImageType.ThermalRadiometricKelvinImage) {
-                Calendar cal = Calendar.getInstance();
-                SimpleDateFormat dateFormat = new SimpleDateFormat("hh:mm:ss:SS");
-                String time = dateFormat.format(cal.getTime());
+
                 NumberFormat numberFormat = NumberFormat.getInstance();
                 String entry = "";
-                for (int i = 0; i < temps.length; i++) {
-                    entry += time + "," + (i + 1) + "," + numberFormat.format(temps[i]) + "\n";
+
+                if(firstTime == -1){
+                    firstTime = System.currentTimeMillis();
+                    entry += 0 + ",";
+                }else{
+                    entry += (System.currentTimeMillis() - firstTime) + ",";
                 }
+
+                for (int i = 0; i < temps.length; i++) {
+                    entry += numberFormat.format(temps[i]) + ",";
+                }
+                entry+="\n";
                 try {
                     fos.write(entry.getBytes());
                 } catch (IOException e) {
@@ -376,6 +388,36 @@ public class MainActivity extends AppCompatActivity implements Device.Delegate, 
         //finish
         if (testRunning && testFinished()) {
             testRunning = false;
+
+            //take one last pic
+            final Context context = this;
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ssZ", Locale.getDefault());
+                    String formatedDate = sdf.format(new Date());
+                    String fileName = "FLIROne-" + formatedDate + ".jpg";
+                    try {
+                        String path = testPath + "/" + fileName;
+                        renderedImage.getFrame().save(new File(path), frameProcessor);
+
+                        //check if saved ok
+                        MediaScannerConnection.scanFile(context,
+                                new String[]{path}, null,
+                                new MediaScannerConnection.OnScanCompletedListener() {
+                                    @Override
+                                    public void onScanCompleted(String s, Uri uri) {
+                                        Log.i("ExternalStorage", "Scanned " + s + ":");
+                                        Log.i("ExternalStorage", "-> uri=" + uri);
+                                    }
+                                });
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }).start();
+
+
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {

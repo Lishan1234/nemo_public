@@ -161,7 +161,10 @@ import java.nio.ByteBuffer;
   @Override
   public void release() {
     super.release();
+    Log.e("TAG","release decoder");
+
     vpxClose(vpxDecContext);
+    Log.e("TAG","release decoder");
   }
 
   /** Renders the outputBuffer to the surface. Used with OUTPUT_MODE_SURFACE_YUV only. */
