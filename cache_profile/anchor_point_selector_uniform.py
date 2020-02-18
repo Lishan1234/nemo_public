@@ -24,24 +24,34 @@ class APS_Uniform():
         self.threshold = threshold
 
     def run(self, chunk_idx):
+        start_time = time.time()
+        lr_video_file = os.path.join(self.dataset_dir, 'video', self.lr_video_name)
+        lr_video_profile = profile_video(lr_video_file)
+        total_frames = lr_video_profile['frame_rate'] * lr_video_profile['duration']
+        assert(total_frames == math.floor(total_frames))
+        left_frames = total_frames - chunk_idx * self.gop
+        total_frames = int(total_frames)
+        left_frames = int(left_frames)
+
         start_idx = chunk_idx * self.gop
-        end_idx = (chunk_idx + 1) * self.gop
+        end_idx = self.gop if left_frames >= self.gop else left_frames
+        #end_idx = (chunk_idx + 1) * self.gop
         postfix = 'chunk{:04d}'.format(chunk_idx)
         profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, postfix)
         log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, postfix)
 
         #setup lr, sr, hr frames
-        libvpx_save_frame(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.gop, chunk_idx)
-        libvpx_save_frame(self.vpxdec_file, self.dataset_dir, self.hr_video_name, self.gop, chunk_idx)
-        libvpx_setup_sr_frame(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.gop, chunk_idx, self.model)
+        libvpx_save_frame(self.vpxdec_file, self.dataset_dir, self.lr_video_name, start_idx, end_idx, chunk_idx)
+        libvpx_save_frame(self.vpxdec_file, self.dataset_dir, self.hr_video_name, start_idx, end_idx, chunk_idx)
+        libvpx_setup_sr_frame(self.vpxdec_file, self.dataset_dir, self.lr_video_name, chunk_idx, self.model)
 
         quality_bilinear = libvpx_bilinear_quality(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
-                                                    start_idx, self.gop, postfix)
+                                                    start_idx, end_idx, postfix)
         quality_dnn = libvpx_offline_dnn_quality(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
-                                                    self.model.name, start_idx, self.gop, postfix)
+                                                    self.model.name, start_idx, end_idx, postfix)
 
         #load frames (index)
-        frames = libvpx_load_frame_index(self.dataset_dir, self.lr_video_name, self.gop, chunk_idx)
+        frames = libvpx_load_frame_index(self.dataset_dir, self.lr_video_name, chunk_idx)
 
         #select/evaluate anchor points
         log_file = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name, \
@@ -49,7 +59,7 @@ class APS_Uniform():
         num_anchor_points = 0
         cache_mac = count_mac_for_cache(self.model.nhwc[1] * self.model.scale, self.model.nhwc[2] * self.model.scale, 3)
         dnn_mac = count_mac_for_dnn(self.model.name, self.model.nhwc[1], self.model.nhwc[2])
-        decode_dnn_mac = dnn_mac * self.gop
+        decode_dnn_mac = dnn_mac * end_idx
         with open(log_file, 'w') as f:
             for i in range(len(frames)):
                 #select anchor points uniformly
@@ -62,13 +72,13 @@ class APS_Uniform():
 
                 #log
                 quality_cache = libvpx_offline_cache_quality(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
-                                                    self.model.name, cache_profile, start_idx, self.gop, postfix)
+                                                    self.model.name, cache_profile, start_idx, end_idx, postfix)
                 quality_diff = np.asarray(quality_dnn) - np.asarray(quality_cache)
                 quality_error =  np.percentile(np.asarray(quality_dnn) - np.asarray(quality_cache) \
                                                             ,[95, 99, 100], interpolation='nearest')
                 frame_count_1 = sum(map(lambda x : x >= 0.5, quality_diff))
                 frame_count_2 = sum(map(lambda x : x >= 1.0, quality_diff))
-                decode_cache_mac = dnn_mac * len(cache_profile.anchor_points) + cache_mac * (self.gop - len(cache_profile.anchor_points))
+                decode_cache_mac = dnn_mac * len(cache_profile.anchor_points) + cache_mac * (end_idx - len(cache_profile.anchor_points))
                 log = '{}\t{:.2f}\t{:.2f}\t{:.2f}\t{}\t{}\t{}\t{:.2f}\t{:.2f}\n'.format(num_anchor_points,
                                         np.average(quality_cache), np.average(quality_dnn), np.average(quality_bilinear),
                                         frame_count_1, frame_count_2, '\t'.join(str(np.round(x, 2)) for x in quality_error),
@@ -82,6 +92,8 @@ class APS_Uniform():
                 #check quality difference
                 if np.average(quality_diff) <= self.threshold:
                     break
+        end_time = time.time()
+        print('0 video chunk: {}sec'.format(end_time - start_time))
 
     def summary(self):
         log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name)
