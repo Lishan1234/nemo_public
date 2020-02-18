@@ -10,4 +10,5 @@ python $MOBINAS_CODE_ROOT/cache_profile/nemo_s/anchor_point_selector_nemo_s.py \
                 --threshold 0.2 \
                 --mode nemo \
                 --task profile \
-                --chunk_idx 0
+                --chunk_idx 0  \
+                --num_decoders 4 

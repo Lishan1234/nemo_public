@@ -16,7 +16,7 @@ from dnn.model.nas_s import NAS_S
 from dnn.utility import raw_quality
 
 class APS_NEMO():
-    def __init__(self, model, vpxdec_file, dataset_dir, lr_video_name, hr_video_name, gop, threshold, num_decoders):
+    def __init__(self, model, vpxdec_file, dataset_dir, lr_video_name, hr_video_name, gop, threshold, num_decoders, profile_all=False):
         self.model = model
         self.vpxdec_file = vpxdec_file
         self.dataset_dir = dataset_dir
@@ -25,6 +25,7 @@ class APS_NEMO():
         self.gop = gop
         self.threshold = threshold
         self.num_decoders = num_decoders
+        self.profile_all = profile_all
 
     def _select_anchor_point(self, cache_profile, ap_cache_profiles):
         max_estimated_quality = None
@@ -68,13 +69,16 @@ class APS_NEMO():
         #setup lr, sr, hr frames
         libvpx_save_frame(self.vpxdec_file, self.dataset_dir, self.lr_video_name, start_idx, end_idx, chunk_idx)
         libvpx_save_frame(self.vpxdec_file, self.dataset_dir, self.hr_video_name, start_idx, end_idx, chunk_idx)
-        libvpx_setup_sr_frame(self.vpxdec_file, self.dataset_dir, self.lr_video_name, chunk_idx, self.model)
+        #libvpx_setup_sr_frame(self.vpxdec_file, self.dataset_dir, self.lr_video_name, chunk_idx, self.model)
         quality_bilinear = libvpx_bilinear_quality(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
                                                     start_idx, end_idx, postfix)
         quality_dnn = libvpx_offline_dnn_quality(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
                                                     self.model.name, start_idx, end_idx, postfix)
+        end_time = time.time()
+        print('{} video chunk: (Step1-profile bilinear, dnn quality) {}sec'.format(chunk_idx, end_time - start_time))
 
         #load frames (index)
+        start_time = time.time()
         frames = libvpx_load_frame_index(self.dataset_dir, self.lr_video_name, chunk_idx)
 
         q0 = mp.Queue()
@@ -110,7 +114,8 @@ class APS_NEMO():
         for decoder in decoders:
             decoder.join()
         end_time = time.time()
-        print('step1: {}sec'.format(end_time - start_time))
+
+        print('{} video chunk: (Step1-profile anchor point quality) {}sec'.format(chunk_idx, end_time - start_time))
 
         ###########step 2: order anchor points##########
         start_time = time.time()
@@ -130,7 +135,7 @@ class APS_NEMO():
             cache_profile.save()
             ordered_cache_profiles.append(cache_profile)
         end_time = time.time()
-        print('step2: {}sec'.format(end_time - start_time))
+        print('{} video chunk: (Step2) {}sec'.format(chunk_idx, end_time - start_time))
 
         ###########step 3: select anchor points##########
         start_time = time.time()
@@ -175,8 +180,11 @@ class APS_NEMO():
                     cache_profile.save()
                     found = True
 
+                    if self.profile_all is False:
+                        break
+
         end_time = time.time()
-        print('step3: {}sec'.format(end_time - start_time))
+        print('{} video chunk: (Step3) {}sec'.format(chunk_idx, end_time - start_time))
 
     def summary(self):
         log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name)

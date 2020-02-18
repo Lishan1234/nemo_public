@@ -4,6 +4,7 @@ import struct
 import copy
 import subprocess
 import shlex
+import time
 
 import tensorflow as tf
 
@@ -265,6 +266,7 @@ def libvpx_offline_cache_quality_mt(q0, q1, vpxdec_file, content_dir, input_vide
         if item == 'end':
             return
         else:
+            start_time = time.time()
             cache_profile = item[0]
             skip = item[1]
             limit = item[2]
@@ -276,6 +278,10 @@ def libvpx_offline_cache_quality_mt(q0, q1, vpxdec_file, content_dir, input_vide
             --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=2 --cache-policy=1 \
             --save-quality --save-metadata --dnn-name={} --cache-profile={}'.format(vpxdec_file, content_dir, input_video_name, \
                                                             compare_video_name, model_name, cache_profile.path)
+            #command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} \
+            #--input-video={} --compare-video={} --decode-mode=2 --dnn-mode=2 --cache-policy=1 \
+            #--dnn-name={} --cache-profile={}'.format(vpxdec_file, content_dir, input_video_name, \
+            #                                                compare_video_name, model_name, cache_profile.path)
             if skip is not None:
                 command += ' --skip={}'.format(skip)
             if limit is not None:
@@ -283,7 +289,8 @@ def libvpx_offline_cache_quality_mt(q0, q1, vpxdec_file, content_dir, input_vide
             if postfix is not None:
                 command += ' --postfix={}'.format(postfix)
             subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-            #subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL)
+            #result = subprocess.check_output(shlex.split(command)).decode('utf-8')
+            #result = result.split('\n')
 
             #load quality from a log file
             log_dir = os.path.join(content_dir, 'log', input_video_name, model_name)
@@ -296,6 +303,7 @@ def libvpx_offline_cache_quality_mt(q0, q1, vpxdec_file, content_dir, input_vide
                 for line in lines:
                     line = line.strip()
                     quality.append(float(line.split('\t')[1]))
+            end_time = time.time()
 
             q1.put((idx, quality))
 
