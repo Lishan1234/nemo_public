@@ -462,8 +462,8 @@ static void _mkdir(const char *dir) {
     mkdir(tmp, S_IRWXU);
 }
 
-mobinas_cfg * setup(const char *content_dir, const char *input_video) {
-    mobinas_cfg_t * mobinas_cfg = (mobinas_cfg_t *) calloc(1, sizeof(mobinas_cfg));
+mobinas_cfg_t * setup(const char *content_dir, const char *input_video) {
+    mobinas_cfg_t * mobinas_cfg = (mobinas_cfg_t *) calloc(1, sizeof(mobinas_cfg_t));
 
     sprintf(mobinas_cfg->log_dir, "%s/log/%s", content_dir, input_video);
     sprintf(mobinas_cfg->input_frame_dir, "%s/image/%s", content_dir, input_video);
@@ -471,7 +471,7 @@ mobinas_cfg * setup(const char *content_dir, const char *input_video) {
     _mkdir(mobinas_cfg->input_frame_dir);
 
     mobinas_cfg->save_frame = 0;
-    mobinas_cfg->save_latency = 0;
+    mobinas_cfg->save_latency = 1;
     mobinas_cfg->save_metadata = 0;
     mobinas_cfg->save_metadata = 0;
 
@@ -483,8 +483,11 @@ mobinas_cfg * setup(const char *content_dir, const char *input_video) {
 }
 
 
-mobinas_cfg * online_sr(const char * content_dir, const char * input_video, const char * compare_video, const char * dnn_name, const char * dnn_file){
-    mobinas_cfg_t * mobinas_cfg = (mobinas_cfg_t *) calloc(1, sizeof(mobinas_cfg));
+mobinas_cfg_t * online_sr(const char * content_dir, const char * input_video, const char * compare_video, const char * dnn_name, const char * dnn_file){
+    mobinas_cfg_t * mobinas_cfg = (mobinas_cfg_t *) calloc(1, sizeof(mobinas_cfg_t));
+    if(mobinas_cfg == NULL){
+        __android_log_print(6,"CHECK","CHECK:OOM\n");
+    }
 
     sprintf(mobinas_cfg->log_dir, "%s/log/%s/%s", content_dir, input_video, dnn_name);
     sprintf(mobinas_cfg->input_frame_dir, "%s/image/%s", content_dir, input_video);
@@ -497,7 +500,7 @@ mobinas_cfg * online_sr(const char * content_dir, const char * input_video, cons
 
     mobinas_cfg->save_frame = 0;
     mobinas_cfg->save_quality = 0;
-    mobinas_cfg->save_latency = 0;
+    mobinas_cfg->save_latency = 1;
     mobinas_cfg->save_metadata = 0;
 
     mobinas_cfg->decode_mode = DECODE_CACHE;
@@ -513,9 +516,7 @@ mobinas_cfg * online_sr(const char * content_dir, const char * input_video, cons
 
 DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
              jboolean enableBufferManager) {
-
-    __android_log_print(6,"asdf","vpxInit");
-  JniCtx* context = new JniCtx(enableBufferManager);
+    JniCtx* context = new JniCtx(enableBufferManager);
   context->decoder = new vpx_codec_ctx_t();
   vpx_codec_dec_cfg_t cfg = {0, 0, 0};
   cfg.threads = android_getCpuCount();
@@ -540,27 +541,39 @@ DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
     const char *content_dir = "/storage/emulated/0/Android/data/android.example.testlibvpx/files";
     const char *input_video = "240p_s0_d60_encoded.webm";
     const char *compare_video = "960p_s0_d60.webm";
-//    const char *dnn_name = "EDSR_S_B8_F64_S4";
-    const char * dnn_name = "medium";
-    const char *dnn_file = "medium.dlc";
+    const char *dnn_name = "EDSR_S_B8_F64_S4";
+//    const char * dnn_name = "high";
+    const char *dnn_file = "ckpt-100.dlc";
 
 //    mobinas_cfg * setup_mobinas_cfg = setup(content_dir, input_video);
     mobinas_cfg * setup_mobinas_cfg = online_sr(content_dir, input_video, compare_video, dnn_name, dnn_file);
+    __android_log_print(6,"CHECK","decode_mode1: %d\n",setup_mobinas_cfg->decode_mode);
+//    __android_log_print(6,"CHECK","dnn_mode1: %d\n",setup_mobinas_cfg->dnn_mode);
+
 
     if(vpx_load_mobinas_cfg(context->decoder, setup_mobinas_cfg)){
         //go to fail
         LOGE("fail");
     }
+    __android_log_print(6,"CHECK","decode_mode2: %d\n",setup_mobinas_cfg->decode_mode);
+//    __android_log_print(6,"CHECK","dnn_mode2: %d\n",setup_mobinas_cfg->dnn_mode);
 
-        LOGE("setup mobinas fine");
+
+    LOGE("setup mobinas fine");
     if(setup_mobinas_cfg->dnn_mode == DECODE_SR || setup_mobinas_cfg->dnn_mode == DECODE_CACHE){
         if(vpx_load_mobinas_dnn(context->decoder, setup_mobinas_cfg)){
             //go to fail
             LOGE("fail2");
         }
     }
+    __android_log_print(6,"CHECK","decode_mode3: %d\n",setup_mobinas_cfg->decode_mode);
+//    __android_log_print(6,"CHECK","dnn_mode3: %d\n",setup_mobinas_cfg->dnn_mode);
 
-    /***chanju***/
+
+    LOGE("setup snpe fine");
+
+
+  /***chanju***/
 
 
 
@@ -575,7 +588,10 @@ DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
     }
   }
 
-  // Populate JNI References.
+    __android_log_print(6,"CHECK","decode_mode4: %d\n",setup_mobinas_cfg->decode_mode);
+
+
+    // Populate JNI References.
   const jclass outputBufferClass = env->FindClass(
       "com/google/android/exoplayer2/ext/vp9/VpxOutputBuffer");
   initForYuvFrame = env->GetMethodID(outputBufferClass, "initForYuvFrame",
@@ -591,6 +607,7 @@ DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
 }
 
 DECODER_FUNC(jlong, vpxDecode, jlong jContext, jobject encoded, jint len) {
+  __android_log_print(6,"TAG","vpxDecode");
   JniCtx* const context = reinterpret_cast<JniCtx*>(jContext);
   const uint8_t* const buffer =
       reinterpret_cast<const uint8_t*>(env->GetDirectBufferAddress(encoded));
@@ -616,7 +633,7 @@ DECODER_FUNC(jlong, vpxSecureDecode, jlong jContext, jobject encoded, jint len,
   return -2;
 }
 
-DECODER_FUNC(jlong, vpxClose, jlong jContext) {
+DECODER_FUNC(jlong, vpxClose, jlong jContext)  {
   JniCtx* const context = reinterpret_cast<JniCtx*>(jContext);
   vpx_codec_destroy(context->decoder);
   delete context;

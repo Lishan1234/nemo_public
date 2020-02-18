@@ -260,6 +260,7 @@ public class LibvpxVideoRenderer extends BaseRenderer {
   @Override
   public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
 
+    Log.e("exo_queue","render");
     if (outputStreamEnded) {
       return;
     }
@@ -290,7 +291,10 @@ public class LibvpxVideoRenderer extends BaseRenderer {
       try {
         // Rendering loop.
         TraceUtil.beginSection("drainAndFeed");
+        Log.e("exo_queue","before drain: " + decoder.queuedOutputBuffers.size()+"");
         while (drainOutputBuffer(positionUs, elapsedRealtimeUs)) {}
+        Log.e("exo_queue","after drain: " + decoder.queuedOutputBuffers.size()+"");
+
         while (feedInputBuffer()) {}
         TraceUtil.endSection();
       } catch (VpxDecoderException e) {

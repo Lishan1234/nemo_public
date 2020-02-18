@@ -961,6 +961,7 @@ public class SimpleExoPlayer extends BasePlayer
 
   @Override
   public void stop(boolean reset) {
+    Log.e("TAG",TAG + ": stop");
     verifyApplicationThread();
     player.stop(reset);
     if (mediaSource != null) {
