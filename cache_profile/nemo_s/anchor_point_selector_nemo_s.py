@@ -1,5 +1,6 @@
 import argparse
 import os
+import math
 
 import tensorflow as tf
 
@@ -35,6 +36,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_decoders', default=24, type=int)
     parser.add_argument('--mode', choices=['uniform','random','nemo'], required=True)
     parser.add_argument('--task', choices=['profile','summary'], required=True)
+    parser.add_argument('--profile_all', action='store_true')
 
     args = parser.parse_args()
 
@@ -60,13 +62,13 @@ if __name__ == '__main__':
     elif args.mode == 'random':
         aps = APS_Random(checkpoint.model, args.vpxdec_file, args.dataset_dir, args.lr_video_name, args.hr_video_name, args.gop, args.threshold)
     elif args.mode == 'nemo':
-        aps = APS_NEMO(checkpoint.model, args.vpxdec_file, args.dataset_dir, args.lr_video_name, args.hr_video_name, args.gop, args.threshold, args.num_decoders)
+        aps = APS_NEMO(checkpoint.model, args.vpxdec_file, args.dataset_dir, args.lr_video_name, args.hr_video_name, args.gop, args.threshold, args.num_decoders, args.profile_all)
     else:
         raise NotImplementedError
 
     if args.task == 'profile':
         if args.chunk_idx is None:
-            num_chunks = int(lr_video_info['duration'] // (args.gop / lr_video_info['frame_rate']))
+            num_chunks = int(math.ceil(lr_video_info['duration'] / (args.gop / lr_video_info['frame_rate'])))
             for i in range(num_chunks):
                 aps.run(i)
         else:
