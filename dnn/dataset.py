@@ -143,6 +143,12 @@ def decode_raw(filepath, width, height, channel, precision):
     #return image, filepath
     return image
 
+def decode_raw_with_name(filepath, width, height, channel, precision):
+    file = tf.io.read_file(filepath)
+    image = tf.decode_raw(file, precision)
+    image = tf.reshape(image, [height, width, channel])
+    return image, filepath
+
 def raw_dataset(image_dir, width, height, channel, exp, precision):
     m = re.compile(exp)
     images = sorted([os.path.join(image_dir, f) for f in os.listdir(image_dir) if m.search(f)])
@@ -152,9 +158,18 @@ def raw_dataset(image_dir, width, height, channel, exp, precision):
     ds = ds.map(lambda x: decode_raw(x, width, height, channel, precision), num_parallel_calls=AUTOTUNE)
     return ds, len(images)
 
-def single_raw_dataset(image_dir, width, height, exp, repeat_count=1, precision=tf.uint8):
-    ds, length = raw_dataset(image_dir, width, height, exp, precision)
-    ds = ds
+def single_raw_dataset(image_dir, width, height, channel, exp, repeat_count=1, precision=tf.uint8):
+    ds, length = raw_dataset(image_dir, width, height, channel, exp, precision)
+    ds = ds.batch(1)
+    ds = ds.repeat(repeat_count)
+    ds = ds.prefetch(buffer_size=AUTOTUNE)
+    return ds
+
+def single_raw_dataset_with_name(image_dir, width, height, channel, exp, repeat_count=1, precision=tf.uint8):
+    m = re.compile(exp)
+    images = sorted([os.path.join(image_dir, f) for f in os.listdir(image_dir) if m.search(f)])
+    ds = tf.data.Dataset.from_tensor_slices(images)
+    ds = ds.map(lambda x: decode_raw_with_name(x, width, height, channel, precision), num_parallel_calls=AUTOTUNE)
     ds = ds.batch(1)
     ds = ds.repeat(repeat_count)
     ds = ds.prefetch(buffer_size=AUTOTUNE)

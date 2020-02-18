@@ -8,7 +8,7 @@ import shlex
 import tensorflow as tf
 
 from tool.video import profile_video
-from dnn.dataset import single_raw_dataset
+from dnn.dataset import single_raw_dataset, single_raw_dataset_with_name
 
 class Frame():
     def __init__(self, video_index, super_index):
@@ -96,9 +96,10 @@ class CacheProfile():
     def __lt__(self, other):
         return self.count_anchor_points() < other.count_anchor_points()
 
-def libvpx_save_frame(vpxdec_file, content_dir, video_name, gop, chunk_idx):
-    start_idx = chunk_idx * gop
-    end_idx = (chunk_idx + 1) * gop
+#def libvpx_save_frame(vpxdec_file, content_dir, video_name, gop, chunk_idx):
+def libvpx_save_frame(vpxdec_file, content_dir, video_name, start_idx, end_idx, chunk_idx):
+    #start_idx = chunk_idx * gop
+    #end_idx = (chunk_idx + 1) * gop
     postfix = 'chunk{:04d}'.format(chunk_idx)
 
     lr_image_dir = os.path.join(content_dir, 'image', video_name, postfix)
@@ -109,9 +110,10 @@ def libvpx_save_frame(vpxdec_file, content_dir, video_name, gop, chunk_idx):
             start_idx, end_idx - start_idx, content_dir, video_name, postfix)
     subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
-def libvpx_save_metadata(vpxdec_file, content_dir, video_name, gop, chunk_idx):
-    start_idx = chunk_idx * gop
-    end_idx = (chunk_idx + 1) * gop
+#def libvpx_save_metadata(vpxdec_file, content_dir, video_name, gop, chunk_idx):
+def libvpx_save_metadata(vpxdec_file, content_dir, video_name, start_idx, end_idx, chunk_idx):
+    #start_idx = chunk_idx * gop
+    #end_idx = (chunk_idx + 1) * gop
     postfix = 'chunk{:04d}'.format(chunk_idx)
 
     lr_image_dir = os.path.join(content_dir, 'image', video_name, postfix)
@@ -122,11 +124,8 @@ def libvpx_save_metadata(vpxdec_file, content_dir, video_name, gop, chunk_idx):
             start_idx, end_idx - start_idx, content_dir, video_name, postfix)
     subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
-def libvpx_load_frame_index(content_dir, video_name, gop, chunk_idx):
-    start_idx = chunk_idx * gop
-    end_idx = (chunk_idx + 1) * gop
+def libvpx_load_frame_index(content_dir, video_name, chunk_idx):
     postfix = 'chunk{:04d}'.format(chunk_idx)
-
     frames = []
     log_path = os.path.join(content_dir, 'log', video_name, postfix, 'metadata.txt')
     with open(log_path, 'r') as f:
@@ -139,9 +138,8 @@ def libvpx_load_frame_index(content_dir, video_name, gop, chunk_idx):
 
     return frames
 
-def libvpx_setup_sr_frame(vpxdec_file, content_dir, video_name, gop, chunk_idx, model):
-    start_idx = chunk_idx * gop
-    end_idx = (chunk_idx + 1) * gop
+#def libvpx_setup_sr_frame(vpxdec_file, content_dir, video_name, gop, chunk_idx, model):
+def libvpx_setup_sr_frame(vpxdec_file, content_dir, video_name, chunk_idx, model):
     postfix = 'chunk{:04d}'.format(chunk_idx)
 
     lr_image_dir = os.path.join(content_dir, 'image', video_name, postfix)
@@ -151,7 +149,7 @@ def libvpx_setup_sr_frame(vpxdec_file, content_dir, video_name, gop, chunk_idx, 
     input_video_path = os.path.join(content_dir, 'video', video_name)
     input_video_info = profile_video(input_video_path)
 
-    single_raw_ds = single_raw_dataset(lr_image_dir, input_video_info['height'], input_video_info['width'])
+    single_raw_ds = single_raw_dataset_with_name(lr_image_dir, input_video_info['width'], input_video_info['height'], 3, exp='.raw')
     for idx, img in enumerate(single_raw_ds):
         lr = img[0]
         lr = tf.cast(lr, tf.float32)
@@ -167,7 +165,7 @@ def libvpx_setup_sr_frame(vpxdec_file, content_dir, video_name, gop, chunk_idx, 
 
         #validate
         #sr_image = tf.image.encode_png(tf.squeeze(sr))
-        #tf.io.write_file(os.path.join('.', '{0:04d}.png'.format(idx+1)), sr_image)
+        #tf.io.write_file(os.path.join(sr_image_dir, '{0:04d}.png'.format(idx+1)), sr_image)
 
 #TODO: later, add a DECODE_BILINEAR mode
 #TODO: check apply_dnn, NO_CACHE + DECODE_CACHE in libvpx

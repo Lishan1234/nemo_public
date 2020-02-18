@@ -49,24 +49,33 @@ class APS_NEMO():
 
     def run(self, chunk_idx):
         ###########step 1: analyze anchor points##########
+        start_time = time.time()
+        lr_video_file = os.path.join(self.dataset_dir, 'video', self.lr_video_name)
+        lr_video_profile = profile_video(lr_video_file)
+        total_frames = lr_video_profile['frame_rate'] * lr_video_profile['duration']
+        assert(total_frames == math.floor(total_frames))
+        left_frames = total_frames - chunk_idx * self.gop
+        total_frames = int(total_frames)
+        left_frames = int(left_frames)
+
         start_idx = chunk_idx * self.gop
-        end_idx = (chunk_idx + 1) * self.gop
+        #end_idx = (chunk_idx + 1) * self.gop
+        end_idx = self.gop if left_frames >= self.gop else left_frames
         postfix = 'chunk{:04d}'.format(chunk_idx)
         profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, postfix)
         log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, postfix)
 
         #setup lr, sr, hr frames
-        libvpx_save_frame(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.gop, chunk_idx)
-        libvpx_save_frame(self.vpxdec_file, self.dataset_dir, self.hr_video_name, self.gop, chunk_idx)
-        libvpx_setup_sr_frame(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.gop, chunk_idx, self.model)
-
+        libvpx_save_frame(self.vpxdec_file, self.dataset_dir, self.lr_video_name, start_idx, end_idx, chunk_idx)
+        libvpx_save_frame(self.vpxdec_file, self.dataset_dir, self.hr_video_name, start_idx, end_idx, chunk_idx)
+        libvpx_setup_sr_frame(self.vpxdec_file, self.dataset_dir, self.lr_video_name, chunk_idx, self.model)
         quality_bilinear = libvpx_bilinear_quality(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
-                                                    start_idx, self.gop, postfix)
+                                                    start_idx, end_idx, postfix)
         quality_dnn = libvpx_offline_dnn_quality(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
-                                                    self.model.name, start_idx, self.gop, postfix)
+                                                    self.model.name, start_idx, end_idx, postfix)
 
         #load frames (index)
-        frames = libvpx_load_frame_index(self.dataset_dir, self.lr_video_name, self.gop, chunk_idx)
+        frames = libvpx_load_frame_index(self.dataset_dir, self.lr_video_name, chunk_idx)
 
         q0 = mp.Queue()
         q1 = mp.Queue()
@@ -83,7 +92,7 @@ class APS_NEMO():
             cache_profile.save()
 
             #measure quality
-            q0.put((cache_profile, start_idx, self.gop, postfix, idx))
+            q0.put((cache_profile, start_idx, end_idx, postfix, idx))
             #quality_cache = libvpx_offline_cache_quality(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
             #                                    self.model.name, cache_profile, start_idx, self.gop, postfix)
             #cache_profile.set_measured_quality(quality_cache)
@@ -100,8 +109,11 @@ class APS_NEMO():
 
         for decoder in decoders:
             decoder.join()
+        end_time = time.time()
+        print('step1: {}sec'.format(end_time - start_time))
 
         ###########step 2: order anchor points##########
+        start_time = time.time()
         ordered_cache_profiles = []
         cache_profile = None
         while len(ap_cache_profiles) > 0:
@@ -117,42 +129,54 @@ class APS_NEMO():
                 cache_profile.set_estimated_quality(estimated_quality)
             cache_profile.save()
             ordered_cache_profiles.append(cache_profile)
+        end_time = time.time()
+        print('step2: {}sec'.format(end_time - start_time))
 
         ###########step 3: select anchor points##########
-        log_file = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name, \
+        start_time = time.time()
+        log_file0 = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name, \
                 postfix, 'quality_{}_{:.2f}.txt'.format(self.__class__.__name__, self.threshold))
+        log_file1 = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name, \
+                postfix, 'quality_{}.txt'.format(self.__class__.__name__))
         hr_video_file = os.path.join(self.dataset_dir, 'video', self.hr_video_name)
         hr_video_profile = profile_video(hr_video_file)
         cache_mac = count_mac_for_cache(self.model.nhwc[1] * self.model.scale, self.model.nhwc[2] * self.model.scale, 3)
         dnn_mac = count_mac_for_dnn(self.model.name, self.model.nhwc[1], self.model.nhwc[2])
-        decode_dnn_mac = dnn_mac * self.gop
-        with open(log_file, 'w') as f:
+        decode_dnn_mac = dnn_mac * end_idx
+        found = False
+        with open(log_file0, 'w') as f0, open(log_file1, 'w') as f1:
             for cache_profile in ordered_cache_profiles:
                 #log
                 quality_cache = libvpx_offline_cache_quality(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
-                                                    self.model.name, cache_profile, start_idx, self.gop, postfix)
+                                                    self.model.name, cache_profile, start_idx, end_idx, postfix)
                 quality_diff = np.asarray(quality_dnn) - np.asarray(quality_cache)
                 quality_error =  np.percentile(np.asarray(quality_dnn) - np.asarray(quality_cache) \
                                                             ,[95, 99, 100], interpolation='nearest')
                 frame_count_1 = sum(map(lambda x : x >= 0.5, quality_diff))
                 frame_count_2 = sum(map(lambda x : x >= 1.0, quality_diff))
-                decode_cache_mac = dnn_mac * len(cache_profile.anchor_points) + cache_mac * (self.gop - len(cache_profile.anchor_points))
+                decode_cache_mac = dnn_mac * len(cache_profile.anchor_points) + cache_mac * (end_idx - len(cache_profile.anchor_points))
                 log = '{}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{}\t{}\t{}\t{:.2f}\t{:.2f}\n'.format(len(cache_profile.anchor_points), \
                                         np.average(quality_cache), np.average(quality_dnn), np.average(quality_bilinear), \
                                         np.average(cache_profile.estimated_quality), np.average(np.asarray(quality_cache) - np.asarray(cache_profile.estimated_quality)),
                                         frame_count_1, frame_count_2, '\t'.join(str(np.round(x, 2)) for x in quality_error), \
                                         decode_cache_mac / 1e9, decode_dnn_mac / 1e9)
-                f.write(log)
+
+                if found == False:
+                    f0.write(log)
+                f1.write(log)
 
                 print('{} video chunk, {} anchor points: PSNR(Cache)={:.2f}, PSNR(SR)={:.2f}, PSNR(Bilinear)={:.2f}'.format( \
                                         chunk_idx, len(cache_profile.anchor_points), np.average(quality_cache), np.average(quality_dnn), \
                                         np.average(quality_bilinear)))
 
                 #check quality difference
-                if np.average(quality_diff) <= self.threshold:
+                if np.average(quality_diff) <= self.threshold and found == False:
                     cache_profile.name = '{}_{}'.format(self.__class__.__name__, self.threshold)
                     cache_profile.save()
-                    break
+                    found = True
+
+        end_time = time.time()
+        print('step3: {}sec'.format(end_time - start_time))
 
     def summary(self):
         log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name)
