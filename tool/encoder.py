@@ -77,40 +77,40 @@ class Encoder():
 
     def encode_1080p_lossless(self):
         input_video_path = os.path.join(self.video_dir, "2160p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
-        #output_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
-        output_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.mp4".format(self.start_time, self.duration))
+        output_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
+        #output_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.mp4".format(self.start_time, self.duration))
 
         if os.path.exists(output_video_path):
             logging.info("{} already exists".format(output_video_path))
             return
-        #cmd = "{} -i {} -vf scale=1920x1080 -threads {} -c:v libvpx-vp9 -lossless 1  -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
-        cmd = "{} -i {} -vf scale=1920x1080 -threads {} -c:v libx265 -crf 0 -preset ultrafast -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
+        cmd = "{} -i {} -vf scale=1920x1080 -threads {} -c:v libvpx-vp9 -lossless 1  -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
+        #cmd = "{} -i {} -vf scale=1920x1080 -threads {} -c:v libx265 -crf 0 -preset ultrafast -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
         os.system(cmd)
 
     def encode_960p_v1_lossless(self):
         input_video_path = os.path.join(self.video_dir, "2160p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
-        #output_video_path = os.path.join(self.video_dir, "960p_240p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
-        output_video_path = os.path.join(self.video_dir, "960p_240p_s{}_d{}.mp4".format(self.start_time, self.duration, self.video_fmt))
+        output_video_path = os.path.join(self.video_dir, "960p_240p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
+        #output_video_path = os.path.join(self.video_dir, "960p_240p_s{}_d{}.mp4".format(self.start_time, self.duration, self.video_fmt))
 
         if os.path.exists(output_video_path):
             logging.info("{} already exists".format(output_video_path))
             return
 
-        #cmd = "{} -i {} -vf scale=1704x960 -threads {} -c:v libvpx-vp9 -lossless 1  -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
-        cmd = "{} -i {} -vf scale=1704x960 -threads {} -c:v libx265 -crf 0 -preset ultrafast -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
+        cmd = "{} -i {} -vf scale=1704x960 -threads {} -c:v libvpx-vp9 -lossless 1  -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
+        #cmd = "{} -i {} -vf scale=1704x960 -threads {} -c:v libx265 -crf 0 -preset ultrafast -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
         os.system(cmd)
 
     def encode_960p_v2_lossless(self):
         input_video_path = os.path.join(self.video_dir, "2160p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
-        #output_video_path = os.path.join(self.video_dir, "960p_480p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
-        output_video_path = os.path.join(self.video_dir, "960p_480p_s{}_d{}.mp4".format(self.start_time, self.duration, self.video_fmt))
+        output_video_path = os.path.join(self.video_dir, "960p_480p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
+        #output_video_path = os.path.join(self.video_dir, "960p_480p_s{}_d{}.mp4".format(self.start_time, self.duration, self.video_fmt))
 
         if os.path.exists(output_video_path):
             logging.info("{} already exists".format(output_video_path))
             return
 
-        #cmd = "{} -i {} -vf scale=1708x960 -threads {} -c:v libvpx-vp9 -lossless 1  -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
-        cmd = "{} -i {} -vf scale=1708x960 -threads {} -c:v libx265 -crf 0 -preset ultrafast -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
+        cmd = "{} -i {} -vf scale=1708x960 -threads {} -c:v libvpx-vp9 -lossless 1  -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
+        #cmd = "{} -i {} -vf scale=1708x960 -threads {} -c:v libx265 -crf 0 -preset ultrafast -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
         os.system(cmd)
 
     def encode_240p(self):

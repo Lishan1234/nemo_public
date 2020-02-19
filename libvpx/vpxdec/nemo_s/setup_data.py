@@ -59,11 +59,7 @@ if __name__ == '__main__':
     scale = hr_video_profile['height'] // lr_video_profile['height']
 
     nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale, args.upsample_type)
-    if (hr_video_profile['height'] % lr_video_profile['height'] == 0 and
-            hr_video_profile['width'] % lr_video_profile['width'] == 0):
-        model = nemo_s.build_model()
-    else:
-        model = nemo_s.build_model(resolution=(hr_video_profile['height'], hr_video_profile['width']))
+    model = nemo_s.build_model(apply_clip=True)
     model.nhwc = nhwc
     model.scale = scale
     ffmpeg_option = FFmpegOption(args.filter_type, args.filter_fps, None)
@@ -85,7 +81,7 @@ if __name__ == '__main__':
     cmds = ['#!/system/bin/sh',
             'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{}'.format(device_libs_dir),
             'cd {}'.format(device_root_dir),
-            '{} --codec=vp9  --noblit --threads={} --frame-buffers=50 {} --content-dir={} --input-video={} --save-frame --save-latency --save-metadata'.format(os.path.join(device_bin_dir, 'vpxdec'), args.threads, limit, device_root_dir, args.hr_video_name),
+            '{} --codec=vp9  --noblit --threads={} --frame-buffers=50 {} --content-dir={} --input-video={} --compare-video={} --save-quality --save-frame --save-latency --save-metadata'.format(os.path.join(device_bin_dir, 'vpxdec'), args.threads, limit, device_root_dir, args.lr_video_name, args.hr_video_name),
             'exit']
     cmd_script_path = os.path.join(script_dir, 'setup.sh')
     with open(cmd_script_path, 'w') as cmd_script:

@@ -53,9 +53,9 @@ if __name__ == '__main__':
     nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale, args.upsample_type)
     if (hr_video_profile['height'] % lr_video_profile['height'] == 0 and
             hr_video_profile['width'] % lr_video_profile['width'] == 0):
-        model = nemo_s.build_model()
+        model = nemo_s.build_model(apply_clip=True)
     else:
-        model = nemo_s.build_model(resolution=(hr_video_profile['height'], hr_video_profile['width']))
+        model = nemo_s.build_model(resolution=(hr_video_profile['height'], hr_video_profile['width']), apply_clip=True)
     model.scale = scale
     model.nhwc = nhwc
     train_ffmpeg_option = FFmpegOption(args.train_filter_type, args.train_filter_fps, None)

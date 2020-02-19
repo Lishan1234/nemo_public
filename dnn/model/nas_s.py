@@ -33,7 +33,7 @@ class NAS_S():
         x = layers.Add()([x_in, x])
         return x
 
-    def build_model(self, resolution=None):
+    def build_model(self, resolution=None, apply_clip=False):
         x_in = layers.Input(shape=(None, None, 3))
 
         x = b = layers.Conv2D(self.num_filters, 3, padding='same', name=self.conv_name())(x_in)
@@ -62,6 +62,8 @@ class NAS_S():
 
         if resolution is not None:
             x = tf.image.resize_bilinear(x, (resolution[0], resolution[1]), half_pixel_centers=True)
+
+        if apply_clip is True:
             x = tf.minimum(x, 255)
             x = tf.maximum(x, 0)
 
