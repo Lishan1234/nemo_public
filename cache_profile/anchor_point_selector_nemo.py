@@ -73,7 +73,7 @@ class APS_NEMO():
         quality_bilinear = libvpx_bilinear_quality(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
                                                     start_idx, end_idx, postfix)
         quality_dnn = libvpx_offline_dnn_quality(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
-                                                    self.model.name, start_idx, end_idx, postfix)
+                                                    self.model.name, lr_video_profile['height'], start_idx, end_idx, postfix)
         end_time = time.time()
         print('{} video chunk: (Step1-profile bilinear, dnn quality) {}sec'.format(chunk_idx, end_time - start_time))
 
@@ -84,7 +84,7 @@ class APS_NEMO():
         q0 = mp.Queue()
         q1 = mp.Queue()
         decoders = [mp.Process(target=libvpx_offline_cache_quality_mt, args=(q0, q1, self.vpxdec_file, self.dataset_dir, \
-                                    self.lr_video_name, self.hr_video_name, self.model.name)) for i in range(self.num_decoders)]
+                                    self.lr_video_name, self.hr_video_name, self.model.name, lr_video_profile['height'])) for i in range(self.num_decoders)]
         for decoder in decoders:
             decoder.start()
 
@@ -153,7 +153,7 @@ class APS_NEMO():
             for cache_profile in ordered_cache_profiles:
                 #log
                 quality_cache = libvpx_offline_cache_quality(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
-                                                    self.model.name, cache_profile, start_idx, end_idx, postfix)
+                                                    self.model.name, cache_profile, lr_video_profile['height'], start_idx, end_idx, postfix)
                 quality_diff = np.asarray(quality_dnn) - np.asarray(quality_cache)
                 quality_error =  np.percentile(np.asarray(quality_dnn) - np.asarray(quality_cache) \
                                                             ,[95, 99, 100], interpolation='nearest')

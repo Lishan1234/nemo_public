@@ -83,7 +83,7 @@ class Encoder():
         if os.path.exists(output_video_path):
             logging.info("{} already exists".format(output_video_path))
             return
-        cmd = "{} -i {} -vf scale=1920x1080 -threads {} -c:v libvpx-vp9 -lossless 1  -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
+        cmd = "{} -i {} -vf scale=1920x1080 -threads {} -c:v libvpx-vp9 -lossless 1 -g {} -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, self.gop, output_video_path)
         #cmd = "{} -i {} -vf scale=1920x1080 -threads {} -c:v libx265 -crf 0 -preset ultrafast -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
         os.system(cmd)
 
@@ -96,7 +96,7 @@ class Encoder():
             logging.info("{} already exists".format(output_video_path))
             return
 
-        cmd = "{} -i {} -vf scale=1704x960 -threads {} -c:v libvpx-vp9 -lossless 1  -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
+        cmd = "{} -i {} -vf scale=1704x960 -threads {} -c:v libvpx-vp9 -lossless 1 -g {} -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, self.gop, output_video_path)
         #cmd = "{} -i {} -vf scale=1704x960 -threads {} -c:v libx265 -crf 0 -preset ultrafast -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
         os.system(cmd)
 
@@ -109,7 +109,7 @@ class Encoder():
             logging.info("{} already exists".format(output_video_path))
             return
 
-        cmd = "{} -i {} -vf scale=1708x960 -threads {} -c:v libvpx-vp9 -lossless 1  -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
+        cmd = "{} -i {} -vf scale=1708x960 -threads {} -c:v libvpx-vp9 -lossless 1 -g {} -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, self.gop, output_video_path)
         #cmd = "{} -i {} -vf scale=1708x960 -threads {} -c:v libx265 -crf 0 -preset ultrafast -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
         os.system(cmd)
 

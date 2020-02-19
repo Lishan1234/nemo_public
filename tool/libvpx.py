@@ -202,12 +202,12 @@ def libvpx_bilinear_quality(vpxdec_file, content_dir, input_video_name, compare_
     return quality
 
 def libvpx_offline_dnn_quality(vpxdec_file, content_dir, input_video_name, compare_video_name,  \
-                                model_name, skip=None, limit=None, postfix=None):
+                                model_name, resolution, skip=None, limit=None, postfix=None):
     #run sr-integrated decoder
     command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} \
     --input-video={} --compare-video={} --decode-mode=1 --dnn-mode=2 \
-    --save-quality --save-metadata --dnn-name={}'.format(vpxdec_file, content_dir, input_video_name, \
-                                            compare_video_name, model_name)
+    --save-quality --save-metadata --dnn-name={} --resolution={}'.format(vpxdec_file, content_dir, input_video_name, \
+                                            compare_video_name, model_name, resolution)
     if skip is not None:
         command += ' --skip={}'.format(skip)
     if limit is not None:
@@ -231,12 +231,12 @@ def libvpx_offline_dnn_quality(vpxdec_file, content_dir, input_video_name, compa
     return quality
 
 def libvpx_offline_cache_quality(vpxdec_file, content_dir, input_video_name, compare_video_name,  \
-                                model_name, cache_profile, skip=None, limit=None, postfix=None):
+                                model_name, cache_profile, resolution, skip=None, limit=None, postfix=None):
     #run sr-integrated decoder
     command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} \
     --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=2 --cache-policy=1 \
-    --save-quality --save-metadata --dnn-name={} --cache-profile={}'.format(vpxdec_file, content_dir, input_video_name, \
-                                                    compare_video_name, model_name, cache_profile.path)
+    --save-quality --save-metadata --dnn-name={} --cache-profile={} --resolution={}'.format(vpxdec_file, content_dir, input_video_name, \
+                                                    compare_video_name, model_name, cache_profile.path, resolution)
     if skip is not None:
         command += ' --skip={}'.format(skip)
     if limit is not None:
@@ -260,7 +260,7 @@ def libvpx_offline_cache_quality(vpxdec_file, content_dir, input_video_name, com
 
     return quality
 
-def libvpx_offline_cache_quality_mt(q0, q1, vpxdec_file, content_dir, input_video_name, compare_video_name, model_name):
+def libvpx_offline_cache_quality_mt(q0, q1, vpxdec_file, content_dir, input_video_name, compare_video_name, model_name, resolution):
     while True:
         item = q0.get()
         if item == 'end':
@@ -276,8 +276,8 @@ def libvpx_offline_cache_quality_mt(q0, q1, vpxdec_file, content_dir, input_vide
             #run sr-integrated decoder
             command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} \
             --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=2 --cache-policy=1 \
-            --save-quality --save-metadata --dnn-name={} --cache-profile={}'.format(vpxdec_file, content_dir, input_video_name, \
-                                                            compare_video_name, model_name, cache_profile.path)
+            --save-quality --save-metadata --dnn-name={} --cache-profile={} --resolution={}'.format(vpxdec_file, content_dir, input_video_name, \
+                                                            compare_video_name, model_name, cache_profile.path, resolution)
             #command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} \
             #--input-video={} --compare-video={} --decode-mode=2 --dnn-mode=2 --cache-policy=1 \
             #--dnn-name={} --cache-profile={}'.format(vpxdec_file, content_dir, input_video_name, \
