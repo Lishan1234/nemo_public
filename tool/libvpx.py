@@ -98,9 +98,9 @@ class CacheProfile():
         return self.count_anchor_points() < other.count_anchor_points()
 
 #def libvpx_save_frame(vpxdec_file, content_dir, video_name, gop, chunk_idx):
-def libvpx_save_frame(vpxdec_file, content_dir, video_name, start_idx, end_idx, chunk_idx):
-    #start_idx = chunk_idx * gop
-    #end_idx = (chunk_idx + 1) * gop
+def libvpx_save_frame(vpxdec_file, content_dir, video_name, skip, limit, chunk_idx):
+    #skip = chunk_idx * gop
+    #limit = (chunk_idx + 1) * gop
     postfix = 'chunk{:04d}'.format(chunk_idx)
 
     lr_image_dir = os.path.join(content_dir, 'image', video_name, postfix)
@@ -108,13 +108,13 @@ def libvpx_save_frame(vpxdec_file, content_dir, video_name, start_idx, end_idx, 
 
     command = '{} --codec=vp9 --noblit --frame-buffers=50 --skip={} --limit={} \
             --content-dir={} --input-video={} --postfix={} --save-frame --save-metadata'.format(vpxdec_file, \
-            start_idx, end_idx - start_idx, content_dir, video_name, postfix)
+            skip, limit, content_dir, video_name, postfix)
     subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
 #def libvpx_save_metadata(vpxdec_file, content_dir, video_name, gop, chunk_idx):
-def libvpx_save_metadata(vpxdec_file, content_dir, video_name, start_idx, end_idx, chunk_idx):
-    #start_idx = chunk_idx * gop
-    #end_idx = (chunk_idx + 1) * gop
+def libvpx_save_metadata(vpxdec_file, content_dir, video_name, skip, limit, chunk_idx):
+    #skip = chunk_idx * gop
+    #limit = (chunk_idx + 1) * gop
     postfix = 'chunk{:04d}'.format(chunk_idx)
 
     lr_image_dir = os.path.join(content_dir, 'image', video_name, postfix)
@@ -122,7 +122,7 @@ def libvpx_save_metadata(vpxdec_file, content_dir, video_name, start_idx, end_id
 
     command = '{} --codec=vp9 --noblit --frame-buffers=50 --skip={} --limit={} \
             --content-dir={} --input-video={} --postfix={} --save-metadata'.format(vpxdec_file, \
-            start_idx, end_idx - start_idx, content_dir, video_name, postfix)
+            skip, limit, content_dir, video_name, postfix)
     subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
 def libvpx_load_frame_index(content_dir, video_name, chunk_idx):
@@ -185,7 +185,6 @@ def libvpx_bilinear_quality(vpxdec_file, content_dir, input_video_name, compare_
     if postfix is not None:
         command += ' --postfix={}'.format(postfix)
     subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-    #subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL)
 
     #load quality from a log file
     log_dir = os.path.join(content_dir, 'log', input_video_name)

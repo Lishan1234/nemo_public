@@ -53,7 +53,7 @@ class APS_NEMO():
         start_time = time.time()
         lr_video_file = os.path.join(self.dataset_dir, 'video', self.lr_video_name)
         lr_video_profile = profile_video(lr_video_file)
-        total_frames = lr_video_profile['frame_rate'] * lr_video_profile['duration']
+        total_frames = int(round(lr_video_profile['frame_rate'], 3) * round(lr_video_profile['duration']))
         assert(total_frames == math.floor(total_frames))
         left_frames = total_frames - chunk_idx * self.gop
         total_frames = int(total_frames)
@@ -65,6 +65,8 @@ class APS_NEMO():
         postfix = 'chunk{:04d}'.format(chunk_idx)
         profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, postfix)
         log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, postfix)
+        os.makedirs(profile_dir, exist_ok=True)
+        os.makedirs(log_dir, exist_ok=True)
 
         #setup lr, sr, hr frames
         libvpx_save_frame(self.vpxdec_file, self.dataset_dir, self.lr_video_name, start_idx, end_idx, chunk_idx)
