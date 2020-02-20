@@ -73,13 +73,22 @@ if __name__ == '__main__':
                 aps.run(i)
         else:
             if ',' in args.chunk_idx:
-                chunk_start_index = int(args.chunk_idx.split(',')[0])
-                chunk_end_index = int(args.chunk_idx.split(',')[1])
-                for i in range(chunk_start_index, chunk_end_index + 1):
+                start_index = int(args.chunk_idx.split(',')[0])
+                end_index = int(args.chunk_idx.split(',')[1])
+                for i in range(start_index, end_index + 1):
                     aps.run(i)
             else:
-                aps.run(args.chunk_idx)
+                aps.run(int(args.chunk_idx))
     elif args.task == 'summary':
-        aps.summary()
+        if args.chunk_idx is None:
+            num_chunks = int(math.ceil(lr_video_info['duration'] / (args.gop / lr_video_info['frame_rate'])))
+            aps.summary(0, num_chunks - 1)
+        else:
+            if ',' in args.chunk_idx:
+                start_index = int(args.chunk_idx.split(',')[0])
+                end_index = int(args.chunk_idx.split(',')[1])
+                aps.summary(start_index, end_index)
+            else:
+                raise NotImplementedError
     else:
         raise NotImplementedError
