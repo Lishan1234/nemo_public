@@ -100,7 +100,9 @@ class APS_Random():
 
                 #check quality difference
                 if np.average(quality_diff) <= self.threshold:
-                    cache_profile.save_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, self.model.name, postfix)
+                    cache_profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, self.model.name, postfix)
+                    os.makedirs(cache_profile_dir, exist_ok=True)
+                    cache_profile.save_dir = cache_profile_dir
                     cache_profile.name = '{}_{}'.format(self.__class__.__name__, self.threshold)
                     cache_profile.save()
                     break
