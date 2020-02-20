@@ -70,9 +70,12 @@ class APS_NEMO():
         os.makedirs(log_dir, exist_ok=True)
 
         #setup lr, sr, hr frames
-        libvpx_save_frame(self.vpxdec_file, self.dataset_dir, self.lr_video_name, start_idx, end_idx, chunk_idx)
-        libvpx_save_frame(self.vpxdec_file, self.dataset_dir, self.hr_video_name, start_idx, end_idx, chunk_idx)
-        libvpx_setup_sr_frame(self.vpxdec_file, self.dataset_dir, self.lr_video_name, chunk_idx, self.model)
+        quality_bilinear_file = os.path.join(self.dataset_dir, 'log', self.lr_video_name, postfix, 'quality.txt')
+        quality_dnn_file = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name, postfix, 'quality.txt')
+        if not os.path.exists(quality_bilinear_file) or not os.path.exists(quality_dnn_file):
+            libvpx_save_frame(self.vpxdec_file, self.dataset_dir, self.lr_video_name, start_idx, end_idx, chunk_idx)
+            libvpx_save_frame(self.vpxdec_file, self.dataset_dir, self.hr_video_name, start_idx, end_idx, chunk_idx)
+            libvpx_setup_sr_frame(self.vpxdec_file, self.dataset_dir, self.lr_video_name, chunk_idx, self.model)
         quality_bilinear = libvpx_bilinear_quality(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
                                                     start_idx, end_idx, postfix)
         quality_dnn = libvpx_offline_dnn_quality(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.hr_video_name, \

@@ -32,7 +32,7 @@ if __name__ == '__main__':
     #anchor point selector
     parser.add_argument('--threshold', type=float, required=True)
     parser.add_argument('--gop', type=int, required=True)
-    parser.add_argument('--chunk_idx', default=None, type=int)
+    parser.add_argument('--chunk_idx', default=None, type=str)
     parser.add_argument('--num_decoders', default=24, type=int)
     parser.add_argument('--mode', choices=['uniform','random','nemo'], required=True)
     parser.add_argument('--task', choices=['profile','summary'], required=True)
@@ -72,7 +72,13 @@ if __name__ == '__main__':
             for i in range(num_chunks):
                 aps.run(i)
         else:
-            aps.run(args.chunk_idx)
+            if ',' in args.chunk_idx:
+                chunk_start_index = int(args.chunk_idx.split(',')[0])
+                chunk_end_index = int(args.chunk_idx.split(',')[1])
+                for i in range(chunk_start_index, chunk_end_index + 1):
+                    aps.run(i)
+            else:
+                aps.run(args.chunk_idx)
     elif args.task == 'summary':
         aps.summary()
     else:

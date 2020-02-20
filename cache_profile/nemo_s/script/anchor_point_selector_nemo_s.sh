@@ -7,7 +7,7 @@ python $MOBINAS_CODE_ROOT/cache_profile/nemo_s/anchor_point_selector_nemo_s.py \
                 --num_blocks 8 \
                 --num_filters 26 \
                 --gop 120 \
-                --threshold 0.2 \
+                --threshold 0.5 \
                 --mode nemo \
                 --task profile \
-                --chunk_idx 0 
+                --chunk_idx 0,2
