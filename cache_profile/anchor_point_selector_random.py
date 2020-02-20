@@ -39,9 +39,7 @@ class APS_Random():
         #end_idx = (chunk_idx + 1) * self.gop
         postfix = 'chunk{:04d}'.format(chunk_idx)
         profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, postfix)
-        log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, postfix)
         os.makedirs(profile_dir, exist_ok=True)
-        os.makedirs(log_dir, exist_ok=True)
 
         #setup lr, sr, hr frames
         quality_bilinear_file = os.path.join(self.dataset_dir, 'log', self.lr_video_name, postfix, 'quality.txt')
@@ -108,9 +106,12 @@ class APS_Random():
 
     def summary(self):
         log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name)
+        profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, self.model.name)
+
+        #log
+        with open(summary_log_file, 'w') as s_f:
         summary_log_file = os.path.join(log_dir, 'quality_{}_{:.2f}.txt'.format(self.__class__.__name__, self.threshold))
         chunk_idx = 0
-        with open(summary_log_file, 'w') as s_f:
             #iterate over chunks
             while True:
                 chunk_log_dir = os.path.join(log_dir, 'chunk{:04d}'.format(chunk_idx))
@@ -122,3 +123,20 @@ class APS_Random():
                         lines = c_f.readlines()
                         s_f.write('{}\t{}\n'.format(chunk_idx, lines[-1].strip()))
                     chunk_idx += 1
+
+        #cache profile
+        chunk_idx = 0
+        cache_profile = os.path.join(log_dir, '{}_{}'.format(self.__class__.__name__, self.threshold))
+        cache_data = b''
+        while True:
+            chunk_cache_profile = os.path.join(profile_dir, 'chunk{:04d}'.format(chunk_idx), '{}_{}'.format(self.__class__.__name__, self.threshold))
+            if not os.path.exists(chunk_cache_profile):
+                print('cache profile is generated with {} video chunks'.format(chunk_idx))
+                break
+            else:
+                with open(chunk_cache_profile, 'rb') as f1:
+                    cache_data += f1.read()
+                chunk_idx += 1
+
+        with open(cache_profile, 'wb') as f0:
+            f0.write(cache_data)
