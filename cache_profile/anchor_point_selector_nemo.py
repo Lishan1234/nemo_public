@@ -5,6 +5,7 @@ import shlex
 import math
 import time
 import multiprocessing as mp
+import shutil
 
 import numpy as np
 import tensorflow as tf
@@ -187,6 +188,14 @@ class APS_NEMO():
 
         end_time = time.time()
         print('{} video chunk: (Step3) {}sec'.format(chunk_idx, end_time - start_time))
+
+        #remove images
+        lr_image_dir = os.path.join(self.dataset_dir, 'image', self.lr_video_name, postfix)
+        hr_image_dir = os.path.join(self.dataset_dir, 'image', self.hr_video_name, postfix)
+        sr_image_dir = os.path.join(self.dataset_dir, 'image', self.lr_video_name, self.model.name, postfix)
+        shutil.rmtree(lr_image_dir, ignore_errors=True)
+        shutil.rmtree(hr_image_dir, ignore_errors=True)
+        shutil.rmtree(sr_image_dir, ignore_errors=True)
 
     def summary(self):
         log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name)

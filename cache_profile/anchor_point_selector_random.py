@@ -96,6 +96,14 @@ class APS_Random():
                 if np.average(quality_diff) <= self.threshold:
                     break
 
+        #remove images
+        lr_image_dir = os.path.join(self.dataset_dir, 'image', self.lr_video_name, postfix)
+        hr_image_dir = os.path.join(self.dataset_dir, 'image', self.hr_video_name, postfix)
+        sr_image_dir = os.path.join(self.dataset_dir, 'image', self.lr_video_name, self.model.name, postfix)
+        shutil.rmtree(lr_image_dir, ignore_errors=True)
+        shutil.rmtree(hr_image_dir, ignore_errors=True)
+        shutil.rmtree(sr_image_dir, ignore_errors=True)
+
     def summary(self):
         log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name)
         summary_log_file = os.path.join(log_dir, 'quality_{}_{:.2f}.txt'.format(self.__class__.__name__, self.threshold))
