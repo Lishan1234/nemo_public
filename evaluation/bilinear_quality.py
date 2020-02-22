@@ -30,17 +30,13 @@ if __name__ == '__main__':
     for content in args.content:
         dataset_dir = os.path.join(args.dataset_rootdir, content)
         video_dir = os.path.join(dataset_dir, 'video')
+        ffmpeg_option = FFmpegOption('none', None, None)
+        hr_video_file = glob.glob(os.path.join(video_dir, '{}p*'.format(args.hr_resolution)))[0]
+        libvpx_save_frame(args.vpxdec_file, dataset_dir, os.path.basename(hr_video_file))
+
         for lr_resolution in args.lr_resolution:
             lr_video_file = glob.glob(os.path.join(video_dir, '{}p*'.format(lr_resolution)))[0]
-            hr_video_file = glob.glob(os.path.join(video_dir, '{}p*'.format(args.hr_resolution)))[0]
-
-            #setup images
-            ffmpeg_option = FFmpegOption('none', None, None)
-            libvpx_save_frame(args.vpxdec_file, dataset_dir, os.path.basename(hr_video_file))
-
-            #bilinear quality
             libvpx_bilinear_quality(args.vpxdec_file, dataset_dir, os.path.basename(lr_video_file), os.path.basename(hr_video_file))
 
-            #remove images
-            hr_image_dir = os.path.join(dataset_dir, 'image', ffmpeg_option.summary(os.path.basename(hr_video_file)))
-            shutil.rmtree(hr_image_dir, ignore_errors=True)
+        hr_image_dir = os.path.join(dataset_dir, 'image', ffmpeg_option.summary(os.path.basename(hr_video_file)))
+        shutil.rmtree(hr_image_dir, ignore_errors=True)

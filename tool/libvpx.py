@@ -94,6 +94,10 @@ class CacheProfile():
             if len(self.frames) % 8 != 0:
                 f.write(struct.pack("=B", byte_value))
 
+    def remove(self):
+        path = os.path.join(self.save_dir, self.name)
+        os.remove(path)
+
     def __lt__(self, other):
         return self.count_anchor_points() < other.count_anchor_points()
 

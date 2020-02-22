@@ -87,8 +87,8 @@ if __name__ == '__main__':
             if ',' in args.chunk_idx:
                 start_index = int(args.chunk_idx.split(',')[0])
                 end_index = int(args.chunk_idx.split(',')[1])
-                aps.summary(start_index, end_index)
+                aps.summary(start_index, end_index + 1)
             else:
-                raise NotImplementedError
+                aps.summary(int(args.chunk_idx), int(args.chunk_idx) + 1)
     else:
         raise NotImplementedError
