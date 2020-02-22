@@ -10,6 +10,7 @@ import imageio
 import tensorflow as tf
 
 from tool.adb import adb_pull
+from dnn.utility import raw_quality
 
 DEVICE_ROOTDIR = '/data/local/tmp/snpebm'
 BENCHMARK_CONFIG_NAME = 'benchmark.json'
@@ -21,60 +22,6 @@ TENSORFLOW_ROOT = os.path.join(os.environ['MOBINAS_CODE_ROOT'], 'third_party', '
 SNPE_ROOT = os.path.join(os.environ['MOBINAS_CODE_ROOT'], 'third_party', 'snpe')
 assert(os.path.exists(TENSORFLOW_ROOT))
 assert(os.path.exists(SNPE_ROOT))
-
-def decode_raw(filepath, width, height, channel, precision):
-    file = tf.io.read_file(filepath)
-    image = tf.decode_raw(file, precision)
-    image = tf.reshape(image, [height, width, channel])
-    #return image, filepath
-    return image
-
-def raw_dataset(image_dir, width, height, channel, exp, precision):
-    m = re.compile(exp)
-    images = sorted([os.path.join(image_dir, f) for f in os.listdir(image_dir) if m.search(f)])
-    #images = sorted(glob.glob('{}/{}'.format(image_dir, pattern)))
-    #images = sorted(glob.glob('{}/[0-9][0-9][0-9][0-9].raw'.format(image_dir)))
-    ds = tf.data.Dataset.from_tensor_slices(images)
-    ds = ds.map(lambda x: decode_raw(x, width, height, channel, precision), num_parallel_calls=AUTOTUNE)
-    return ds, len(images)
-
-def summary_raw_dataset(lr_image_dir, sr_image_dir, hr_image_dir, width, height, channel, scale, exp, repeat_count=1, precision=tf.uint8):
-    lr_ds, length = raw_dataset(lr_image_dir, width, height, channel, exp, precision)
-    hr_ds, _ = raw_dataset(hr_image_dir, width * scale, height * scale, channel, exp, precision)
-    sr_ds, _ = raw_dataset(sr_image_dir, width * scale, height * scale, channel, exp, precision)
-    ds = tf.data.Dataset.zip((lr_ds, sr_ds, hr_ds))
-    ds = ds.batch(1)
-    ds = ds.repeat(repeat_count)
-    ds = ds.prefetch(buffer_size=AUTOTUNE)
-    return ds
-
-def raw_quality(lr_raw_dir, sr_raw_dir, hr_raw_dir, nhwc, scale, precision=tf.float32):
-    bilinear_psnr_values= []
-    sr_psnr_values = []
-    summary_raw_ds = summary_raw_dataset(lr_raw_dir, sr_raw_dir, hr_raw_dir, nhwc[1], nhwc[2],
-                                                    scale, precision=precision)
-    for idx, imgs in enumerate(summary_raw_ds):
-        lr = imgs[0][0]
-        sr = imgs[1][0]
-        hr = imgs[2][0]
-
-        if precision == tf.float32:
-            hr = tf.clip_by_value(hr, 0, 255)
-            hr = tf.round(hr)
-            hr = tf.cast(hr, tf.uint8)
-            sr = tf.clip_by_value(sr, 0, 255)
-            sr = tf.round(sr)
-            sr = tf.cast(sr, tf.uint8)
-
-        bilinear = resolve_bilinear_tf(lr, nhwc[1] * scale, nhwc[2] * scale)
-        bilinear_psnr_value = tf.image.psnr(bilinear, hr, max_val=255)[0].numpy()
-        bilinear_psnr_values.append(bilinear_psnr_value)
-        sr_psnr_value = tf.image.psnr(sr, hr, max_val=255)[0].numpy()
-        sr_psnr_values.append(sr_psnr_value)
-        print('{} frame: PSNR(SR)={:.2f}, PSNR(Bilinear)={:.2f}'.format(idx, sr_psnr_value, bilinear_psnr_value))
-    print('Summary: PSNR(SR)={:.2f}, PSNR(Bilinear)={:.2f}'.format(np.average(sr_psnr_values), np.average(bilinear_psnr_values)))
-
-    return sr_psnr_values, bilinear_psnr_values
 
 def check_python_version():
     #check python version
