@@ -64,8 +64,8 @@ class APS_NEMO():
         #end_idx = (chunk_idx + 1) * self.gop
         end_idx = self.gop if left_frames >= self.gop else left_frames
         postfix = 'chunk{:04d}'.format(chunk_idx)
-        profile_dir = os.path.join(self.dataset_dir, '.profile', self.lr_video_name, self.model.name, postfix)
-        os.makedirs(profile_dir, exist_ok=True)
+        tmp_profile_dir = os.path.join(self.dataset_dir, 'tmp_cache_profile', self.lr_video_name, self.model.name, postfix)
+        os.makedirs(tmp_profile_dir, exist_ok=True)
 
         #setup lr, sr, hr frames
         libvpx_save_frame(self.vpxdec_file, self.dataset_dir, self.lr_video_name, start_idx, end_idx, postfix)
@@ -92,7 +92,7 @@ class APS_NEMO():
         ap_cache_profiles = []
         for idx, frame in enumerate(frames):
             #select anchor points uniformly
-            cache_profile = CacheProfile.fromframes(frames, profile_dir, '{}_{}'.format(self.__class__.__name__, frame.name))
+            cache_profile = CacheProfile.fromframes(frames, tmp_profile_dir, '{}_{}'.format(self.__class__.__name__, frame.name))
             cache_profile.add_anchor_point(frame)
             cache_profile.save()
 
@@ -127,10 +127,10 @@ class APS_NEMO():
             ap_cache_profile = ap_cache_profiles.pop(idx)
             #print('_select_cache_profile: {} anchor points, {} chunk'.format(ap_cache_profile.anchor_points[0].name, chunk_idx))
             if len(ordered_cache_profiles) == 0:
-                cache_profile = CacheProfile.fromcacheprofile(ap_cache_profile, profile_dir, '{}_{}'.format(self.__class__.__name__, len(ap_cache_profile.anchor_points)))
+                cache_profile = CacheProfile.fromcacheprofile(ap_cache_profile, tmp_profile_dir, '{}_{}'.format(self.__class__.__name__, len(ap_cache_profile.anchor_points)))
                 cache_profile.set_estimated_quality(ap_cache_profile.measured_quality)
             else:
-                cache_profile = CacheProfile.fromcacheprofile(ordered_cache_profiles[-1], profile_dir, '{}_{}'.format(self.__class__.__name__, len(ordered_cache_profiles[-1].anchor_points) + 1))
+                cache_profile = CacheProfile.fromcacheprofile(ordered_cache_profiles[-1], tmp_profile_dir, '{}_{}'.format(self.__class__.__name__, len(ordered_cache_profiles[-1].anchor_points) + 1))
                 cache_profile.add_anchor_point(ap_cache_profile.anchor_points[0])
                 cache_profile.set_estimated_quality(estimated_quality)
             cache_profile.save()
@@ -180,9 +180,9 @@ class APS_NEMO():
 
                 #check quality difference
                 if np.average(quality_diff) <= self.threshold and found == False:
-                    cache_profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, self.model.name, postfix)
-                    os.makedirs(cache_profile_dir, exist_ok=True)
-                    cache_profile.save_dir = cache_profile_dir
+                    profile_dir = os.path.join(self.dataset_dir, 'cache_profile', self.lr_video_name, self.model.name, postfix)
+                    os.makedirs(profile_dir, exist_ok=True)
+                    cache_profile.save_dir = profile_dir
                     cache_profile.name = '{}_{}'.format(self.__class__.__name__, self.threshold)
                     cache_profile.save()
                     break
@@ -197,10 +197,11 @@ class APS_NEMO():
         shutil.rmtree(lr_image_dir, ignore_errors=True)
         shutil.rmtree(hr_image_dir, ignore_errors=True)
         shutil.rmtree(sr_image_dir, ignore_errors=True)
+        shutil.rmtree(tmp_profile_dir, ignore_errors=True)
 
     def summary(self, start_idx, end_idx):
         log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name)
-        profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, self.model.name)
+        profile_dir = os.path.join(self.dataset_dir, 'cache_profile', self.lr_video_name, self.model.name)
 
         #log
         quality_summary_file = os.path.join(log_dir, 'quality_{}_{:.2f}.txt'.format(self.__class__.__name__, self.threshold))
