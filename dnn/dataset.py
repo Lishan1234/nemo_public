@@ -19,25 +19,24 @@ from tool.video import FFmpegOption, VideoMetadata, profile_video
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 def setup_images(video_path, image_dir, ffmpeg_path, ffmpeg_option):
-    if not os.path.exists(image_dir):
-        os.makedirs(image_dir)
-        video_name = os.path.basename(video_path)
-        cmd = '{} -i {} {} {}/%04d.png'.format(ffmpeg_path, video_path, ffmpeg_option, image_dir)
-        os.system(cmd)
+    os.makedirs(image_dir, exist_ok=True)
+    video_name = os.path.basename(video_path)
+    cmd = '{} -i {} {} {}/%04d.png'.format(ffmpeg_path, video_path, ffmpeg_option, image_dir)
+    os.system(cmd)
 
 def setup_yuv_images(vpxdec_file, content_dir, video_file, filter_fps):
     image_dir = os.path.join(content_dir, 'image', os.path.basename(video_file), 'libvpx')
-    if not os.path.exists(image_dir):
-        #fps
-        video_profile = profile_video(video_file)
-        fps = video_profile['frame_rate']
-        filter_interval = math.floor(fps / filter_fps)
+    os.makedirs(image_dir, exist_ok=True)
+    #fps
+    video_profile = profile_video(video_file)
+    fps = video_profile['frame_rate']
+    filter_interval = math.floor(fps / filter_fps)
 
-        #decode
-        command = '{} --codec=vp9 --progress --summary --noblit --threads=1 --frame-buffers=50  \
-        --content-dir={} --input-video={} --filter-interval={} --postfix=libvpx --save-yuvframe'.format(vpxdec_file,
-                        content_dir, os.path.basename(video_file), filter_interval)
-        subprocess.check_call(shlex.split(command), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    #decode
+    command = '{} --codec=vp9 --progress --summary --noblit --threads=1 --frame-buffers=50  \
+    --content-dir={} --input-video={} --filter-interval={} --postfix=libvpx --save-yuvframe'.format(vpxdec_file,
+                    content_dir, os.path.basename(video_file), filter_interval)
+    subprocess.check_call(shlex.split(command), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
 def random_crop(lr_image, hr_image, lr_crop_size, scale):
     lr_image_shape = tf.shape(lr_image)[:2]
