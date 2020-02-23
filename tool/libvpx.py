@@ -239,10 +239,10 @@ def libvpx_offline_dnn_quality(vpxdec_file, content_dir, input_video_name, compa
 def libvpx_offline_cache_quality(vpxdec_file, content_dir, input_video_name, compare_video_name,  \
                                 model_name, cache_profile, resolution, skip=None, limit=None, postfix=None):
     #log file
-    log_dir = os.path.join(content_dir, 'log', input_video_name, model_name)
+    log_dir = os.path.join(content_dir, 'log', input_video_name, model_name, os.path.basename(cache_profile.name))
     if postfix is not None:
         log_dir = os.path.join(log_dir, postfix)
-    log_file = os.path.join(log_dir, os.path.basename(cache_profile.name), 'quality.txt')
+    log_file = os.path.join(log_dir, 'quality.txt')
 
     #run sr-integrated decoder
     if not os.path.exists(log_file):
@@ -283,10 +283,10 @@ def libvpx_offline_cache_quality_mt(q0, q1, vpxdec_file, content_dir, input_vide
             idx = item[4]
 
             #log file
-            log_dir = os.path.join(content_dir, 'log', input_video_name, model_name)
+            log_dir = os.path.join(content_dir, 'log', input_video_name, model_name, os.path.basename(cache_profile.name))
             if postfix is not None:
                 log_dir = os.path.join(log_dir, postfix)
-            log_file = os.path.join(log_dir, os.path.basename(cache_profile.name), 'quality.txt')
+            log_file = os.path.join(log_dir, 'quality.txt')
 
             #run sr-integrated decoder
             if not os.path.exists(log_file):
