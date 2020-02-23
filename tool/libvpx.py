@@ -81,7 +81,11 @@ class CacheProfile():
 
     def save(self):
         path = os.path.join(self.save_dir, self.name)
+
+        num_remained_bits = len(self.frames) % 8
         with open(path, "wb") as f:
+            f.write(struct.pack("=I", num_remained_bits))
+
             byte_value = 0
             for i, frame in enumerate(self.frames):
                 if frame in self.anchor_points:
