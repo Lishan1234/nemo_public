@@ -82,7 +82,9 @@ class CacheProfile():
     def save(self):
         path = os.path.join(self.save_dir, self.name)
 
-        num_remained_bits = len(self.frames) % 8
+        num_remained_bits = 8 - (len(self.frames) % 8)
+        num_remained_bits = num_remained_bits % 8
+
         with open(path, "wb") as f:
             f.write(struct.pack("=I", num_remained_bits))
 
