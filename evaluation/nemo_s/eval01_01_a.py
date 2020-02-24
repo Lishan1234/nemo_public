@@ -62,8 +62,8 @@ if __name__ == '__main__':
             cache_std_mac = []
             dnn_avg_mac = []
             dnn_std_mac = []
-            lr_video_dir = os.path.join(args.dataset_rootdir, content, 'video')
-            lr_video_file = os.path.abspath(glob.glob(os.path.join(lr_video_dir, '{}p*'.format(args.lr_resolution)))[0])
+            video_dir = os.path.join(args.dataset_rootdir, content, 'video')
+            lr_video_file = os.path.abspath(glob.glob(os.path.join(video_dir, '{}p*'.format(args.lr_resolution)))[0])
             lr_video_profile = profile_video(lr_video_file)
             lr_video_name = os.path.basename(lr_video_file)
 
