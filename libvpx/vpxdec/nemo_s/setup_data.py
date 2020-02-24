@@ -64,14 +64,10 @@ if __name__ == '__main__':
     device_root_dir = os.path.join('/data/local/tmp', content)
     device_video_dir = os.path.join(device_root_dir, 'video')
     device_checkpoint_dir = os.path.join(device_root_dir, 'checkpoint', args.lr_video_name, model.name)
-    device_script_dir_0 = os.path.join(device_root_dir, 'script', args.lr_video_name)
-    device_script_dir_1 = os.path.join(device_root_dir, 'script', args.hr_video_name)
     device_libs_dir = os.path.join('/data/local/tmp', 'libs')
     device_bin_dir = os.path.join('/data/local/tmp', 'bin')
     device_cache_profile_dir = os.path.join(device_root_dir, 'profile', args.lr_video_name, model.name)
     adb_mkdir(device_video_dir, args.device_id)
-    adb_mkdir(device_script_dir_0, args.device_id)
-    adb_mkdir(device_script_dir_1, args.device_id)
     adb_mkdir(device_checkpoint_dir, args.device_id)
     adb_mkdir(device_cache_profile_dir, args.device_id)
 
@@ -99,6 +95,8 @@ if __name__ == '__main__':
     os.makedirs(script_dir, exist_ok=True)
 
     #case 1: decode
+    device_script_dir = os.path.join(device_root_dir, 'script', args.lr_video_name)
+    adb_mkdir(device_script_dir, args.device_id)
     limit = '--limit={}'.format(args.limit) if args.limit is not None else ''
     cmds = ['#!/system/bin/sh',
             'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{}'.format(device_libs_dir),
@@ -109,8 +107,11 @@ if __name__ == '__main__':
     with open(cmd_script_path, 'w') as cmd_script:
         for ln in cmds:
             cmd_script.write(ln + '\n')
-    adb_push(device_script_dir_0, cmd_script_path)
+    adb_push(device_script_dir, cmd_script_path)
+    os.system('adb shell "chmod +x {}"'.format(os.path.join(device_script_dir, '*.sh')))
 
+    device_script_dir = os.path.join(device_root_dir, 'script', args.hr_video_name)
+    adb_mkdir(device_script_dir, args.device_id)
     limit = '--limit={}'.format(args.limit) if args.limit is not None else ''
     cmds = ['#!/system/bin/sh',
             'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{}'.format(device_libs_dir),
@@ -121,9 +122,12 @@ if __name__ == '__main__':
     with open(cmd_script_path, 'w') as cmd_script:
         for ln in cmds:
             cmd_script.write(ln + '\n')
-    adb_push(device_script_dir_1, cmd_script_path)
+    adb_push(device_script_dir, cmd_script_path)
+    os.system('adb shell "chmod +x {}"'.format(os.path.join(device_script_dir, '*.sh')))
 
     #case 2: online sr
+    device_script_dir = os.path.join(device_root_dir, 'script', args.lr_video_name, model.name)
+    adb_mkdir(device_script_dir, args.device_id)
     cmds = ['#!/system/bin/sh',
             'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{}'.format(device_libs_dir),
             'cd {}'.format(device_root_dir),
@@ -133,7 +137,7 @@ if __name__ == '__main__':
     with open(cmd_script_path, 'w') as cmd_script:
         for ln in cmds:
             cmd_script.write(ln + '\n')
-    adb_push(device_script_dir_0, cmd_script_path)
+    adb_push(device_script_dir, cmd_script_path)
 
     cmds = ['#!/system/bin/sh',
             'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{}'.format(device_libs_dir),
@@ -144,9 +148,12 @@ if __name__ == '__main__':
     with open(cmd_script_path, 'w') as cmd_script:
         for ln in cmds:
             cmd_script.write(ln + '\n')
-    adb_push(device_script_dir_0, cmd_script_path)
+    adb_push(device_script_dir, cmd_script_path)
+    os.system('adb shell "chmod +x {}"'.format(os.path.join(device_script_dir, '*.sh')))
 
     #case 3: online keyframe cache
+    device_script_dir = os.path.join(device_root_dir, 'script', args.lr_video_name, model.name, 'cache_keyframe')
+    adb_mkdir(device_script_dir, args.device_id)
     cmds = ['#!/system/bin/sh',
             'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{}'.format(device_libs_dir),
             'cd {}'.format(device_root_dir),
@@ -156,7 +163,7 @@ if __name__ == '__main__':
     with open(cmd_script_path, 'w') as cmd_script:
         for ln in cmds:
             cmd_script.write(ln + '\n')
-    adb_push(device_script_dir_0, cmd_script_path)
+    adb_push(device_script_dir, cmd_script_path)
 
     cmds = ['#!/system/bin/sh',
             'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{}'.format(device_libs_dir),
@@ -167,11 +174,12 @@ if __name__ == '__main__':
     with open(cmd_script_path, 'w') as cmd_script:
         for ln in cmds:
             cmd_script.write(ln + '\n')
-    adb_push(device_script_dir_0, cmd_script_path)
-
-    os.system('adb shell "chmod +x {}"'.format(os.path.join(device_script_dir_0, '*.sh')))
+    adb_push(device_script_dir, cmd_script_path)
+    os.system('adb shell "chmod +x {}"'.format(os.path.join(device_script_dir, '*.sh')))
 
     #case 4: online profile cache
+    device_script_dir = os.path.join(device_root_dir, 'script', args.lr_video_name, model.name, '{}_{}.profile'.format(aps_class.NAME1, args.threshold))
+    adb_mkdir(device_script_dir, args.device_id)
     device_cache_profile_file = os.path.join(device_cache_profile_dir, '{}_{}.profile'.format(aps_class.NAME1, args.threshold))
     cmds = ['#!/system/bin/sh',
             'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{}'.format(device_libs_dir),
@@ -183,7 +191,7 @@ if __name__ == '__main__':
     with open(cmd_script_path, 'w') as cmd_script:
         for ln in cmds:
             cmd_script.write(ln + '\n')
-    adb_push(device_script_dir_0, cmd_script_path)
+    adb_push(device_script_dir, cmd_script_path)
 
     cmds = ['#!/system/bin/sh',
             'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{}'.format(device_libs_dir),
@@ -195,7 +203,6 @@ if __name__ == '__main__':
     with open(cmd_script_path, 'w') as cmd_script:
         for ln in cmds:
             cmd_script.write(ln + '\n')
-    adb_push(device_script_dir_0, cmd_script_path)
+    adb_push(device_script_dir, cmd_script_path)
+    os.system('adb shell "chmod +x {}"'.format(os.path.join(device_script_dir, '*.sh')))
 
-    os.system('adb shell "chmod +x {}"'.format(os.path.join(device_script_dir_0, '*.sh')))
-    os.system('adb shell "chmod +x {}"'.format(os.path.join(device_script_dir_1, '*.sh')))
