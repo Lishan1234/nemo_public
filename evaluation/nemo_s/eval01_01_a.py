@@ -9,6 +9,7 @@ from cache_profile.anchor_point_selector_nemo import APS_NEMO
 from dnn.model.nemo_s import NEMO_S
 
 from evaluation.cache_profile_results import *
+from tool.mac import *
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -22,6 +23,8 @@ if __name__ == '__main__':
     #dnn
     parser.add_argument('--num_filters', type=int, required=True)
     parser.add_argument('--num_blocks', type=int, required=True)
+    parser.add_argument('--baseline_num_filters', type=int, nargs='+', required=True)
+    parser.add_argument('--baseline_num_blocks', type=int, nargs='+', required=True)
     parser.add_argument('--upsample_type', type=str, required=True)
 
     #anchor point selector
@@ -29,6 +32,10 @@ if __name__ == '__main__':
     parser.add_argument('--aps_class', type=str, choices=['nemo', 'random', 'uniform'], required=True)
 
     args = parser.parse_args()
+
+    #validation
+    assert(args.num_filters == args.baseline_num_filters[-1])
+    assert(args.num_blocks == args.baseline_num_blocks[-1])
 
     #sort
     args.content.sort()
@@ -53,20 +60,27 @@ if __name__ == '__main__':
         for content in args.content:
             cache_avg_mac = []
             cache_std_mac = []
-            dnn_avg_mac = None
-            dnn_std_mac = None
+            dnn_avg_mac = []
+            dnn_std_mac = []
+            lrvideo_dir = os.path.join(args.dataset_rootdir, content, 'video')
+            lr_video_file = os.path.abspath(glob.glob(os.path.join(lrvideo_dir, '{}p*'.format(args.lr_resolution)))[0])
+            lr_video_profile = profile_video(lr_video_file)
+            lr_video_name = os.path.basename(lr_video_file)
 
+            #cache
             for idx, threshold in enumerate(args.threshold):
-                video_dir = os.path.join(args.dataset_rootdir, content, 'video')
-                lr_video_file = glob.glob(os.path.join(video_dir, '{}p*'.format(args.lr_resolution)))[0]
-                lr_video_name = os.path.basename(lr_video_file)
                 log_dir = os.path.join(args.dataset_rootdir, content, 'log', lr_video_name, nemo_s.name, '{}_{}'.format(aps_class.NAME1, threshold))
                 result_cache, result_dnn = norm_mac(log_dir)
                 cache_avg_mac.append(result_cache['avg_mac'])
                 cache_std_mac.append(result_cache['std_mac'])
-                if idx == 0:
-                    dnn_avg_mac = result_dnn['avg_mac']
-                    dnn_std_mac = result_dnn['std_mac']
 
-            f.write('{}\t{}\t{}\t{}\t{}\n'.format(content, '\t'.join(str(x) for x in cache_avg_mac), \
-                    dnn_avg_mac, '\t'.join(str(x) for x in cache_std_mac), dnn_std_mac))
+            for num_layers, num_filters in zip(args.baseline_num_blocks, args.baseline_num_filters):
+                nemo_s = NEMO_S(num_layers, num_filters, scale, args.upsample_type)
+                mac = count_mac_for_nemo_s(nemo_s.name, lr_video_profile['height'], lr_video_profile['width'])
+                dnn_avg_mac.append(mac)
+
+            for idx in range(len(dnn_avg_mac)):
+                dnn_avg_mac[idx] = dnn_avg_mac[idx] / dnn_avg_mac[-1]
+
+            f.write('{}\t{}\t{}\t{}\n'.format(content, '\t'.join(str(x) for x in cache_avg_mac), \
+                    '\t'.join(str(x) for x in dnn_avg_mac), '\t'.join(str(x) for x in cache_std_mac)))
