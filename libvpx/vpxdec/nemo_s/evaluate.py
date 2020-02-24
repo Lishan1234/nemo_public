@@ -77,7 +77,7 @@ if __name__ == '__main__':
 
     start_time = time.time()
     command = 'adb shell sh {}'.format(device_script_file)
-    #subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
     adb_pull(device_log_file, host_log_file)
     end_time = time.time()
     print("decode takes {}sec".format(end_time - start_time))
@@ -95,7 +95,7 @@ if __name__ == '__main__':
 
     start_time = time.time()
     command = 'adb shell sh {}'.format(device_script_file)
-    #subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
     adb_pull(device_log_file, host_log_file)
     end_time = time.time()
     print("online sr takes {}sec".format(end_time - start_time))
@@ -116,8 +116,7 @@ if __name__ == '__main__':
 
     start_time = time.time()
     command = 'adb shell sh {}'.format(device_script_file)
-    #subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-    os.system(command)
+    subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
     adb_pull(device_log_file, host_log_file)
     end_time = time.time()
     print("online cache takes {}sec".format(end_time - start_time))
