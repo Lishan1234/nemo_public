@@ -5,6 +5,9 @@ from tool.adb import *
 from tool.snpe import *
 from tool.video import *
 from dnn.model.nemo_s import NEMO_S
+from cache_profile.anchor_point_selector_uniform import APS_Uniform
+from cache_profile.anchor_point_selector_random import APS_Random
+from cache_profile.anchor_point_selector_nemo import APS_NEMO
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -22,6 +25,10 @@ if __name__ == '__main__':
     parser.add_argument('--num_filters', type=int, required=True)
     parser.add_argument('--num_blocks', type=int, required=True)
     parser.add_argument('--upsample_type', type=str, required=True)
+
+    #anchor point selector
+    parser.add_argument('--threshold', type=float, required=True)
+    parser.add_argument('--aps_class', type=str, choices=['nemo', 'random', 'uniform'], required=True)
 
     #device
     parser.add_argument('--device_id', type=str, required=True)
@@ -61,22 +68,34 @@ if __name__ == '__main__':
     device_script_dir_1 = os.path.join(device_root_dir, 'script', args.hr_video_name)
     device_libs_dir = os.path.join('/data/local/tmp', 'libs')
     device_bin_dir = os.path.join('/data/local/tmp', 'bin')
+    device_cache_profile_dir = os.path.join(device_root_dir, 'profile', args.lr_video_name, model.name)
     adb_mkdir(device_video_dir, args.device_id)
     adb_mkdir(device_script_dir_0, args.device_id)
     adb_mkdir(device_script_dir_1, args.device_id)
     adb_mkdir(device_checkpoint_dir, args.device_id)
+    adb_mkdir(device_cache_profile_dir, args.device_id)
 
     #setup videos
     adb_push(device_video_dir, lr_video_file, args.device_id)
-    adb_push(device_video_dir, hr_video_file, args.device_id)
+    #adb_push(device_video_dir, hr_video_file, args.device_id)
 
     #setup a dnn
     dlc_dict = snpe_convert_model(model, model.nhwc, checkpoint_dir)
     dlc_path = os.path.join(checkpoint_dir, dlc_dict['dlc_name'])
     adb_push(device_checkpoint_dir, dlc_path)
 
+    #setup a cache profile
+    if args.aps_class == 'nemo':
+        aps_class = APS_NEMO
+    elif args.aps_class == 'uniform':
+        aps_class = APS_Uniform
+    elif args.aps_class == 'random':
+        aps_class = APS_Random
+    cache_profile = os.path.join(args.dataset_dir, 'profile', args.lr_video_name, model.name, '{}_{}.profile'.format(aps_class.NAME1, args.threshold))
+    adb_push(device_cache_profile_dir, cache_profile, args.device_id)
+
     #setup scripts (setup.sh, offline_dnn.sh, online_dnn.sh)
-    script_dir = 'script'
+    script_dir = '.script'
     os.makedirs(script_dir, exist_ok=True)
 
     #case 1: decode
@@ -84,9 +103,9 @@ if __name__ == '__main__':
     cmds = ['#!/system/bin/sh',
             'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{}'.format(device_libs_dir),
             'cd {}'.format(device_root_dir),
-            '{} --codec=vp9  --noblit --threads={} --frame-buffers=50 {} --content-dir={} --input-video={} --compare-video={} --save-frame'.format(os.path.join(device_bin_dir, 'vpxdec'), args.threads, limit, device_root_dir, args.lr_video_name, args.hr_video_name),
+            '{} --codec=vp9  --noblit --threads={} --frame-buffers=50 {} --content-dir={} --input-video={} --compare-video={} --save-latency'.format(os.path.join(device_bin_dir, 'vpxdec'), args.threads, limit, device_root_dir, args.lr_video_name, args.hr_video_name),
             'exit']
-    cmd_script_path = os.path.join(script_dir, 'save_decoded_frame.sh')
+    cmd_script_path = os.path.join(script_dir, 'decode_frame.sh')
     with open(cmd_script_path, 'w') as cmd_script:
         for ln in cmds:
             cmd_script.write(ln + '\n')
@@ -98,7 +117,7 @@ if __name__ == '__main__':
             'cd {}'.format(device_root_dir),
             '{} --codec=vp9  --noblit --threads={} --frame-buffers=50 {} --content-dir={} --input-video={} --compare-video={} --save-frame'.format(os.path.join(device_bin_dir, 'vpxdec'), args.threads, limit, device_root_dir, args.hr_video_name, args.hr_video_name),
             'exit']
-    cmd_script_path = os.path.join(script_dir, 'save_decoded_frame.sh')
+    cmd_script_path = os.path.join(script_dir, 'decode_frame.sh')
     with open(cmd_script_path, 'w') as cmd_script:
         for ln in cmds:
             cmd_script.write(ln + '\n')
@@ -108,9 +127,9 @@ if __name__ == '__main__':
     cmds = ['#!/system/bin/sh',
             'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{}'.format(device_libs_dir),
             'cd {}'.format(device_root_dir),
-            '{} --codec=vp9  --noblit --threads={} --frame-buffers=50 {} --content-dir={} --input-video={} --compare-video={} --decode-mode=1 --dnn-mode=1 --dnn-runtime=3 --dnn-name={} --checkpoint-name={} --resolution={} --save-quality'.format(os.path.join(device_bin_dir, 'vpxdec'), args.threads, limit, device_root_dir, args.lr_video_name, args.hr_video_name, model.name, dlc_dict['dlc_name'], lr_video_profile['height']),
+            '{} --codec=vp9  --noblit --threads={} --frame-buffers=50 {} --content-dir={} --input-video={} --compare-video={} --decode-mode=1 --dnn-mode=1 --dnn-runtime=3 --dnn-name={} --checkpoint-name={} --resolution={} --save-quality --save-metadata'.format(os.path.join(device_bin_dir, 'vpxdec'), args.threads, limit, device_root_dir, args.lr_video_name, args.hr_video_name, model.name, dlc_dict['dlc_name'], lr_video_profile['height']),
             'exit']
-    cmd_script_path = os.path.join(script_dir, 'measure_online_sr_quality.sh')
+    cmd_script_path = os.path.join(script_dir, 'online_sr_quality.sh')
     with open(cmd_script_path, 'w') as cmd_script:
         for ln in cmds:
             cmd_script.write(ln + '\n')
@@ -121,20 +140,19 @@ if __name__ == '__main__':
             'cd {}'.format(device_root_dir),
             '{} --codec=vp9  --noblit --threads={} --frame-buffers=50 {} --content-dir={} --input-video={} --compare-video={} --decode-mode=1 --dnn-mode=1 --dnn-runtime=3 --dnn-name={} --checkpoint-name={} --resolution={} --save-latency'.format(os.path.join(device_bin_dir, 'vpxdec'), args.threads, limit, device_root_dir, args.lr_video_name, args.hr_video_name, model.name, dlc_dict['dlc_name'], lr_video_profile['height']),
             'exit']
-    cmd_script_path = os.path.join(script_dir, 'measure_online_sr_latency.sh')
+    cmd_script_path = os.path.join(script_dir, 'online_sr_latency.sh')
     with open(cmd_script_path, 'w') as cmd_script:
         for ln in cmds:
             cmd_script.write(ln + '\n')
     adb_push(device_script_dir_0, cmd_script_path)
 
-    #case 3: online cache
-    #TODO: update by cache profile
+    #case 3: online keyframe cache
     cmds = ['#!/system/bin/sh',
             'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{}'.format(device_libs_dir),
             'cd {}'.format(device_root_dir),
-            '{} --codec=vp9  --noblit --threads={} --frame-buffers=50 {} --content-dir={} --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=1 --dnn-runtime=3 --cache-policy=2 --dnn-name={} --checkpoint-name={} --resolution={} --save-quality'.format(os.path.join(device_bin_dir, 'vpxdec'), args.threads, limit, device_root_dir, args.lr_video_name, args.hr_video_name, model.name, dlc_dict['dlc_name'], lr_video_profile['height']),
+            '{} --codec=vp9  --noblit --threads={} --frame-buffers=50 {} --content-dir={} --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=1 --dnn-runtime=3 --cache-policy=2 --dnn-name={} --checkpoint-name={} --resolution={} --save-quality --save-metadata'.format(os.path.join(device_bin_dir, 'vpxdec'), args.threads, limit, device_root_dir, args.lr_video_name, args.hr_video_name, model.name, dlc_dict['dlc_name'], lr_video_profile['height']),
             'exit']
-    cmd_script_path = os.path.join(script_dir, 'measure_online_cache_quality.sh')
+    cmd_script_path = os.path.join(script_dir, 'online_keyframe_cache_quality.sh')
     with open(cmd_script_path, 'w') as cmd_script:
         for ln in cmds:
             cmd_script.write(ln + '\n')
@@ -145,10 +163,39 @@ if __name__ == '__main__':
             'cd {}'.format(device_root_dir),
             '{} --codec=vp9  --noblit --threads={} --frame-buffers=50 {} --content-dir={} --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=1 --dnn-runtime=3 --cache-policy=2 --dnn-name={} --checkpoint-name={} --resolution={} --save-latency '.format(os.path.join(device_bin_dir, 'vpxdec'), args.threads, limit, device_root_dir, args.lr_video_name, args.hr_video_name, model.name, dlc_dict['dlc_name'], lr_video_profile['height']),
             'exit']
-    cmd_script_path = os.path.join(script_dir, 'measure_online_cache_latency.sh')
+    cmd_script_path = os.path.join(script_dir, 'online_keyframe_cache_latency.sh')
     with open(cmd_script_path, 'w') as cmd_script:
         for ln in cmds:
             cmd_script.write(ln + '\n')
     adb_push(device_script_dir_0, cmd_script_path)
 
     os.system('adb shell "chmod +x {}"'.format(os.path.join(device_script_dir_0, '*.sh')))
+
+    #case 4: online profile cache
+    device_cache_profile_file = os.path.join(device_cache_profile_dir, '{}_{}.profile'.format(aps_class.NAME1, args.threshold))
+    cmds = ['#!/system/bin/sh',
+            'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{}'.format(device_libs_dir),
+            'cd {}'.format(device_root_dir),
+            '{} --codec=vp9  --noblit --threads={} --frame-buffers=50 {} --content-dir={} --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=1 --dnn-runtime=3 --cache-policy=1 --dnn-name={} --checkpoint-name={} --resolution={} --cache-profile={} --save-quality --save-metadata'.format(os.path.join(device_bin_dir, 'vpxdec'), args.threads, limit, device_root_dir, args.lr_video_name, args.hr_video_name, model.name, dlc_dict['dlc_name'], lr_video_profile['height'],
+                device_cache_profile_file),
+            'exit']
+    cmd_script_path = os.path.join(script_dir, 'online_profile_cache_quality.sh')
+    with open(cmd_script_path, 'w') as cmd_script:
+        for ln in cmds:
+            cmd_script.write(ln + '\n')
+    adb_push(device_script_dir_0, cmd_script_path)
+
+    cmds = ['#!/system/bin/sh',
+            'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{}'.format(device_libs_dir),
+            'cd {}'.format(device_root_dir),
+            '{} --codec=vp9  --noblit --threads={} --frame-buffers=50 {} --content-dir={} --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=1 --dnn-runtime=3 --cache-policy=1 --dnn-name={} --checkpoint-name={} --resolution={} --cache-profile={} --save-latency'.format(os.path.join(device_bin_dir, 'vpxdec'), args.threads, limit, device_root_dir, args.lr_video_name, args.hr_video_name, model.name, dlc_dict['dlc_name'], lr_video_profile['height'],
+                device_cache_profile_file),
+            'exit']
+    cmd_script_path = os.path.join(script_dir, 'online_profile_cache_latency.sh')
+    with open(cmd_script_path, 'w') as cmd_script:
+        for ln in cmds:
+            cmd_script.write(ln + '\n')
+    adb_push(device_script_dir_0, cmd_script_path)
+
+    os.system('adb shell "chmod +x {}"'.format(os.path.join(device_script_dir_0, '*.sh')))
+    os.system('adb shell "chmod +x {}"'.format(os.path.join(device_script_dir_1, '*.sh')))
