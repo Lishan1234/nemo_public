@@ -48,14 +48,14 @@ class APS_Random():
         #setup lr, sr, hr frames
         libvpx_save_frame(self.vpxdec_file, self.dataset_dir, self.lr_video_name, start_idx, end_idx, postfix)
         libvpx_save_frame(self.vpxdec_file, self.dataset_dir, self.hr_video_name, start_idx, end_idx, postfix)
-        libvpx_setup_sr_frame(self.vpxdec_file, self.dataset_dir, self.lr_video_name, chunk_idx, self.model)
+        libvpx_setup_sr_frame(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.model, postfix)
         quality_bilinear = libvpx_bilinear_quality(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
                                                     start_idx, end_idx, postfix)
         quality_dnn = libvpx_offline_dnn_quality(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
                                                     self.model.name, lr_video_profile['height'], start_idx, end_idx, postfix)
 
         #load frames (index)
-        frames = libvpx_load_frame_index(self.dataset_dir, self.lr_video_name, chunk_idx)
+        frames = libvpx_load_frame_index(self.dataset_dir, self.lr_video_name, postfix)
 
         #select/evaluate anchor points
         log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name, \
@@ -80,7 +80,7 @@ class APS_Random():
                 #log
                 cache_profile.save()
                 quality_cache = libvpx_offline_cache_quality(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
-                                                    self.model.name, cache_profile, lr_video_profile['height'], start_idx, end_idx, postfix)
+                                                    self.model.name, cache_profile.path, lr_video_profile['height'], start_idx, end_idx, postfix)
                 cache_profile.remove()
                 quality_diff = np.asarray(quality_dnn) - np.asarray(quality_cache)
                 quality_error =  np.percentile(np.asarray(quality_dnn) - np.asarray(quality_cache) \
@@ -107,7 +107,7 @@ class APS_Random():
                     cache_profile.name = '{}_{}.profile'.format(self.NAME1, self.threshold)
                     cache_profile.save()
                     libvpx_offline_cache_quality(self.vpxdec_file, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
-                                        self.model.name, cache_profile, lr_video_profile['height'], start_idx, end_idx, postfix)
+                                        self.model.name, cache_profile.path, lr_video_profile['height'], start_idx, end_idx, postfix)
                     break
 
         #remove images

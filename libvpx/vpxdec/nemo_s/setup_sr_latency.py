@@ -11,6 +11,7 @@ if __name__ == '__main__':
 
     #directory, path
     parser.add_argument('--dataset_dir', type=str, required=True)
+    parser.add_argument('--lib_dir', type=str, required=True)
     parser.add_argument('--lr_video_name', type=str, required=True)
     parser.add_argument('--hr_video_name', type=str, required=True)
 
@@ -24,6 +25,7 @@ if __name__ == '__main__':
     parser.add_argument('--upsample_type', type=str, required=True)
 
     #device
+    parser.add_argument('--abi', type=str, default='arm64-v8a')
     parser.add_argument('--device_id', type=str, required=True)
     #parser.add_argument('--runtime', type=str, required=True)
 
@@ -33,12 +35,32 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    #setup directory
+    device_root_dir = '/data/local/tmp'
+    device_bin_dir = os.path.join(device_root_dir, 'bin')
+    device_libs_dir = os.path.join(device_root_dir, 'libs')
+    adb_mkdir(device_bin_dir, args.device_id)
+    adb_mkdir(device_libs_dir, args.device_id)
+
+    #setup vpxdec
+    vpxdec_path = os.path.join(args.lib_dir, args.abi, 'vpxdec')
+    adb_push(device_bin_dir, vpxdec_path)
+
+    #setup library
+    c_path = os.path.join(args.lib_dir, args.abi, 'libc++_shared.so')
+    snpe_path = os.path.join(args.lib_dir, args.abi, 'libSNPE.so')
+    libvpx_path = os.path.join(args.lib_dir, args.abi, 'libvpx.so')
+    symphony_path = os.path.join(args.lib_dir, args.abi, 'libsymphony-cpu.so')
+    adb_push(device_libs_dir, c_path)
+    adb_push(device_libs_dir, snpe_path)
+    adb_push(device_libs_dir, libvpx_path)
+    adb_push(device_libs_dir, symphony_path)
+
+    #load a dnn
     lr_video_file = os.path.join(args.dataset_dir, 'video', args.lr_video_name)
     hr_video_file = os.path.join(args.dataset_dir, 'video', args.hr_video_name)
     assert(os.path.exists(lr_video_file))
     assert(os.path.exists(hr_video_file))
-
-    #load a dnn
     lr_video_profile = profile_video(lr_video_file)
     hr_video_profile = profile_video(hr_video_file)
     nhwc = [1, lr_video_profile['height'], lr_video_profile['width'], 3]
