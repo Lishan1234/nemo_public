@@ -64,8 +64,8 @@ if __name__ == '__main__':
 
         #setup lr, hr frames
         start_time = time.time()
-        #libvpx_save_frame(args.vpxdec_file, dataset_dir, lr_video_name)
-        #libvpx_save_frame(args.vpxdec_file, dataset_dir, hr_video_name)
+        libvpx_save_frame(args.vpxdec_file, dataset_dir, lr_video_name)
+        libvpx_save_frame(args.vpxdec_file, dataset_dir, hr_video_name)
         end_time = time.time()
         print('saving lr, hr image takes {}sec'.format(end_time - start_time))
 
