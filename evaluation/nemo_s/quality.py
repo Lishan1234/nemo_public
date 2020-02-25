@@ -114,10 +114,6 @@ if __name__ == '__main__':
         end_time = time.time()
         print('removing hr image takes {}sec'.format(end_time-start_time))
 
-        #delete
-        del(nemo_s)
-        del(checkpoint)
-
         for num_blocks, num_filters in zip(args.baseline_num_blocks, args.baseline_num_filters):
             #model
             nemo_s = NEMO_S(num_blocks, num_filters, scale, args.upsample_type)
