@@ -12,9 +12,9 @@ from cache_profile.anchor_point_selector_random import APS_Random
 from cache_profile.anchor_point_selector_nemo import APS_NEMO
 from dnn.model.nemo_s import NEMO_S
 
-if __name__ == '__main__':
-    tf.enable_eager_execution()
+assert(tf.__version__.startswith('2'))
 
+if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     #directory, path
@@ -41,10 +41,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    #validation
-    assert(args.num_filters == args.baseline_num_filters[-1])
-    assert(args.num_blocks == args.baseline_num_blocks[-1])
-
     #cache profile
     if args.aps_class == 'nemo':
         aps_class = APS_NEMO
@@ -68,8 +64,8 @@ if __name__ == '__main__':
 
         #setup lr, hr frames
         start_time = time.time()
-        libvpx_save_frame(args.vpxdec_file, dataset_dir, lr_video_name)
-        libvpx_save_frame(args.vpxdec_file, dataset_dir, hr_video_name)
+        #libvpx_save_frame(args.vpxdec_file, dataset_dir, lr_video_name)
+        #libvpx_save_frame(args.vpxdec_file, dataset_dir, hr_video_name)
         end_time = time.time()
         print('saving lr, hr image takes {}sec'.format(end_time - start_time))
 
@@ -90,11 +86,24 @@ if __name__ == '__main__':
         print('saving sr image takes {}sec'.format(end_time - start_time))
 
         #measure online cache quality
+        start_time = time.time()
         libvpx_offline_cache_quality(args.vpxdec_file, dataset_dir, lr_video_name, hr_video_name, \
                 checkpoint.model.name, cache_profile_file, lr_video_profile['height'])
+        end_time = time.time()
+        print('measuring online cache quality takes {}sec'.format(end_time - start_time))
 
         #measure bilinear quality
+        start_time = time.time()
         libvpx_bilinear_quality(args.vpxdec_file, dataset_dir, lr_video_name, hr_video_name)
+        end_time = time.time()
+        print('measuring bilinear quality takes {}sec'.format(end_time - start_time))
+
+        #measure online sr quality
+        start_time = time.time()
+        libvpx_offline_dnn_quality(args.vpxdec_file, dataset_dir, lr_video_name, hr_video_name, \
+                            checkpoint.model.name, lr_video_profile['height'])
+        end_time = time.time()
+        print('measuring cache quality takes {}sec'.format(end_time-start_time))
 
         #remove sr images
         start_time = time.time()
@@ -104,6 +113,10 @@ if __name__ == '__main__':
             os.remove(sr_image_file)
         end_time = time.time()
         print('removing hr image takes {}sec'.format(end_time-start_time))
+
+        #delete
+        del(nemo_s)
+        del(checkpoint)
 
         for num_blocks, num_filters in zip(args.baseline_num_blocks, args.baseline_num_filters):
             #model

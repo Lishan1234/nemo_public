@@ -5,6 +5,7 @@ import copy
 import subprocess
 import shlex
 import time
+import gc
 
 import tensorflow as tf
 
@@ -164,6 +165,7 @@ def libvpx_setup_sr_frame(vpxdec_file, content_dir, video_name, model, postfix=N
     input_video_path = os.path.join(content_dir, 'video', video_name)
     input_video_info = profile_video(input_video_path)
 
+    #single_raw_ds = single_raw_dataset(lr_image_dir, input_video_info['width'], input_video_info['height'], 3, exp='.raw')
     single_raw_ds = single_raw_dataset_with_name(lr_image_dir, input_video_info['width'], input_video_info['height'], 3, exp='.raw')
     for idx, img in enumerate(single_raw_ds):
         lr = img[0]
