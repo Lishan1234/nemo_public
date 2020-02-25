@@ -80,7 +80,7 @@ if __name__ == '__main__':
                 dnn_avg_mac.append(mac)
 
             for idx in range(len(dnn_avg_mac)):
-                dnn_avg_mac[idx] = dnn_avg_mac[idx] / dnn_avg_mac[-1]
+                dnn_avg_mac[idx] = round(dnn_avg_mac[idx] / dnn_avg_mac[-1], 4)
 
             f.write('{}\t{}\t{}\t{}\n'.format(content, '\t'.join(str(x) for x in cache_avg_mac), \
                     '\t'.join(str(x) for x in dnn_avg_mac), '\t'.join(str(x) for x in cache_std_mac)))

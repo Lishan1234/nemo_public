@@ -29,10 +29,8 @@ if __name__ == '__main__':
     parser.add_argument('--filter_fps', type=float, default=1.0)
 
     #dnn
-    parser.add_argument('--num_filters', type=int, required=True)
-    parser.add_argument('--num_blocks', type=int, required=True)
-    parser.add_argument('--baseline_num_filters', type=int, nargs='+', required=True)
-    parser.add_argument('--baseline_num_blocks', type=int, nargs='+', required=True)
+    parser.add_argument('--num_filters', type=int, nargs='+', required=True)
+    parser.add_argument('--num_blocks', type=int, nargs='+', required=True)
     parser.add_argument('--upsample_type', type=str, required=True)
 
     #anchor point selector
@@ -69,57 +67,16 @@ if __name__ == '__main__':
         end_time = time.time()
         print('saving lr, hr image takes {}sec'.format(end_time - start_time))
 
-        #model
-        nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale, args.upsample_type)
-        ffmpeg_option = FFmpegOption(args.filter_type, args.filter_fps, None)
-        checkpoint_dir = os.path.join(dataset_dir, 'checkpoint', ffmpeg_option.summary(lr_video_name), nemo_s.name)
-        checkpoint = nemo_s.load_checkpoint(checkpoint_dir)
-
-        #cache profile
-        cache_profile_file = os.path.join(dataset_dir, 'profile', lr_video_name, checkpoint.model.name,
-                                            '{}_{}.profile'.format(aps_class.NAME1, args.threshold))
-
-        #setup sr frames
-        start_time = time.time()
-        libvpx_setup_sr_frame(args.vpxdec_file, dataset_dir, lr_video_name, checkpoint.model)
-        end_time = time.time()
-        print('saving sr image takes {}sec'.format(end_time - start_time))
-
-        #measure online cache quality
-        start_time = time.time()
-        libvpx_offline_cache_quality(args.vpxdec_file, dataset_dir, lr_video_name, hr_video_name, \
-                checkpoint.model.name, cache_profile_file, lr_video_profile['height'])
-        end_time = time.time()
-        print('measuring online cache quality takes {}sec'.format(end_time - start_time))
-
-        #measure bilinear quality
-        start_time = time.time()
-        libvpx_bilinear_quality(args.vpxdec_file, dataset_dir, lr_video_name, hr_video_name)
-        end_time = time.time()
-        print('measuring bilinear quality takes {}sec'.format(end_time - start_time))
-
-        #measure online sr quality
-        start_time = time.time()
-        libvpx_offline_dnn_quality(args.vpxdec_file, dataset_dir, lr_video_name, hr_video_name, \
-                            checkpoint.model.name, lr_video_profile['height'])
-        end_time = time.time()
-        print('measuring cache quality takes {}sec'.format(end_time-start_time))
-
-        #remove sr images
-        start_time = time.time()
-        sr_image_dir = os.path.join(dataset_dir, 'image', lr_video_name, checkpoint.model.name)
-        sr_image_files = glob.glob(os.path.join(sr_image_dir, '*.raw'))
-        for sr_image_file in sr_image_files:
-            os.remove(sr_image_file)
-        end_time = time.time()
-        print('removing hr image takes {}sec'.format(end_time-start_time))
-
-        for num_blocks, num_filters in zip(args.baseline_num_blocks, args.baseline_num_filters):
+        for num_blocks, num_filters in zip(args.num_blocks, args.num_filters):
             #model
             nemo_s = NEMO_S(num_blocks, num_filters, scale, args.upsample_type)
             ffmpeg_option = FFmpegOption(args.filter_type, args.filter_fps, None)
             checkpoint_dir = os.path.join(dataset_dir, 'checkpoint', ffmpeg_option.summary(lr_video_name), nemo_s.name)
             checkpoint = nemo_s.load_checkpoint(checkpoint_dir)
+
+            #cache profile
+            cache_profile_file = os.path.join(dataset_dir, 'profile', lr_video_name, checkpoint.model.name,
+                                                '{}_{}.profile'.format(aps_class.NAME1, args.threshold))
 
             #setup sr frames
             start_time = time.time()
@@ -127,12 +84,12 @@ if __name__ == '__main__':
             end_time = time.time()
             print('saving sr image takes {}sec'.format(end_time - start_time))
 
-            #measure online sr quality
+            #measure online cache quality
             start_time = time.time()
-            libvpx_offline_dnn_quality(args.vpxdec_file, dataset_dir, lr_video_name, hr_video_name, \
-                                checkpoint.model.name, lr_video_profile['height'])
+            libvpx_offline_cache_quality(args.vpxdec_file, dataset_dir, lr_video_name, hr_video_name, \
+                    checkpoint.model.name, cache_profile_file, lr_video_profile['height'])
             end_time = time.time()
-            print('measuring cache quality takes {}sec'.format(end_time-start_time))
+            print('measuring online cache quality takes {}sec'.format(end_time - start_time))
 
             #remove sr images
             start_time = time.time()
@@ -141,7 +98,7 @@ if __name__ == '__main__':
             for sr_image_file in sr_image_files:
                 os.remove(sr_image_file)
             end_time = time.time()
-            print('removing sr image takes {}sec'.format(end_time-start_time))
+            print('removing hr image takes {}sec'.format(end_time-start_time))
 
         #remove lr, hr images
         start_time = time.time()

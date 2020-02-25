@@ -1,6 +1,7 @@
 import argparse
 import os
 import math
+import glob
 
 import tensorflow as tf
 
@@ -11,71 +12,86 @@ from cache_profile.anchor_point_selector_random import APS_Random
 from cache_profile.anchor_point_selector_nemo import APS_NEMO
 from dnn.model.nemo_s import NEMO_S
 
-if __name__ == '__main__':
-    tf.enable_eager_execution()
+assert(tf.__version__.startswith('2'))
 
+if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     #directory, path
     parser.add_argument('--vpxdec_file', type=str, required=True)
-    parser.add_argument('--dataset_dir', type=str, required=True)
-    parser.add_argument('--lr_video_name', type=str, required=True)
-    parser.add_argument('--hr_video_name', type=str, required=True)
+    parser.add_argument('--dataset_rootdir', type=str, required=True)
+    parser.add_argument('--content', type=str, nargs='+', required=True)
+    parser.add_argument('--lr_resolution', type=int, required=True)
+    parser.add_argument('--hr_resolution', type=int, required=True)
 
     #dataset
     parser.add_argument('--filter_type', type=str, default='uniform')
     parser.add_argument('--filter_fps', type=float, default=1.0)
 
     #dnn
-    parser.add_argument('--num_filters', type=int, required=True)
-    parser.add_argument('--num_blocks', type=int, required=True)
+    parser.add_argument('--num_filters', type=int, nargs='+', required=True)
+    parser.add_argument('--num_blocks', type=int, nargs='+', required=True)
     parser.add_argument('--upsample_type', type=str, required=True)
-
-    #config
-    parser.add_argument('--setup_image', action='store_true')
-    parser.add_argument('--remove_image', action='store_true')
 
     args = parser.parse_args()
 
-    #scale, nhwc
-    lr_video_file = os.path.join(args.dataset_dir, 'video', args.lr_video_name)
-    hr_video_file = os.path.join(args.dataset_dir, 'video', args.hr_video_name)
-    lr_video_profile = profile_video(lr_video_file)
-    hr_video_profile = profile_video(hr_video_file)
-    scale = int(hr_video_profile['height'] / lr_video_profile['height'])
-    nhwc = [1, lr_video_profile['height'], lr_video_profile['width'], 3]
+    for content in args.content:
+        dataset_dir = os.path.join(args.dataset_rootdir, content)
 
-    #model (restore)
-    nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale, args.upsample_type)
-    ffmpeg_option = FFmpegOption(args.filter_type, args.filter_fps, None)
-    checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option.summary(args.lr_video_name), nemo_s.name)
-    checkpoint = nemo_s.load_checkpoint(checkpoint_dir)
-    checkpoint.model.scale = scale
-    checkpoint.model.nhwc = nhwc
+        #scale, nhwc
+        video_dir = os.path.join(dataset_dir, 'video')
+        lr_video_file = os.path.abspath(glob.glob(os.path.join(video_dir, '{}p*'.format(args.lr_resolution)))[0])
+        lr_video_profile = profile_video(lr_video_file)
+        lr_video_name = os.path.basename(lr_video_file)
+        hr_video_file = os.path.abspath(glob.glob(os.path.join(video_dir, '{}p*'.format(args.hr_resolution)))[0])
+        hr_video_profile = profile_video(hr_video_file)
+        hr_video_name = os.path.basename(hr_video_file)
+        scale = int(args.hr_resolution // args.lr_resolution)
 
-    start_time = time.time()
-    if args.setup_image:
-        libvpx_save_frame(args.vpxdec_file, args.dataset_dir, args.lr_video_name)
-        libvpx_save_frame(args.vpxdec_file, args.dataset_dir, args.hr_video_name)
-    end_time = time.time()
-    print('saving image takes {}sec'.format(end_time-start_time))
+        #setup lr, hr frames
+        start_time = time.time()
+        libvpx_save_frame(args.vpxdec_file, dataset_dir, lr_video_name)
+        libvpx_save_frame(args.vpxdec_file, dataset_dir, hr_video_name)
+        end_time = time.time()
+        print('saving lr, hr image takes {}sec'.format(end_time - start_time))
 
-    start_time = time.time()
-    libvpx_setup_sr_frame(args.vpxdec_file, args.dataset_dir, args.lr_video_name, checkpoint.model)
-    libvpx_offline_dnn_quality(args.vpxdec_file, args.dataset_dir, args.lr_video_name, args.hr_video_name, \
+        for num_blocks, num_filters in zip(args.num_blocks, args.num_filters):
+            #model
+            nemo_s = NEMO_S(num_blocks, num_filters, scale, args.upsample_type)
+            ffmpeg_option = FFmpegOption(args.filter_type, args.filter_fps, None)
+            checkpoint_dir = os.path.join(dataset_dir, 'checkpoint', ffmpeg_option.summary(lr_video_name), nemo_s.name)
+            checkpoint = nemo_s.load_checkpoint(checkpoint_dir)
+
+            #setup sr frames
+            start_time = time.time()
+            libvpx_setup_sr_frame(args.vpxdec_file, dataset_dir, lr_video_name, checkpoint.model)
+            end_time = time.time()
+            print('saving sr image takes {}sec'.format(end_time - start_time))
+
+            #measure online sr quality
+            start_time = time.time()
+            libvpx_offline_dnn_quality(args.vpxdec_file, dataset_dir, lr_video_name, hr_video_name, \
                                 checkpoint.model.name, lr_video_profile['height'])
-    end_time = time.time()
-    print('measuring sr quality takes {}sec'.format(end_time-start_time))
+            end_time = time.time()
+            print('measuring cache quality takes {}sec'.format(end_time-start_time))
 
-    if args.remove_image:
-        lr_image_dir = os.path.join(args.dataset_dir, 'image', args.lr_video_name, postfix)
-        lr_image_files = glob.glob(lr_image_dir, '*.raw')
-        hr_image_dir = os.path.join(args.dataset_dir, 'image', args.hr_video_name, postfix)
-        hr_image_files = glob.glob(lr_image_dir, '*.raw')
+            #remove sr images
+            start_time = time.time()
+            sr_image_dir = os.path.join(dataset_dir, 'image', lr_video_name, checkpoint.model.name)
+            sr_image_files = glob.glob(os.path.join(sr_image_dir, '*.raw'))
+            for sr_image_file in sr_image_files:
+                os.remove(sr_image_file)
+            end_time = time.time()
+            print('removing sr image takes {}sec'.format(end_time-start_time))
 
+        #remove lr, hr images
+        start_time = time.time()
+        lr_image_dir = os.path.join(dataset_dir, 'image', lr_video_name)
+        lr_image_files = glob.glob(os.path.join(lr_image_dir, '*.raw'))
+        hr_image_dir = os.path.join(dataset_dir, 'image', hr_video_name)
+        hr_image_files = glob.glob(os.path.join(hr_image_dir, '*.raw'))
         for lr_image_file, hr_image_file in zip(lr_image_files, hr_image_files):
             os.remove(lr_image_file)
-            os.remove(sr_image_file)
             os.remove(hr_image_file)
-    end_time = time.time()
-    print('removing image takes {}sec'.format(end_time-start_time))
+        end_time = time.time()
+        print('removing lr, hr image takes {}sec'.format(end_time-start_time))
