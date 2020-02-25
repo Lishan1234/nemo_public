@@ -7,6 +7,8 @@ python $MOBINAS_CODE_ROOT/evaluation/nemo_s/quality.py \
                 --hr_resolution 1080 \
                 --num_blocks 8 \
                 --num_filters 32 \
+                --baseline_num_blocks 8 8 \
+                --baseline_num_filters 21 32 \
                 --upsample_type deconv \
                 --threshold 0.5 \
                 --aps_class nemo 
