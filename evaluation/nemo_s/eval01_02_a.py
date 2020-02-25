@@ -65,7 +65,7 @@ if __name__ == '__main__':
     #log
     log_dir = os.path.join(args.dataset_rootdir, 'evaluation', args.device_id)
     os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, 'eval01_01_c.txt')
+    log_file = os.path.join(log_dir, 'eval01_02_a.txt')
     with open(log_file, 'w') as f:
         for content in args.content:
             lr_video_dir = os.path.join(args.dataset_rootdir, content, 'video')
