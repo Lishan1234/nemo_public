@@ -15,13 +15,16 @@ from evaluation.libvpx_results import *
 from evaluation.cache_profile_results import *
 from tool.mac import *
 
+content_order = {'product_review': 0, 'how_to': 1, 'vlogs': 2, 'game_play': 3, 'skit': 4,
+                'haul': 5, 'challenge':6, 'favorite': 7, 'education': 8, 'unboxing': 9}
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     #directory, path
     parser.add_argument('--dataset_rootdir', type=str, required=True)
     parser.add_argument('--content', type=str, nargs='+', required=True)
-    parser.add_argument('--lr_resolution', type=int, required=True)
+    parser.add_argument('--lr_resolution', type=int, nargs='+', required=True)
     parser.add_argument('--hr_resolution', type=int, required=True)
 
     #dataset
@@ -48,11 +51,7 @@ if __name__ == '__main__':
     assert(args.num_blocks == args.baseline_num_blocks[-1])
 
     #sort
-    args.content.sort()
-
-    #dnn
-    scale = int(args.hr_resolution // args.lr_resolution)
-    nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale, args.upsample_type)
+    args.content.sort(key=lambda val: content_order[val])
 
     #cache_profiler
     if args.aps_class == 'nemo':
@@ -68,45 +67,74 @@ if __name__ == '__main__':
     log_file = os.path.join(log_dir, 'eval01_02_a.txt')
     with open(log_file, 'w') as f:
         for content in args.content:
-            lr_video_dir = os.path.join(args.dataset_rootdir, content, 'video')
-            lr_video_file = os.path.abspath(glob.glob(os.path.join(lr_video_dir, '{}p*'.format(args.lr_resolution)))[0])
-            lr_video_profile = profile_video(lr_video_file)
-            lr_video_name = os.path.basename(lr_video_file)
-            log_dir = os.path.join(args.dataset_rootdir, content, 'log')
-
             #bilienar
-            bilinear_log_dir = os.path.join(log_dir, lr_video_name)
-            bilinear_quality = libvpx_quality(bilinear_log_dir)
-            bilinear_avg_quality = 0
-            bilinear_avg_latency = np.round(np.average(libvpx_latency(os.path.join(bilinear_log_dir, args.device_id))), 3)
+            bilinear_avg_quality = []
+            bilinear_avg_latency = []
+            """
+            for lr_resolution in args.lr_resolution:
+                #video, directory
+                lr_video_dir = os.path.join(args.dataset_rootdir, content, 'video')
+                lr_video_file = os.path.abspath(glob.glob(os.path.join(lr_video_dir, '{}p*'.format(lr_resolution)))[0])
+                lr_video_profile = profile_video(lr_video_file)
+                lr_video_name = os.path.basename(lr_video_file)
+                log_dir = os.path.join(args.dataset_rootdir, content, 'log')
+
+                #latency, quality
+                bilinear_quality_log_dir = os.path.join(log_dir, lr_video_name)
+                bilinear_latency_log_dir = os.path.join(bilinear_quality_log_dir, args.device_id)
+                bilinear_quality = libvpx_quality(bilinear_quality_log_dir)
+                bilinear_latency = libvpx_latency(bilinear_latency_log_dir)
+                bilinear_avg_quality.append(np.round(np.average(bilinear_quality), 2))
+                bilinear_avg_latency.append(np.round(np.average(bilinear_latency), 2))
+            """
 
             #cache
             cache_avg_quality = []
             cache_avg_latency = []
-            for idx, threshold in enumerate(args.threshold):
-                cache_profile_name = '{}_{}.profile'.format(aps_class.NAME1, threshold)
-                cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, cache_profile_name)
-                cache_quality = libvpx_quality(cache_log_dir)
-                cache_quality = list(map(operator.sub, cache_quality, bilinear_quality))
-                cache_avg_quality.append(np.round(np.average(cache_quality), 3))
+            for lr_resolution in args.lr_resolution:
+                #video, directory
+                lr_video_dir = os.path.join(args.dataset_rootdir, content, 'video')
+                lr_video_file = os.path.abspath(glob.glob(os.path.join(lr_video_dir, '{}p*'.format(lr_resolution)))[0])
+                lr_video_profile = profile_video(lr_video_file)
+                lr_video_name = os.path.basename(lr_video_file)
+                log_dir = os.path.join(args.dataset_rootdir, content, 'log')
+                scale = int(args.hr_resolution // lr_resolution)
+                nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale, args.upsample_type)
 
-                cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, '{}_{}.profile'.format(aps_class.NAME1, threshold))
-                cache_latency = libvpx_latency(os.path.join(cache_log_dir, args.device_id))
-                cache_avg_latency.append(np.round(np.average(cache_latency), 3))
+                #latency, quality
+                for idx, threshold in enumerate(args.threshold):
+                    cache_profile_name = '{}_{}.profile'.format(aps_class.NAME1, threshold)
+                    cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, cache_profile_name)
+                    cache_quality = libvpx_quality(cache_log_dir)
+                    cache_avg_quality.append(np.round(np.average(cache_quality), 3))
+
+                    cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, '{}_{}.profile'.format(aps_class.NAME1, threshold))
+                    cache_latency = libvpx_latency(os.path.join(cache_log_dir, args.device_id))
+                    cache_avg_latency.append(np.round(np.average(cache_latency), 3))
 
             #dnn
             dnn_avg_quality = []
             dnn_avg_latency = []
-            for num_layers, num_filters in zip(args.baseline_num_blocks, args.baseline_num_filters):
-                nemo_s = NEMO_S(num_layers, num_filters, scale, args.upsample_type)
-                dnn_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name)
-                dnn_quality = libvpx_quality(dnn_log_dir)
-                dnn_quality = list(map(operator.sub, dnn_quality, bilinear_quality))
-                dnn_avg_quality.append(np.round(np.average(dnn_quality), 3))
+            for lr_resolution in args.lr_resolution:
+                #video, directory
+                lr_video_dir = os.path.join(args.dataset_rootdir, content, 'video')
+                lr_video_file = os.path.abspath(glob.glob(os.path.join(lr_video_dir, '{}p*'.format(lr_resolution)))[0])
+                lr_video_profile = profile_video(lr_video_file)
+                lr_video_name = os.path.basename(lr_video_file)
+                log_dir = os.path.join(args.dataset_rootdir, content, 'log')
+                scale = int(args.hr_resolution // lr_resolution)
+                nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale, args.upsample_type)
 
-                dnn_latency = libvpx_latency(os.path.join(dnn_log_dir, args.device_id))
-                dnn_avg_latency.append(np.round(np.average(dnn_latency), 3))
+                #latency, quality
+                for num_layers, num_filters in zip(args.baseline_num_blocks, args.baseline_num_filters):
+                    nemo_s = NEMO_S(num_layers, num_filters, scale, args.upsample_type)
+                    dnn_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name)
+                    dnn_quality = libvpx_quality(dnn_log_dir)
+                    dnn_avg_quality.append(np.round(np.average(dnn_quality), 3))
 
-            f.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(content, bilinear_avg_quality,
+                    dnn_latency = libvpx_latency(os.path.join(dnn_log_dir, args.device_id))
+                    dnn_avg_latency.append(np.round(np.average(dnn_latency), 3))
+
+            f.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(content, '\t'.join(str(x) for x in bilinear_avg_quality),
                 '\t'.join(str(x) for x in cache_avg_quality), '\t'.join(str(x) for x in dnn_avg_quality),
-                bilinear_avg_latency, '\t'.join(str(x) for x in cache_avg_latency), '\t'.join(str(x) for x in dnn_avg_latency)))
+                '\t'.join(str(x) for x in bilinear_avg_latency), '\t'.join(str(x) for x in cache_avg_latency), '\t'.join(str(x) for x in dnn_avg_latency)))

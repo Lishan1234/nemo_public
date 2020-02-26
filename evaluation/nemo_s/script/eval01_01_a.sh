@@ -10,4 +10,5 @@ python $MOBINAS_CODE_ROOT/evaluation/nemo_s/eval01_01_a.py \
                 --baseline_num_filters 9 21 32 \
                 --upsample_type deconv \
                 --threshold 0.5 \
-                --aps_class nemo
+                --aps_class nemo \
+                --device_id 7b7f59d1

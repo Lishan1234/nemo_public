@@ -14,6 +14,9 @@ from dnn.model.nemo_s import NEMO_S
 from evaluation.libvpx_results import *
 from tool.mac import *
 
+content_order = {'product_review': 0, 'how_to': 1, 'vlogs': 2, 'game_play': 3, 'skit': 4,
+                'haul': 5, 'challenge':6, 'favorite': 7, 'education': 8, 'unboxing': 9}
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
@@ -41,7 +44,7 @@ if __name__ == '__main__':
     assert(args.num_blocks == args.baseline_num_blocks[-1])
 
     #sort
-    args.content.sort()
+    args.content.sort(key=lambda val: content_order[val])
 
     #dnn
     scale = int(args.hr_resolution // args.lr_resolution)
