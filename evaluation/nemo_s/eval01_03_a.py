@@ -14,6 +14,7 @@ from dnn.model.nemo_s import NEMO_S
 from evaluation.libvpx_results import *
 from evaluation.cache_profile_results import *
 from tool.mac import *
+from tool.mobile import *
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -39,7 +40,7 @@ if __name__ == '__main__':
     parser.add_argument('--aps_class', type=str, choices=['nemo', 'random', 'uniform'], required=True)
 
     #device
-    parser.add_argument('--device_id', type=str, required=True)
+    parser.add_argument('--device_name', type=str, required=True)
 
     args = parser.parse_args()
 
@@ -63,50 +64,58 @@ if __name__ == '__main__':
         aps_class = APS_Random
 
     #log
-    log_dir = os.path.join(args.dataset_rootdir, 'evaluation', args.device_id)
+    log_dir = os.path.join(args.dataset_rootdir, 'evaluation', args.device_name)
     os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, 'eval01_02_a.txt')
+    log_file = os.path.join(log_dir, 'eval01_03_a.txt')
+    print(log_file)
     with open(log_file, 'w') as f:
         for content in args.content:
             lr_video_dir = os.path.join(args.dataset_rootdir, content, 'video')
             lr_video_file = os.path.abspath(glob.glob(os.path.join(lr_video_dir, '{}p*'.format(args.lr_resolution)))[0])
             lr_video_profile = profile_video(lr_video_file)
             lr_video_name = os.path.basename(lr_video_file)
+            fps = lr_video_profile['frame_rate']
             log_dir = os.path.join(args.dataset_rootdir, content, 'log')
 
             #bilienar
-            bilinear_log_dir = os.path.join(log_dir, lr_video_name)
-            bilinear_quality = libvpx_quality(bilinear_log_dir)
-            bilinear_avg_quality = 0
-            bilinear_avg_latency = np.round(np.average(libvpx_latency(os.path.join(bilinear_log_dir, args.device_id))), 3)
+            bilinear_log_dir = os.path.join(log_dir, lr_video_name, args.device_name)
+            time, current, power = libvpx_power(os.path.join(bilinear_log_dir, 'monsoon_decode.csv'))
+            total_frame = libvpx_num_frames(bilinear_log_dir)
+            bilinear_avg_power = np.average(power)
+            bilinear_total_energy = bilinear_avg_power * time
+            bilinear_avg_energy = bilinear_total_energy / total_frame
+            bilinear_fps = total_frame / time
+            bilinear_total_playback_time = playback_time(np.average(current), args.device_name) / (fps / bilinear_fps)
 
             #cache
-            cache_avg_quality = []
-            cache_avg_latency = []
+            cache_avg_energy = []
+            cache_total_playback_time = []
             for idx, threshold in enumerate(args.threshold):
                 cache_profile_name = '{}_{}.profile'.format(aps_class.NAME1, threshold)
-                cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, cache_profile_name)
-                cache_quality = libvpx_quality(cache_log_dir)
-                cache_quality = list(map(operator.sub, cache_quality, bilinear_quality))
-                cache_avg_quality.append(np.round(np.average(cache_quality), 3))
-
-                cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, '{}_{}.profile'.format(aps_class.NAME1, threshold))
-                cache_latency = libvpx_latency(os.path.join(cache_log_dir, args.device_id))
-                cache_avg_latency.append(np.round(np.average(cache_latency), 3))
+                cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, cache_profile_name, args.device_name)
+                time, current, power = libvpx_power(os.path.join(cache_log_dir, 'monsoon_decode_cache_{}.csv'.format(args.num_filters)))
+                total_frame = libvpx_num_frames(cache_log_dir)
+                cache_avg_power = np.average(power)
+                cache_total_energy = cache_avg_power * time
+                cache_avg_energy.append(cache_total_energy / total_frame)
+                cache_fps = total_frame / time
+                cache_total_playback_time.append(playback_time(np.average(current), args.device_name) / (fps / cache_fps))
 
             #dnn
-            dnn_avg_quality = []
-            dnn_avg_latency = []
+            dnn_avg_energy = []
+            dnn_total_playback_time = []
             for num_layers, num_filters in zip(args.baseline_num_blocks, args.baseline_num_filters):
                 nemo_s = NEMO_S(num_layers, num_filters, scale, args.upsample_type)
-                dnn_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name)
-                dnn_quality = libvpx_quality(dnn_log_dir)
-                dnn_quality = list(map(operator.sub, dnn_quality, bilinear_quality))
-                dnn_avg_quality.append(np.round(np.average(dnn_quality), 3))
+                dnn_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, args.device_name)
+                time, current, power = libvpx_power(os.path.join(dnn_log_dir, 'monsoon_decode_sr_{}.csv'.format(num_filters)))
+                total_frame = libvpx_num_frames(dnn_log_dir)
+                dnn_avg_power = np.average(power)
+                dnn_total_energy = dnn_avg_power * time
+                dnn_avg_energy.append(dnn_total_energy / total_frame)
+                dnn_fps = total_frame / time
+                dnn_total_playback_time.append(playback_time(np.average(current), args.device_name) / (fps / dnn_fps))
 
-                dnn_latency = libvpx_latency(os.path.join(dnn_log_dir, args.device_id))
-                dnn_avg_latency.append(np.round(np.average(dnn_latency), 3))
-
-            f.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(content, bilinear_avg_quality,
-                '\t'.join(str(x) for x in cache_avg_quality), '\t'.join(str(x) for x in dnn_avg_quality),
-                bilinear_avg_latency, '\t'.join(str(x) for x in cache_avg_latency), '\t'.join(str(x) for x in dnn_avg_latency)))
+            print(content)
+            f.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(content, bilinear_avg_energy,
+                '\t'.join(str(x) for x in cache_avg_energy), '\t'.join(str(x) for x in dnn_avg_energy),
+                bilinear_total_playback_time, '\t'.join(str(x) for x in cache_total_playback_time), '\t'.join(str(x) for x in dnn_total_playback_time)))

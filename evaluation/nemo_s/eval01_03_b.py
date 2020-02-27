@@ -14,6 +14,9 @@ from dnn.model.nemo_s import NEMO_S
 from evaluation.libvpx_results import *
 from evaluation.cache_profile_results import *
 from tool.mac import *
+from tool.mobile import *
+
+TOTAL_NUM_SAMPLES = 50000
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -39,7 +42,7 @@ if __name__ == '__main__':
     parser.add_argument('--aps_class', type=str, choices=['nemo', 'random', 'uniform'], required=True)
 
     #device
-    parser.add_argument('--device_id', type=str, required=True)
+    parser.add_argument('--device_name', type=str, required=True)
 
     args = parser.parse_args()
 
@@ -60,38 +63,43 @@ if __name__ == '__main__':
         aps_class = APS_Random
 
     #log
-    log_dir = os.path.join(args.dataset_rootdir, 'evaluation', args.device_id)
+    log_dir = os.path.join(args.dataset_rootdir, 'evaluation', args.device_name)
     os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, 'eval01_02_b.txt')
+    log_file = os.path.join(log_dir, 'eval01_03_b.txt')
     with open(log_file, 'w') as f:
         lr_video_dir = os.path.join(args.dataset_rootdir, args.content, 'video')
         lr_video_file = os.path.abspath(glob.glob(os.path.join(lr_video_dir, '{}p*'.format(args.lr_resolution)))[0])
         lr_video_profile = profile_video(lr_video_file)
         lr_video_name = os.path.basename(lr_video_file)
+        fps = lr_video_profile['frame_rate']
         log_dir = os.path.join(args.dataset_rootdir, args.content, 'log')
 
-        latency = []
-
         #bilienar
-        bilinear_log_dir = os.path.join(log_dir, lr_video_name)
-        bilinear_latency = libvpx_latency(os.path.join(bilinear_log_dir, args.device_id))[0:120]
-        latency.append(bilinear_latency)
+        bilinear_log_dir = os.path.join(log_dir, lr_video_name, args.device_name)
+        time, current, power = libvpx_power(os.path.join(bilinear_log_dir, 'monsoon_decode.csv'))
+        bilinear_power = power[0:TOTAL_NUM_SAMPLES]
 
         #cache
-        cache_latency = []
+        cache_power = []
         for idx, threshold in enumerate(args.threshold):
             cache_profile_name = '{}_{}.profile'.format(aps_class.NAME1, threshold)
-            cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, '{}_{}.profile'.format(aps_class.NAME1, threshold))
-            cache_latency = libvpx_latency(os.path.join(cache_log_dir, args.device_id))[0:120]
-            latency.append(cache_latency)
+            cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, cache_profile_name, args.device_name)
+            time, current, power = libvpx_power(os.path.join(cache_log_dir, 'monsoon_decode_cache_{}.csv'.format(args.num_filters)))
+            cache_power.append(power[0:TOTAL_NUM_SAMPLES])
 
         #dnn
-        dnn_latency = []
+        dnn_power = []
         for num_layers, num_filters in zip(args.baseline_num_blocks, args.baseline_num_filters):
             nemo_s = NEMO_S(num_layers, num_filters, scale, args.upsample_type)
-            dnn_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name)
-            dnn_latency = libvpx_latency(os.path.join(dnn_log_dir, args.device_id))[0:120]
-            latency.append(dnn_latency)
+            dnn_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, args.device_name)
+            time, current, power = libvpx_power(os.path.join(dnn_log_dir, 'monsoon_decode_sr_{}.csv'.format(num_filters)))
+            dnn_power.append(power[0:TOTAL_NUM_SAMPLES])
 
-        for result in zip(*latency):
-            f.write('{}\t{}\n'.format(args.content, '\t'.join(str(np.round(x, 3)) for x in result)))
+        for i in range(int(TOTAL_NUM_SAMPLES / 50)):
+            f.write('{:.2f}'.format(50 * i * 0.0002))
+            f.write('\t{}'.format(np.round(bilinear_power[50 * i]/1000, 3)))
+            for power in cache_power:
+                f.write('\t{}'.format(np.round(power[50 * i]/1000, 3)))
+            for power in dnn_power:
+                f.write('\t{}'.format(np.round(power[50 * i]/1000, 3)))
+            f.write('\n')

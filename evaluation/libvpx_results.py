@@ -25,3 +25,30 @@ def libvpx_latency(log_dir):
                 latency.append(float(latency_line[2]))
 
         return latency
+
+def libvpx_num_frames(log_dir):
+        log_file = os.path.join(log_dir, 'metadata.txt')
+
+        with open(log_file, 'r') as f:
+            lines = f.readlines()
+
+        return len(lines)
+
+def libvpx_power(log_file):
+        time = []
+        current = []
+        power = []
+
+        with open(log_file, 'r') as f:
+            lines = f.readlines()
+
+            for idx, line in enumerate(lines):
+                if idx == 0 :
+                   continue
+                else:
+                    results = line.strip().split(',')
+                    time.append(float(results[0]))
+                    current.append(float(results[1]))
+                    power.append(float(results[2]))
+
+        return time[-1] - time[0], current, power

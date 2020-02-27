@@ -62,7 +62,7 @@ if __name__ == '__main__':
     #log
     log_dir = os.path.join(args.dataset_rootdir, 'evaluation', args.device_id)
     os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, 'eval01_02_b.txt')
+    log_file = os.path.join(log_dir, 'eval01_02_b_{}p.txt'.format(args.lr_resolution))
     with open(log_file, 'w') as f:
         lr_video_dir = os.path.join(args.dataset_rootdir, args.content, 'video')
         lr_video_file = os.path.abspath(glob.glob(os.path.join(lr_video_dir, '{}p*'.format(args.lr_resolution)))[0])
@@ -74,7 +74,7 @@ if __name__ == '__main__':
 
         #bilienar
         bilinear_log_dir = os.path.join(log_dir, lr_video_name)
-        bilinear_latency = libvpx_latency(os.path.join(bilinear_log_dir, args.device_id))[0:120]
+        bilinear_latency = libvpx_latency(os.path.join(bilinear_log_dir, args.device_id))[1000:1120]
         latency.append(bilinear_latency)
 
         #cache
@@ -82,7 +82,7 @@ if __name__ == '__main__':
         for idx, threshold in enumerate(args.threshold):
             cache_profile_name = '{}_{}.profile'.format(aps_class.NAME1, threshold)
             cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, '{}_{}.profile'.format(aps_class.NAME1, threshold))
-            cache_latency = libvpx_latency(os.path.join(cache_log_dir, args.device_id))[0:120]
+            cache_latency = libvpx_latency(os.path.join(cache_log_dir, args.device_id))[1000:1120]
             latency.append(cache_latency)
 
         #dnn
@@ -90,7 +90,7 @@ if __name__ == '__main__':
         for num_layers, num_filters in zip(args.baseline_num_blocks, args.baseline_num_filters):
             nemo_s = NEMO_S(num_layers, num_filters, scale, args.upsample_type)
             dnn_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name)
-            dnn_latency = libvpx_latency(os.path.join(dnn_log_dir, args.device_id))[0:120]
+            dnn_latency = libvpx_latency(os.path.join(dnn_log_dir, args.device_id))[1000:1120]
             latency.append(dnn_latency)
 
         for result in zip(*latency):
