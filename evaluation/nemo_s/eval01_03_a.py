@@ -67,7 +67,6 @@ if __name__ == '__main__':
     log_dir = os.path.join(args.dataset_rootdir, 'evaluation', args.device_name)
     os.makedirs(log_dir, exist_ok=True)
     log_file = os.path.join(log_dir, 'eval01_03_a.txt')
-    print(log_file)
     with open(log_file, 'w') as f:
         for content in args.content:
             lr_video_dir = os.path.join(args.dataset_rootdir, content, 'video')
@@ -78,7 +77,7 @@ if __name__ == '__main__':
             log_dir = os.path.join(args.dataset_rootdir, content, 'log')
 
             #bilienar
-            bilinear_log_dir = os.path.join(log_dir, lr_video_name, args.device_name)
+            bilinear_log_dir = os.path.join(log_dir, lr_video_name, args.device_name, 'monsoon')
             time, current, power = libvpx_power(os.path.join(bilinear_log_dir, 'monsoon_decode.csv'))
             total_frame = libvpx_num_frames(bilinear_log_dir)
             bilinear_avg_power = np.average(power)
@@ -92,7 +91,7 @@ if __name__ == '__main__':
             cache_total_playback_time = []
             for idx, threshold in enumerate(args.threshold):
                 cache_profile_name = '{}_{}.profile'.format(aps_class.NAME1, threshold)
-                cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, cache_profile_name, args.device_name)
+                cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, cache_profile_name, args.device_name, 'monsoon')
                 time, current, power = libvpx_power(os.path.join(cache_log_dir, 'monsoon_decode_cache_{}.csv'.format(args.num_filters)))
                 total_frame = libvpx_num_frames(cache_log_dir)
                 cache_avg_power = np.average(power)
@@ -106,7 +105,7 @@ if __name__ == '__main__':
             dnn_total_playback_time = []
             for num_layers, num_filters in zip(args.baseline_num_blocks, args.baseline_num_filters):
                 nemo_s = NEMO_S(num_layers, num_filters, scale, args.upsample_type)
-                dnn_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, args.device_name)
+                dnn_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, args.device_name, 'monsoon')
                 time, current, power = libvpx_power(os.path.join(dnn_log_dir, 'monsoon_decode_sr_{}.csv'.format(num_filters)))
                 total_frame = libvpx_num_frames(dnn_log_dir)
                 dnn_avg_power = np.average(power)
@@ -115,7 +114,6 @@ if __name__ == '__main__':
                 dnn_fps = total_frame / time
                 dnn_total_playback_time.append(playback_time(np.average(current), args.device_name) / (fps / dnn_fps))
 
-            print(content)
             f.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(content, bilinear_avg_energy,
                 '\t'.join(str(x) for x in cache_avg_energy), '\t'.join(str(x) for x in dnn_avg_energy),
                 bilinear_total_playback_time, '\t'.join(str(x) for x in cache_total_playback_time), '\t'.join(str(x) for x in dnn_total_playback_time)))

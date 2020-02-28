@@ -52,3 +52,21 @@ def libvpx_power(log_file):
                     power.append(float(results[2]))
 
         return time[-1] - time[0], current, power
+
+def libvpx_temperature(log_file):
+        time = []
+        current = []
+        temperature = []
+
+        with open(log_file, 'r') as f:
+            lines = f.readlines()
+
+            for idx, line in enumerate(lines):
+                if idx == 0 :
+                   continue
+                else:
+                    results = line.strip().split(',')
+                    time.append(float(results[0]))
+                    temperature.append(float(results[4]))
+
+        return time, temperature

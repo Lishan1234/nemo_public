@@ -14,13 +14,16 @@ from dnn.model.nemo_s import NEMO_S
 from evaluation.libvpx_results import *
 from evaluation.cache_profile_results import *
 from tool.mac import *
+from tool.mobile import *
+
+INTERVAL = 1000
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     #directory, path
     parser.add_argument('--dataset_rootdir', type=str, required=True)
-    parser.add_argument('--content', type=str, required=True)
+    parser.add_argument('--content', type=str, nargs='+', required=True)
     parser.add_argument('--lr_resolution', type=int, required=True)
     parser.add_argument('--hr_resolution', type=int, required=True)
 
@@ -39,13 +42,16 @@ if __name__ == '__main__':
     parser.add_argument('--aps_class', type=str, choices=['nemo', 'random', 'uniform'], required=True)
 
     #device
-    parser.add_argument('--device_id', type=str, required=True)
+    parser.add_argument('--device_name', type=str, required=True)
 
     args = parser.parse_args()
 
     #validation
     assert(args.num_filters == args.baseline_num_filters[-1])
     assert(args.num_blocks == args.baseline_num_blocks[-1])
+
+    #sort
+    args.content.sort()
 
     #dnn
     scale = int(args.hr_resolution // args.lr_resolution)
@@ -60,38 +66,53 @@ if __name__ == '__main__':
         aps_class = APS_Random
 
     #log
-    log_dir = os.path.join(args.dataset_rootdir, 'evaluation', args.device_id)
+    log_dir = os.path.join(args.dataset_rootdir, 'evaluation', args.device_name)
     os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, 'eval01_02_b.txt')
+    log_file = os.path.join(log_dir, 'eval01_04_a.txt')
     with open(log_file, 'w') as f:
-        lr_video_dir = os.path.join(args.dataset_rootdir, args.content, 'video')
-        lr_video_file = os.path.abspath(glob.glob(os.path.join(lr_video_dir, '{}p*'.format(args.lr_resolution)))[0])
-        lr_video_profile = profile_video(lr_video_file)
-        lr_video_name = os.path.basename(lr_video_file)
-        log_dir = os.path.join(args.dataset_rootdir, args.content, 'log')
+        for content in args.content:
+            lr_video_dir = os.path.join(args.dataset_rootdir, content, 'video')
+            lr_video_file = os.path.abspath(glob.glob(os.path.join(lr_video_dir, '{}p*'.format(args.lr_resolution)))[0])
+            lr_video_profile = profile_video(lr_video_file)
+            lr_video_name = os.path.basename(lr_video_file)
+            fps = lr_video_profile['frame_rate']
+            log_dir = os.path.join(args.dataset_rootdir, content, 'log')
+            min_len = 0
 
-        latency = []
+            #bilienar
+            bilinear_log_dir = os.path.join(log_dir, lr_video_name, args.device_name, 'flir')
+            time, temperature = libvpx_temperature(os.path.join(bilinear_log_dir, 'temperature.csv'))
+            bilinear_time = time
+            bilinear_temperature = temperature
+            min_len = len(bilinear_time)
 
-        #bilienar
-        bilinear_log_dir = os.path.join(log_dir, lr_video_name)
-        bilinear_latency = libvpx_latency(os.path.join(bilinear_log_dir, args.device_id))[0:120]
-        latency.append(bilinear_latency)
+            #cache
+            cache_time = []
+            cache_temperature = []
+            for idx, threshold in enumerate(args.threshold):
+                cache_profile_name = '{}_{}.profile'.format(aps_class.NAME1, threshold)
+                cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, cache_profile_name, args.device_name, 'flir')
+                time, temperature = libvpx_temperature(os.path.join(cache_log_dir, 'temperature.csv'))
+                cache_time.append(time)
+                cache_temperature.append(temperature)
+                if len(cache_time[-1]) < min_len:
+                    min_len = len(cache_time[-1])
+            #dnn
+            dnn_time = []
+            dnn_temperature = []
+            for num_layers, num_filters in zip(args.baseline_num_blocks, args.baseline_num_filters):
+                nemo_s = NEMO_S(num_layers, num_filters, scale, args.upsample_type)
+                dnn_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, args.device_name, 'flir')
+                time, temperature = libvpx_temperature(os.path.join(dnn_log_dir, 'temperature.csv'))
+                dnn_time.append(time)
+                dnn_temperature.append(temperature)
+                if len(dnn_time[-1]) < min_len:
+                    min_len = len(dnn_time[-1])
 
-        #cache
-        cache_latency = []
-        for idx, threshold in enumerate(args.threshold):
-            cache_profile_name = '{}_{}.profile'.format(aps_class.NAME1, threshold)
-            cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, '{}_{}.profile'.format(aps_class.NAME1, threshold))
-            cache_latency = libvpx_latency(os.path.join(cache_log_dir, args.device_id))[0:120]
-            latency.append(cache_latency)
-
-        #dnn
-        dnn_latency = []
-        for num_layers, num_filters in zip(args.baseline_num_blocks, args.baseline_num_filters):
-            nemo_s = NEMO_S(num_layers, num_filters, scale, args.upsample_type)
-            dnn_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name)
-            dnn_latency = libvpx_latency(os.path.join(dnn_log_dir, args.device_id))[0:120]
-            latency.append(dnn_latency)
-
-        for result in zip(*latency):
-            f.write('{}\t{}\n'.format(args.content, '\t'.join(str(np.round(x, 3)) for x in result)))
+            for i in range(min_len):
+                f.write('{:.2f}\t{:.2f}'.format(bilinear_time[i] / 1000, bilinear_temperature[i]))
+                for time, temperature in zip(cache_time, cache_temperature):
+                    f.write('\t{:.2f}\t{:.2f}'.format(time[i] / 1000, temperature[i]))
+                for time, temperature in zip(dnn_time, dnn_temperature):
+                    f.write('\t{:.2f}\t{:.2f}'.format(time[i] / 1000, temperature[i]))
+                f.write('\n')
