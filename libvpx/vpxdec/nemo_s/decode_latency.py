@@ -53,9 +53,9 @@ if __name__ == '__main__':
         os.makedirs(host_log_dir, exist_ok=True)
 
         start_time = time.time()
-        command = 'adb shell sh {}'.format(device_script_file)
+        command = 'adb -s {} shell sh {}'.format(args.device_id, device_script_file)
         subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-        adb_pull(device_log_file, host_log_file)
+        adb_pull(device_log_file, host_log_file, args.device_id)
         end_time = time.time()
         print("decode takes {}sec".format(end_time - start_time))
 

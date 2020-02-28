@@ -27,8 +27,10 @@ if __name__ == '__main__':
     parser.add_argument('--filter_fps', type=float, default=1.0)
 
     #model
-    parser.add_argument('--num_filters', type=int, required=True)
-    parser.add_argument('--num_blocks', type=int, required=True)
+    parser.add_argument('--num_filters', type=int, nargs='+', required=True)
+    parser.add_argument('--num_blocks', type=int, nargs='+', required=True)
+    #parser.add_argument('--num_filters', type=int, required=True)
+    #parser.add_argument('--num_blocks', type=int, required=True)
     parser.add_argument('--upsample_type', type=str, required=True)
 
     #anchor point selector
@@ -58,40 +60,41 @@ if __name__ == '__main__':
         #setup directory
         device_root_dir = os.path.join('/data/local/tmp', content)
 
-        #model
-        lr_video_profile = profile_video(lr_video_file)
-        hr_video_profile = profile_video(hr_video_file)
-        nhwc = [1, lr_video_profile['height'], lr_video_profile['width'], 3]
-        scale = hr_video_profile['height'] // lr_video_profile['height']
-        nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale, args.upsample_type)
-        model = nemo_s.build_model(apply_clip=True)
+        for num_filters, num_blocks in zip(args.num_filters, args.num_blocks):
+            #model
+            lr_video_profile = profile_video(lr_video_file)
+            hr_video_profile = profile_video(hr_video_file)
+            nhwc = [1, lr_video_profile['height'], lr_video_profile['width'], 3]
+            scale = hr_video_profile['height'] // lr_video_profile['height']
+            nemo_s = NEMO_S(num_blocks, num_filters, scale, args.upsample_type)
+            model = nemo_s.build_model(apply_clip=True)
 
-        #setup a cache profile
-        if args.aps_class == 'nemo':
-            aps_class = APS_NEMO
-        elif args.aps_class == 'uniform':
-            aps_class = APS_Uniform
-        elif args.aps_class == 'random':
-            aps_class = APS_Random
-        cache_profile_name = '{}_{}.profile'.format(aps_class.NAME1, args.threshold)
+            #setup a cache profile
+            if args.aps_class == 'nemo':
+                aps_class = APS_NEMO
+            elif args.aps_class == 'uniform':
+                aps_class = APS_Uniform
+            elif args.aps_class == 'random':
+                aps_class = APS_Random
+            cache_profile_name = '{}_{}.profile'.format(aps_class.NAME1, args.threshold)
 
-        #case 4: online cache
-        device_script_dir = os.path.join(device_root_dir, 'script', lr_video_name, model.name, cache_profile_name)
-        device_log_dir= os.path.join(device_root_dir, 'log', lr_video_name, model.name, cache_profile_name)
-        device_script_file = os.path.join(device_script_dir, 'online_profile_cache_latency.sh')
-        device_log_file = os.path.join(device_log_dir, 'latency.txt')
-        host_log_dir = os.path.join(dataset_dir, 'log', lr_video_name, model.name, cache_profile_name, args.device_id)
-        host_log_file = os.path.join(host_log_dir, 'latency.txt')
-        os.makedirs(host_log_dir, exist_ok=True)
+            #case 4: online cache
+            device_script_dir = os.path.join(device_root_dir, 'script', lr_video_name, model.name, cache_profile_name)
+            device_log_dir= os.path.join(device_root_dir, 'log', lr_video_name, model.name, cache_profile_name)
+            device_script_file = os.path.join(device_script_dir, 'online_profile_cache_latency.sh')
+            device_log_file = os.path.join(device_log_dir, 'latency.txt')
+            host_log_dir = os.path.join(dataset_dir, 'log', lr_video_name, model.name, cache_profile_name, args.device_id)
+            host_log_file = os.path.join(host_log_dir, 'latency.txt')
+            os.makedirs(host_log_dir, exist_ok=True)
 
-        start_time = time.time()
-        command = 'adb shell sh {}'.format(device_script_file)
-        subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-        adb_pull(device_log_file, host_log_file)
-        end_time = time.time()
-        print("online cache takes {}sec".format(end_time - start_time))
+            start_time = time.time()
+            command = 'adb -s {} shell sh {}'.format(args.device_id, device_script_file)
+            subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            adb_pull(device_log_file, host_log_file, args.device_id)
+            end_time = time.time()
+            print("online cache takes {}sec".format(end_time - start_time))
 
-        start_time = time.time()
-        time.sleep(args.sleep)
-        end_time = time.time()
-        print("sleep takes {}sec".format(end_time - start_time))
+            start_time = time.time()
+            time.sleep(args.sleep)
+            end_time = time.time()
+            print("sleep takes {}sec".format(end_time - start_time))

@@ -46,10 +46,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    #validation
-    assert(args.num_filters == args.baseline_num_filters[-1])
-    assert(args.num_blocks == args.baseline_num_blocks[-1])
-
     #sort
     args.content.sort(key=lambda val: content_order[val])
 
@@ -68,8 +64,6 @@ if __name__ == '__main__':
     with open(log_file, 'w') as f:
         for content in args.content:
             #bilienar
-            bilinear_avg_quality = []
-            bilinear_avg_latency = []
             #video, directory
             lr_video_dir = os.path.join(args.dataset_rootdir, content, 'video')
             lr_video_file = os.path.abspath(glob.glob(os.path.join(lr_video_dir, '{}p*'.format(args.lr_resolution)))[0])
@@ -81,9 +75,8 @@ if __name__ == '__main__':
             bilinear_quality_log_dir = os.path.join(log_dir, lr_video_name)
             bilinear_latency_log_dir = os.path.join(bilinear_quality_log_dir, args.device_id)
             bilinear_quality = libvpx_quality(bilinear_quality_log_dir)
-            bilinear_latency = libvpx_latency(bilinear_latency_log_dir)
-            bilinear_avg_quality.append(np.round(np.average(bilinear_quality), 2))
-            bilinear_avg_latency.append(np.round(np.average(bilinear_latency), 2))
+            bilinear_avg_latency = np.round(np.average(libvpx_latency(bilinear_latency_log_dir)), 2)
+            bilinear_avg_quality = np.round(np.average(bilinear_quality), 2)
 
             #cache
             cache_avg_quality = []
@@ -130,6 +123,6 @@ if __name__ == '__main__':
                 dnn_latency = libvpx_latency(os.path.join(dnn_log_dir, args.device_id))
                 dnn_avg_latency.append(np.round(np.average(dnn_latency), 3))
 
-            f.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(content, '\t'.join(str(x) for x in bilinear_avg_quality),
+            f.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(content, bilinear_avg_quality,
                 '\t'.join(str(x) for x in cache_avg_quality), '\t'.join(str(x) for x in dnn_avg_quality),
-                '\t'.join(str(x) for x in bilinear_avg_latency), '\t'.join(str(x) for x in cache_avg_latency), '\t'.join(str(x) for x in dnn_avg_latency)))
+                bilinear_avg_latency, '\t'.join(str(x) for x in cache_avg_latency), '\t'.join(str(x) for x in dnn_avg_latency)))
