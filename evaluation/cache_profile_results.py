@@ -40,6 +40,35 @@ def chunk_anchor_points(log_dir):
 
     return num_anchor_points
 
+def chunk_anchor_point_index(log_dir):
+    metadata_log_file = os.path.join(log_dir, 'metadata.txt')
+    anchor_point_index = []
+
+    with open(metadata_log_file, 'r') as f:
+        metadata_lines = f.readlines()
+        for idx, metadata_line in enumerate(metadata_lines):
+            metadata_line = metadata_line.strip().split('\t')
+            if int(metadata_line[2]) == 1:
+                anchor_point_index.append(idx)
+
+    return anchor_point_index
+
+def chunk_out_degree(log_dir, anchor_point_index):
+    metadata_log_file = os.path.join(log_dir, 'out_degree_per_frame.txt')
+    out_degree = []
+
+    with open(metadata_log_file, 'r') as f:
+        metadata_lines = f.readlines()
+        for idx, metadata_line in enumerate(metadata_lines):
+            metadata_line = metadata_line.strip().split('\t')
+            if anchor_point_index is None:
+                out_degree.append(int(metadata_line[2]))
+            else:
+                if idx in anchor_point_index:
+                    out_degree.append(int(metadata_line[2]))
+
+    return out_degree
+
 def quality(log_dir):
     quality_log_file = os.path.join(log_dir, 'quality.txt')
     quality_cache = []
