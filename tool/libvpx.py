@@ -270,6 +270,7 @@ def libvpx_offline_cache_quality(vpxdec_file, content_dir, input_video_name, com
             command += ' --postfix={}'.format(postfix)
         subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
         #subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL)
+        #os.system(command)
 
     #load quality from a log file
     quality = []
