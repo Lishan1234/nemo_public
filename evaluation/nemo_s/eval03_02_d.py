@@ -57,6 +57,8 @@ if __name__ == '__main__':
     #log
     out_degree_log_dir =os.path.join(dataset_dir, 'log', lr_video_name, postfix)
     video_out_degree = chunk_out_degree(out_degree_log_dir, None)
+    video_avg_out_degree = np.average(video_out_degree)
+    video_std_out_degree = np.std(video_out_degree)
     video_out_degree_percentile =  np.percentile(video_out_degree,[0, 25, 50, 75, 100], interpolation='nearest')
     with open(log_file, 'w') as f:
         #|anchor points|
@@ -67,19 +69,25 @@ if __name__ == '__main__':
         nemo_log_dir = os.path.join(dataset_dir, 'log', lr_video_name, nemo_s.name, '{}_{}.profile'.format(APS_NEMO.NAME1, args.threshold), postfix)
         nemo_ap_idx = chunk_anchor_point_index(nemo_log_dir)
         nemo_out_degree = chunk_out_degree(out_degree_log_dir, nemo_ap_idx)
+        nemo_avg_out_degree = np.average(nemo_out_degree)
+        nemo_std_out_degree = np.std(nemo_out_degree)
         nemo_out_degree_percentile =  np.percentile(nemo_out_degree,[0, 25, 50, 75, 100], interpolation='nearest')
 
         #Uniform
         uniform_log_dir = os.path.join(dataset_dir, 'log', lr_video_name, nemo_s.name, '{}_{}'.format(APS_Uniform.NAME1, num_anchor_points), postfix)
         uniform_ap_idx = chunk_anchor_point_index(uniform_log_dir)
         uniform_out_degree = chunk_out_degree(out_degree_log_dir, uniform_ap_idx)
+        uniform_avg_out_degree = np.average(uniform_out_degree)
+        uniform_std_out_degree = np.std(uniform_out_degree)
         uniform_out_degree_percentile =  np.percentile(uniform_out_degree,[0, 25, 50, 75, 100], interpolation='nearest')
 
         #Random
         random_log_dir = os.path.join(dataset_dir, 'log', lr_video_name, nemo_s.name, '{}_{}.tmp'.format(APS_Random.NAME1, num_anchor_points), postfix)
         random_ap_idx = chunk_anchor_point_index(random_log_dir)
         random_out_degree = chunk_out_degree(out_degree_log_dir, random_ap_idx)
+        random_avg_out_degree = np.average(random_out_degree)
+        random_std_out_degree = np.std(random_out_degree)
         random_out_degree_percentile =  np.percentile(random_out_degree,[0, 25, 50, 75, 100], interpolation='nearest')
 
-        for i, quality in enumerate(zip(nemo_out_degree_percentile, uniform_out_degree_percentile, random_out_degree_percentile, video_out_degree_percentile)):
-            f.write('{}\t{}\t{}\t{}\t{}\n'.format(i, quality[0], quality[1], quality[2], quality[3]))
+        f.write('{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(nemo_avg_out_degree, uniform_avg_out_degree, random_avg_out_degree, video_avg_out_degree))
+        f.write('{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(nemo_std_out_degree, uniform_std_out_degree, random_std_out_degree, video_std_out_degree))
