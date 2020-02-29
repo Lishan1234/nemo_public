@@ -29,6 +29,17 @@ def chunk_error_frames(log_dir):
 
     return error_cache
 
+def chunk_anchor_points(log_dir):
+    error_log_file = os.path.join(log_dir, 'error.txt')
+    error_cache = []
+
+    with open(error_log_file, 'r') as f:
+        error_lines = f.readlines()
+        error_line = error_lines[-1].strip().split('\t')
+        num_anchor_points = error_line[0]
+
+    return num_anchor_points
+
 def quality(log_dir):
     quality_log_file = os.path.join(log_dir, 'quality.txt')
     quality_cache = []
