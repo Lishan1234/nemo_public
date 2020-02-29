@@ -16,6 +16,19 @@ def chunk_quality(log_dir):
 
     return quality_cache, quality_dnn
 
+def chunk_error_frames(log_dir):
+    error_log_file = os.path.join(log_dir, 'error.txt')
+    error_cache = []
+
+    with open(error_log_file, 'r') as f:
+        error_lines = f.readlines()
+
+        for error_line in error_lines:
+            error_line = error_line.strip().split('\t')
+            error_cache.append(int(error_line[2]))
+
+    return error_cache
+
 def quality(log_dir):
     quality_log_file = os.path.join(log_dir, 'quality.txt')
     quality_cache = []
