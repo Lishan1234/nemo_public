@@ -44,6 +44,9 @@ if __name__ == '__main__':
     #experiment
     parser.add_argument('--sleep', type=float, default=0)
 
+    #codec
+    parser.add_argument('--threads', type=str, default=4)
+
     args = parser.parse_args()
 
     for content in args.content:
@@ -82,15 +85,18 @@ if __name__ == '__main__':
             device_script_dir = os.path.join(device_root_dir, 'script', lr_video_name, model.name, cache_profile_name)
             device_log_dir= os.path.join(device_root_dir, 'log', lr_video_name, model.name, cache_profile_name)
             device_script_file = os.path.join(device_script_dir, 'online_profile_cache_latency.sh')
-            device_log_file = os.path.join(device_log_dir, 'latency.txt')
+            device_log_file0 = os.path.join(device_log_dir, 'latency.txt')
+            device_log_file1 = os.path.join(device_log_dir, 'latency_thread0{}.txt'.format(args.threads))
             host_log_dir = os.path.join(dataset_dir, 'log', lr_video_name, model.name, cache_profile_name, args.device_id)
-            host_log_file = os.path.join(host_log_dir, 'latency.txt')
+            host_log_file0 = os.path.join(host_log_dir, 'latency.txt')
+            host_log_file1 = os.path.join(host_log_dir, 'latency_thread0{}.txt'.format(args.threads))
             os.makedirs(host_log_dir, exist_ok=True)
 
             start_time = time.time()
             command = 'adb -s {} shell sh {}'.format(args.device_id, device_script_file)
             subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-            adb_pull(device_log_file, host_log_file, args.device_id)
+            adb_pull(device_log_file0, host_log_file0, args.device_id)
+            adb_pull(device_log_file1, host_log_file1, args.device_id)
             end_time = time.time()
             print("online cache takes {}sec".format(end_time - start_time))
 

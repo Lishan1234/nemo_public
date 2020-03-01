@@ -26,6 +26,32 @@ def libvpx_latency(log_dir):
 
         return latency
 
+def libvpx_breakdown_latency(log_dir):
+        latency_log_file = os.path.join(log_dir, 'latency_thread04.txt')
+        decode = []
+        bilinear_interpolation = []
+        motion_compensation = []
+
+        with open(latency_log_file, 'r') as f:
+            latency_lines = f.readlines()
+
+            for latency_line in latency_lines:
+                latency_line = latency_line.strip().split('\t')
+                decode_latency = 0
+                decode_latency += float(latency_line[2])
+                decode_latency += float(latency_line[3])
+                decode_latency += float(latency_line[4])
+                decode.append(decode_latency)
+
+                bilinear_interpolation_latency = 0
+                bilinear_interpolation_latency += float(latency_line[5])
+                bilinear_interpolation_latency += float(latency_line[7])
+                bilinear_interpolation.append(bilinear_interpolation_latency)
+
+                motion_compensation.append(float(latency_line[6]))
+
+        return decode, bilinear_interpolation, motion_compensation
+
 def libvpx_num_frames(log_dir):
         log_file = os.path.join(log_dir, 'metadata.txt')
 

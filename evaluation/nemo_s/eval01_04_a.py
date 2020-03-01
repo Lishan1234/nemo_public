@@ -110,9 +110,9 @@ if __name__ == '__main__':
                     min_len = len(dnn_time[-1])
 
             for i in range(min_len):
-                f.write('{:.2f}\t{:.2f}'.format(bilinear_time[i] / 1000, bilinear_temperature[i]))
+                f.write('{:.2f}\t{:.2f}'.format(bilinear_time[i] / 1000 / 60, bilinear_temperature[i]))
                 for time, temperature in zip(cache_time, cache_temperature):
-                    f.write('\t{:.2f}\t{:.2f}'.format(time[i] / 1000, temperature[i]))
+                    f.write('\t{:.2f}\t{:.2f}'.format(time[i] / 1000 / 60, temperature[i]))
                 for time, temperature in zip(dnn_time, dnn_temperature):
-                    f.write('\t{:.2f}\t{:.2f}'.format(time[i] / 1000, temperature[i]))
+                    f.write('\t{:.2f}\t{:.2f}'.format(time[i] / 1000 / 60, temperature[i]))
                 f.write('\n')
