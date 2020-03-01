@@ -34,12 +34,10 @@ if __name__ == '__main__':
         ffmpeg_option = FFmpegOption('none', None, None)
         hr_video_file = glob.glob(os.path.join(video_dir, '{}p*'.format(args.hr_resolution)))[1]
         assert('encoded' not in hr_video_file)
-        libvpx_save_frame(args.vpxdec_file, dataset_dir, os.path.basename(hr_video_file))
+        #libvpx_save_frame(args.vpxdec_file, dataset_dir, os.path.basename(hr_video_file))
 
         for lr_resolution in args.lr_resolution:
             lr_video_file = glob.glob(os.path.join(video_dir, '{}p*'.format(lr_resolution)))[0]
-            print(lr_video_file)
-            sys.exit()
             libvpx_bilinear_quality(args.vpxdec_file, dataset_dir, os.path.basename(lr_video_file), os.path.basename(hr_video_file))
 
         hr_image_dir = os.path.join(dataset_dir, 'image', ffmpeg_option.summary(os.path.basename(hr_video_file)))
