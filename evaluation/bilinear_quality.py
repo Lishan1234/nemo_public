@@ -3,6 +3,7 @@ import os
 import argparse
 import shutil
 import glob
+import sys
 
 import numpy as np
 import tensorflow as tf
@@ -31,11 +32,12 @@ if __name__ == '__main__':
         dataset_dir = os.path.join(args.dataset_rootdir, content)
         video_dir = os.path.join(dataset_dir, 'video')
         ffmpeg_option = FFmpegOption('none', None, None)
-        hr_video_file = glob.glob(os.path.join(video_dir, '{}p*'.format(args.hr_resolution)))[0]
+        hr_video_file = sorted(glob.glob(os.path.join(video_dir, '{}p*'.format(args.hr_resolution))))[0]
+        assert('encoded' not in hr_video_file)
         libvpx_save_frame(args.vpxdec_file, dataset_dir, os.path.basename(hr_video_file))
 
         for lr_resolution in args.lr_resolution:
-            lr_video_file = glob.glob(os.path.join(video_dir, '{}p*'.format(lr_resolution)))[0]
+            lr_video_file = sorted(glob.glob(os.path.join(video_dir, '{}p*'.format(lr_resolution))))[1]
             libvpx_bilinear_quality(args.vpxdec_file, dataset_dir, os.path.basename(lr_video_file), os.path.basename(hr_video_file))
 
         hr_image_dir = os.path.join(dataset_dir, 'image', ffmpeg_option.summary(os.path.basename(hr_video_file)))
