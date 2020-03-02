@@ -61,7 +61,7 @@ if __name__ == '__main__':
         aps_class = APS_Random
 
     hr_resolution = 1080
-    bilinear_resolution = [240, 360, 480, 720]
+    bilinear_resolution = [240, 360, 480, 720, 1080]
     cache_resolution = [240, 360, 480]
     num_blocks = {}
     num_filters = {}
@@ -78,14 +78,17 @@ if __name__ == '__main__':
     for content in args.content:
         #bilienar
         bilinear_quality = {}
-        for lr_resolution in bilinear_resolution:
+        for resolution in bilinear_resolution:
             #video, directory
-            lr_video_dir = os.path.join(args.dataset_rootdir, content, 'video')
-            lr_video_file = os.path.abspath(glob.glob(os.path.join(lr_video_dir, '{}p*'.format(lr_resolution)))[0])
-            lr_video_profile = profile_video(lr_video_file)
-            lr_video_name = os.path.basename(lr_video_file)
-            bilinear_log_dir = os.path.join(args.dataset_rootdir, content, 'log', lr_video_name)
-            bilinear_quality[lr_resolution] = libvpx_quality(bilinear_log_dir)
+            video_dir = os.path.join(args.dataset_rootdir, content, 'video')
+            if resolution == 1080:
+                video_file = os.path.abspath(sorted(glob.glob(os.path.join(video_dir, '{}p*'.format(resolution))))[1])
+            else:
+                video_file = os.path.abspath(sorted(glob.glob(os.path.join(video_dir, '{}p*'.format(resolution))))[0])
+            video_profile = profile_video(video_file)
+            video_name = os.path.basename(video_file)
+            bilinear_log_dir = os.path.join(args.dataset_rootdir, content, 'log', video_name)
+            bilinear_quality[resolution] = libvpx_quality(bilinear_log_dir)
 
             #log_file= os.path.join(bilinear_log_dir, 'quality.txt')
             #if not os.path.exists(log_file):
@@ -94,19 +97,19 @@ if __name__ == '__main__':
 
         #cache
         cache_quality = {}
-        for lr_resolution in cache_resolution:
+        for resolution in cache_resolution:
             #video, directory
-            lr_video_dir = os.path.join(args.dataset_rootdir, content, 'video')
-            lr_video_file = os.path.abspath(glob.glob(os.path.join(lr_video_dir, '{}p*'.format(lr_resolution)))[0])
-            lr_video_profile = profile_video(lr_video_file)
-            lr_video_name = os.path.basename(lr_video_file)
-            scale = int(hr_resolution // lr_resolution)
-            nemo_s = NEMO_S(num_blocks[lr_resolution], num_filters[lr_resolution], scale, args.upsample_type)
+            video_dir = os.path.join(args.dataset_rootdir, content, 'video')
+            video_file = os.path.abspath(glob.glob(os.path.join(video_dir, '{}p*'.format(resolution)))[0])
+            video_profile = profile_video(video_file)
+            video_name = os.path.basename(video_file)
+            scale = int(hr_resolution // resolution)
+            nemo_s = NEMO_S(num_blocks[resolution], num_filters[resolution], scale, args.upsample_type)
 
             #latency, quality
             cache_profile_name = '{}_{}.profile'.format(aps_class.NAME1, args.threshold)
-            cache_log_dir = os.path.join(args.dataset_rootdir, content, 'log', lr_video_name, nemo_s.name, cache_profile_name)
-            cache_quality[lr_resolution] = libvpx_quality(cache_log_dir)
+            cache_log_dir = os.path.join(args.dataset_rootdir, content, 'log', video_name, nemo_s.name, cache_profile_name)
+            cache_quality[resolution] = libvpx_quality(cache_log_dir)
 
             #log_file = os.path.join(cache_log_dir, 'quality.txt')
             #if not os.path.exists(log_file):
@@ -123,3 +126,4 @@ if __name__ == '__main__':
                 f.write('\t{}'.format(chunk_quality(i, bilinear_quality[360])))
                 f.write('\t{}'.format(chunk_quality(i, bilinear_quality[480])))
                 f.write('\t{}\n'.format(chunk_quality(i, bilinear_quality[720])))
+                f.write('\t{}\n'.format(chunk_quality(i, bilinear_quality[1080])))

@@ -2,6 +2,7 @@ import argparse
 import os
 import glob
 import operator
+import sys
 
 import numpy as np
 
@@ -46,10 +47,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    #validation
-    assert(args.num_filters == args.baseline_num_filters[-1])
-    assert(args.num_blocks == args.baseline_num_blocks[-1])
-
     #sort
     args.content.sort()
 
@@ -81,7 +78,10 @@ if __name__ == '__main__':
 
             #bilienar
             bilinear_log_dir = os.path.join(log_dir, lr_video_name, args.device_name, 'flir')
+            total_frame = libvpx_num_frames(bilinear_log_dir)
             time, temperature = libvpx_temperature(os.path.join(bilinear_log_dir, 'temperature.csv'))
+            bilinear_fps = total_frame / (time[-1] - time[0]) * 1000
+            time = [x * (bilinear_fps / fps) for x in time]
             bilinear_time = time
             bilinear_temperature = temperature
             min_len = len(bilinear_time)
@@ -92,7 +92,10 @@ if __name__ == '__main__':
             for idx, threshold in enumerate(args.threshold):
                 cache_profile_name = '{}_{}.profile'.format(aps_class.NAME1, threshold)
                 cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, cache_profile_name, args.device_name, 'flir')
+                total_frame = libvpx_num_frames(cache_log_dir)
                 time, temperature = libvpx_temperature(os.path.join(cache_log_dir, 'temperature.csv'))
+                cache_fps = total_frame / (time[-1] - time[0]) * 1000
+                time = [x * (cache_fps / fps) for x in time]
                 cache_time.append(time)
                 cache_temperature.append(temperature)
                 if len(cache_time[-1]) < min_len:
@@ -103,7 +106,10 @@ if __name__ == '__main__':
             for num_layers, num_filters in zip(args.baseline_num_blocks, args.baseline_num_filters):
                 nemo_s = NEMO_S(num_layers, num_filters, scale, args.upsample_type)
                 dnn_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, args.device_name, 'flir')
+                total_frame = libvpx_num_frames(dnn_log_dir)
                 time, temperature = libvpx_temperature(os.path.join(dnn_log_dir, 'temperature.csv'))
+                dnn_fps = total_frame / (time[-1] - time[0]) * 1000
+                time = [x * (dnn_fps / fps) for x in time]
                 dnn_time.append(time)
                 dnn_temperature.append(temperature)
                 if len(dnn_time[-1]) < min_len:

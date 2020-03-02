@@ -11,4 +11,4 @@ python $MOBINAS_CODE_ROOT/evaluation/nemo_s/eval01_04_a.py \
                 --upsample_type deconv \
                 --threshold 0.5 \
                 --aps_class nemo \
-                --device_name mi9
+                --device_name mi9 
