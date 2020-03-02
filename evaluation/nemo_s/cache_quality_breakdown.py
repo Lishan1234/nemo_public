@@ -60,7 +60,7 @@ if __name__ == '__main__':
         lr_video_file = os.path.abspath(glob.glob(os.path.join(video_dir, '{}p*'.format(args.lr_resolution)))[0])
         lr_video_profile = profile_video(lr_video_file)
         lr_video_name = os.path.basename(lr_video_file)
-        hr_video_file = os.path.abspath(glob.glob(os.path.join(video_dir, '{}p*'.format(args.hr_resolution)))[1])
+        hr_video_file = os.path.abspath(sorted(glob.glob(os.path.join(video_dir, '{}p*'.format(args.hr_resolution))))[0])
         assert('encoded' not in hr_video_file)
 
         hr_video_profile = profile_video(hr_video_file)

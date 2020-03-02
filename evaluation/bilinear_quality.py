@@ -32,7 +32,7 @@ if __name__ == '__main__':
         dataset_dir = os.path.join(args.dataset_rootdir, content)
         video_dir = os.path.join(dataset_dir, 'video')
         ffmpeg_option = FFmpegOption('none', None, None)
-        hr_video_file = glob.glob(os.path.join(video_dir, '{}p*'.format(args.hr_resolution)))[1]
+        hr_video_file = sorted(glob.glob(os.path.join(video_dir, '{}p*'.format(args.hr_resolution))))[0]
         assert('encoded' not in hr_video_file)
         libvpx_save_frame(args.vpxdec_file, dataset_dir, os.path.basename(hr_video_file))
 
