@@ -159,7 +159,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
     private static String buildCustomDiagnosticInfo(int errorCode) {
       String sign = errorCode < 0 ? "neg_" : "";
-      return "com.google.android.exoplayer.MediaCodecTrackRenderer_" + sign + Math.abs(errorCode);
+      return "com.google.android.activity_player.MediaCodecTrackRenderer_" + sign + Math.abs(errorCode);
     }
 
   }

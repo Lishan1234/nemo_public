@@ -51,7 +51,7 @@ ext {
 apply from: '../../javadoc_library.gradle'
 
 ext {
-    releaseArtifact = 'exoplayer-dash'
+    releaseArtifact = 'activity_player-dash'
     releaseDescription = 'The ExoPlayer library DASH module.'
 }
 apply from: '../../publish.gradle'

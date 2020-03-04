@@ -33,7 +33,7 @@ dependencies {
 }
 
 ext {
-    releaseArtifact = 'exoplayer'
+    releaseArtifact = 'activity_player'
     releaseDescription = 'The ExoPlayer library (all modules).'
 }
 apply from: '../../publish.gradle'

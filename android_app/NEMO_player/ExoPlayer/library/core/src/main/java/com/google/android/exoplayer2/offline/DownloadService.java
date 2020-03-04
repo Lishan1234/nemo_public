@@ -39,18 +39,18 @@ public abstract class DownloadService extends Service {
 
   /** Starts a download service without adding a new {@link DownloadAction}. */
   public static final String ACTION_INIT =
-      "com.google.android.exoplayer.downloadService.action.INIT";
+      "com.google.android.activity_player.downloadService.action.INIT";
 
   /** Starts a download service, adding a new {@link DownloadAction} to be executed. */
-  public static final String ACTION_ADD = "com.google.android.exoplayer.downloadService.action.ADD";
+  public static final String ACTION_ADD = "com.google.android.activity_player.downloadService.action.ADD";
 
   /** Reloads the download requirements. */
   public static final String ACTION_RELOAD_REQUIREMENTS =
-      "com.google.android.exoplayer.downloadService.action.RELOAD_REQUIREMENTS";
+      "com.google.android.activity_player.downloadService.action.RELOAD_REQUIREMENTS";
 
   /** Like {@link #ACTION_INIT}, but with {@link #KEY_FOREGROUND} implicitly set to true. */
   private static final String ACTION_RESTART =
-      "com.google.android.exoplayer.downloadService.action.RESTART";
+      "com.google.android.activity_player.downloadService.action.RESTART";
 
   /** Key for the {@link DownloadAction} in an {@link #ACTION_ADD} intent. */
   public static final String KEY_DOWNLOAD_ACTION = "download_action";

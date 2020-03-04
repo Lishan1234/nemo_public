@@ -32,9 +32,9 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.1.1'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
 
-    implementation project(':exoplayer-library-core')
-    implementation project(':exoplayer-library-ui')
-    implementation project(':exoplayer-library-dash')
-    implementation project(':exoplayer-extension-vp9')
+    implementation project(':activity_player-library-core')
+    implementation project(':activity_player-library-ui')
+    implementation project(':activity_player-library-dash')
+    implementation project(':activity_player-extension-vp9')
 
 }

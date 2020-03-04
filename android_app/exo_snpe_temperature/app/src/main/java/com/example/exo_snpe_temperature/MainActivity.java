@@ -64,7 +64,7 @@ public class MainActivity extends AppCompatActivity implements Device.Delegate, 
 
     //added
     private static final long ONE_MINUTE = 60 * 1000;
-    private static final long TEST_DURATION = ONE_MINUTE * 2;
+    private static final long TEST_DURATION = ONE_MINUTE * 45;
     private static final long UPDATE_TEMP_FREQ_MS = 1000;
     private static final long UPDATE_PIC_FREQ_MS = ONE_MINUTE;
 
@@ -89,7 +89,7 @@ public class MainActivity extends AppCompatActivity implements Device.Delegate, 
         RenderedImage.ImageType defaultImageType = RenderedImage.ImageType.ThermalRGBA8888Image;
         frameProcessor = new FrameProcessor(this,this, EnumSet.of(RenderedImage.ImageType.ThermalRadiometricKelvinImage, RenderedImage.ImageType.ThermalRGBA8888Image),true);
         frameProcessor.setGLOutputMode(defaultImageType);
-        frameProcessor.setImagePalette(RenderedImage.Palette.values()[2]);
+//        frameProcessor.setImagePalette(RenderedImage.Palette.values()[2]);
 
         thermalSurfaceView = findViewById(R.id.imageView);
         thermalSurfaceView.setPreserveEGLContextOnPause(true);

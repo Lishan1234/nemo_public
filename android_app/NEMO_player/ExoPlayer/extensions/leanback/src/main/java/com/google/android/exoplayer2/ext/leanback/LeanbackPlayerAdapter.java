@@ -64,7 +64,7 @@ public final class LeanbackPlayerAdapter extends PlayerAdapter implements Runnab
    * longer required.
    *
    * @param context The current context (activity).
-   * @param player Instance of your exoplayer that needs to be configured.
+   * @param player Instance of your activity_player that needs to be configured.
    * @param updatePeriodMs The delay between player control updates, in milliseconds.
    */
   public LeanbackPlayerAdapter(Context context, Player player, final int updatePeriodMs) {
