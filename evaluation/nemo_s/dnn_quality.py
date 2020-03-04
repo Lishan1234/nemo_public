@@ -74,7 +74,7 @@ if __name__ == '__main__':
             libvpx_offline_dnn_quality(args.vpxdec_file, dataset_dir, lr_video_name, hr_video_name, \
                                 checkpoint.model.name, lr_video_profile['height'])
             end_time = time.time()
-            print('measuring cache quality takes {}sec'.format(end_time-start_time))
+            print('measuring sr quality takes {}sec'.format(end_time-start_time))
 
             #remove sr images
             start_time = time.time()
