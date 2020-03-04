@@ -101,7 +101,7 @@ if __name__ == '__main__':
 
             #bilienar
             bilinear_log_dir = os.path.join('/ssd2/nemo-mobicom-backup', content, 'log', lr_video_name, args.device_name, 'monsoon')
-            time, current, power = libvpx_power(os.path.join(bilinear_log_dir, 'monsoon_decode.csv'))
+            time, current, power = libvpx_power(os.path.join(bilinear_log_dir, 'decode.csv'))
             total_frame = libvpx_num_frames(bilinear_log_dir)
             bilinear_avg_power = np.average(power)
             bilinear_total_energy = bilinear_avg_power * time
@@ -115,7 +115,7 @@ if __name__ == '__main__':
             for num_layers, num_filters in zip(args.baseline_num_blocks, args.baseline_num_filters):
                 nemo_s = NEMO_S(num_layers, num_filters, scale, args.upsample_type)
                 dnn_log_dir = os.path.join('/ssd2/nemo-mobicom-backup', content, 'log', lr_video_name, nemo_s.name, args.device_name, 'monsoon')
-                time, current, power = libvpx_power(os.path.join(dnn_log_dir, 'monsoon_decode_sr_{}.csv'.format(num_filters)))
+                time, current, power = libvpx_power(os.path.join(dnn_log_dir, 'decode_sr_{}.csv'.format(num_filters)))
                 total_frame = libvpx_num_frames(dnn_log_dir)
                 dnn_avg_power = np.average(power)
                 dnn_total_energy = dnn_avg_power * time
@@ -160,4 +160,8 @@ if __name__ == '__main__':
                 if len(dnn_time[-1]) < min_len:
                     min_len = len(dnn_time[-1])
 
-            f.write('{}\t{}\t{}\n'.format(content, np.round(max(bilinear_temperature), 2), '\t'.join(str(np.round(max(x),2)) for x in dnn_temperature)))
+            for i in range(min_len):
+                f.write('{:.2f}\t{:.2f}'.format(bilinear_time[i] / 1000 / 60, bilinear_temperature[i]))
+                for time, temperature in zip(dnn_time, dnn_temperature):
+                    f.write('\t{:.2f}\t{:.2f}'.format(time[i] / 1000 / 60, temperature[i]))
+                f.write('\n')
