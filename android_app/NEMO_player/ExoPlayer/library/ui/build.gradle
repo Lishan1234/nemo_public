@@ -51,7 +51,7 @@ ext {
 apply from: '../../javadoc_library.gradle'
 
 ext {
-    releaseArtifact = 'exoplayer-ui'
+    releaseArtifact = 'activity_player-ui'
     releaseDescription = 'The ExoPlayer library UI module.'
 }
 apply from: '../../publish.gradle'
