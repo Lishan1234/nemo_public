@@ -44,10 +44,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    #validation
-    assert(args.num_filters == args.baseline_num_filters[-1])
-    assert(args.num_blocks == args.baseline_num_blocks[-1])
-
     #sort
     args.content.sort()
 
@@ -78,7 +74,7 @@ if __name__ == '__main__':
 
             #bilienar
             bilinear_log_dir = os.path.join(log_dir, lr_video_name, args.device_name, 'monsoon')
-            time, current, power = libvpx_power(os.path.join(bilinear_log_dir, 'monsoon_decode.csv'))
+            time, current, power = libvpx_power(os.path.join(bilinear_log_dir, 'decode.csv'))
             total_frame = libvpx_num_frames(bilinear_log_dir)
             bilinear_avg_power = np.average(power)
             bilinear_total_energy = bilinear_avg_power * time
@@ -92,7 +88,7 @@ if __name__ == '__main__':
             for idx, threshold in enumerate(args.threshold):
                 cache_profile_name = '{}_{}.profile'.format(aps_class.NAME1, threshold)
                 cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, cache_profile_name, args.device_name, 'monsoon')
-                time, current, power = libvpx_power(os.path.join(cache_log_dir, 'monsoon_decode_cache_{}.csv'.format(args.num_filters)))
+                time, current, power = libvpx_power(os.path.join(cache_log_dir, 'decode_cache_{}.csv'.format(args.num_filters)))
                 total_frame = libvpx_num_frames(cache_log_dir)
                 cache_avg_power = np.average(power)
                 cache_total_energy = cache_avg_power * time
@@ -106,7 +102,7 @@ if __name__ == '__main__':
             for num_layers, num_filters in zip(args.baseline_num_blocks, args.baseline_num_filters):
                 nemo_s = NEMO_S(num_layers, num_filters, scale, args.upsample_type)
                 dnn_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, args.device_name, 'monsoon')
-                time, current, power = libvpx_power(os.path.join(dnn_log_dir, 'monsoon_decode_sr_{}.csv'.format(num_filters)))
+                time, current, power = libvpx_power(os.path.join(dnn_log_dir, 'decode_sr_{}.csv'.format(num_filters)))
                 total_frame = libvpx_num_frames(dnn_log_dir)
                 dnn_avg_power = np.average(power)
                 dnn_total_energy = dnn_avg_power * time

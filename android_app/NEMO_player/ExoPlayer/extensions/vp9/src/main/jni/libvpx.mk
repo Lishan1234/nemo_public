@@ -23,7 +23,8 @@ include $(CONFIG_DIR)/config.mk
 include $(CONFIG_DIR)/libs-$(TOOLCHAIN).mk
 
 ifeq ($(CONFIG_SNPE), yes)
-    SNPE_ROOT := $(LOCAL_PATH)/libvpx/third_party/snpe
+#    SNPE_ROOT := $(LOCAL_PATH)/libvpx/third_party/snpe
+	SNPE_ROOT := $(LOCAL_PATH)/../../../../../../../../third_party/snpe
     SNPE_INCLUDE_DIR:= $(SNPE_ROOT)/include/zdl
     ifeq ($(TARGET_ARCH_ABI), arm64-v8a)
         ifeq ($(APP_STL), c++_shared)
@@ -84,7 +85,8 @@ ifeq ($(CONFIG_SNPE), yes)
     LOCAL_CPP_FEATURES += exceptions
     LOCAL_SHARED_LIBRARIES := libSNPE libSYMPHONYCPU
     LOCAL_LDLIBS += -lGLESv2 -lEGL
-    LOCAL_C_INCLUDES += $(LOCAL_PATH)/libvpx/third_party/snpe/include
+#    LOCAL_C_INCLUDES += $(LOCAL_PATH)/libvpx/third_party/snpe/include
+	LOCAL_C_INCLUDES += $(SNPE_ROOT)/include
 endif
 include $(BUILD_SHARED_LIBRARY)
 
@@ -93,7 +95,8 @@ ifeq ($(CONFIG_SNPE), yes)
     include $(CLEAR_VARS)
     LOCAL_MODULE := libSNPE
     LOCAL_SRC_FILES := $(SNPE_LIB_DIR)/libSNPE.so
-    LOCAL_EXPORT_C_INCLUDES += $(LOCAL_PATH)/libvpx/third_party/snpe/include/zdl
+#    LOCAL_EXPORT_C_INCLUDES += $(LOCAL_PATH)/libvpx/third_party/snpe/include/zdl
+	LOCAL_EXPORT_C_INCLUDES += $(SNPE_ROOT)/include/zdl
     include $(PREBUILT_SHARED_LIBRARY)
 
     include $(CLEAR_VARS)

@@ -159,6 +159,11 @@ public class LibvpxVideoRenderer extends BaseRenderer {
 
   protected DecoderCounters decoderCounters;
 
+  /***chanju***/
+  public String contentPath;
+  public int decodeMode;
+  public String modelType;
+
   /**
    * @param scaleToFit Whether video frames should be scaled to fit when rendering.
    * @param allowedJoiningTimeMs The maximum duration in milliseconds for which this video renderer
@@ -192,6 +197,26 @@ public class LibvpxVideoRenderer extends BaseRenderer {
         /* disableLoopFilter= */ false,
         /* useSurfaceYuvOutput= */ false);
   }
+
+  /***chanju***/
+  public LibvpxVideoRenderer(boolean scaleToFit, long allowedJoiningTimeMs,
+                             Handler eventHandler, VideoRendererEventListener eventListener,
+                             int maxDroppedFramesToNotify, String contentPath, String modelType, int decodeMode) {
+    this(
+            scaleToFit,
+            allowedJoiningTimeMs,
+            eventHandler,
+            eventListener,
+            maxDroppedFramesToNotify,
+            /* drmSessionManager= */ null,
+            /* playClearSamplesWithoutKeys= */ false,
+            /* disableLoopFilter= */ false,
+            /* useSurfaceYuvOutput= */ false);
+    this.contentPath = contentPath;
+    this.decodeMode = decodeMode;
+    this.modelType = modelType;
+  }
+  /*** chanju***/
 
   /**
    * @param scaleToFit Whether video frames should be scaled to fit when rendering.
@@ -750,7 +775,10 @@ public class LibvpxVideoRenderer extends BaseRenderer {
               initialInputBufferSize,
               mediaCrypto,
               disableLoopFilter,
-              useSurfaceYuvOutput);
+              useSurfaceYuvOutput,
+                  contentPath,
+                  modelType,
+                  decodeMode);
       decoder.setOutputMode(outputMode);
       TraceUtil.endSection();
       long decoderInitializedTimestamp = SystemClock.elapsedRealtime();
@@ -919,13 +947,14 @@ public class LibvpxVideoRenderer extends BaseRenderer {
       return false;
     }
 
-    if (shouldDropBuffersToKeyframe(earlyUs, elapsedRealtimeUs)
-        && maybeDropBuffersToKeyframe(positionUs)) {
-      return false;
-    } else if (shouldDropOutputBuffer(earlyUs, elapsedRealtimeUs)) {
-      dropOutputBuffer(outputBuffer);
-      return true;
-    }
+//    if (shouldDropBuffersToKeyframe(earlyUs, elapsedRealtimeUs)
+//        && maybeDropBuffersToKeyframe(positionUs)) {
+//      return false;
+//    }
+//    else if (shouldDropOutputBuffer(earlyUs, elapsedRealtimeUs)) {
+//      dropOutputBuffer(outputBuffer);
+//      return true;
+//    }
 
     if (earlyUs < 30000) {
       if (frameMetadataListener != null) {
