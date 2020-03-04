@@ -20,7 +20,7 @@ if (project.ext.has("exoplayerPublishEnabled")
         publishVersion = releaseVersion
         repoName = getBintrayRepo()
         userOrg = 'google'
-        groupId = 'com.google.android.exoplayer'
+        groupId = 'com.google.android.activity_player'
         website = 'https://github.com/google/ExoPlayer'
     }
 }
@@ -28,5 +28,5 @@ if (project.ext.has("exoplayerPublishEnabled")
 def getBintrayRepo() {
     boolean publicRepo = hasProperty('publicRepo') &&
         property('publicRepo').toBoolean()
-    return publicRepo ? 'exoplayer' : 'exoplayer-test'
+    return publicRepo ? 'activity_player' : 'activity_player-test'
 }

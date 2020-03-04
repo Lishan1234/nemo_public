@@ -85,6 +85,10 @@ public class DefaultRenderersFactory implements RenderersFactory {
 
   protected static final int MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY = 50;
 
+  public String contentPath;
+  public int decodeMode;
+  public String modelType;
+
   private final Context context;
   @Nullable private DrmSessionManager<FrameworkMediaCrypto> drmSessionManager;
   @ExtensionRendererMode private int extensionRendererMode;
@@ -111,16 +115,25 @@ public class DefaultRenderersFactory implements RenderersFactory {
     this(context, drmSessionManager, EXTENSION_RENDERER_MODE_OFF);
   }
 
-  /**
-   * @deprecated Use {@link #DefaultRenderersFactory(Context)} and {@link
-   *     #setExtensionRendererMode(int)}.
-   */
-  @Deprecated
-  @SuppressWarnings("deprecation")
-  public DefaultRenderersFactory(
-      Context context, @ExtensionRendererMode int extensionRendererMode) {
-    this(context, extensionRendererMode, DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS);
+//  /**
+//   * @deprecated Use {@link #DefaultRenderersFactory(Context)} and {@link
+//   *     #setExtensionRendererMode(int)}.
+//   */
+//  @Deprecated
+//  @SuppressWarnings("deprecation")
+//  public DefaultRenderersFactory(
+//      Context context, @ExtensionRendererMode int extensionRendererMode) {
+//    this(context, extensionRendererMode, DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS);
+//  }
+
+  /***chanju***/
+  public DefaultRenderersFactory(Context context, String contentPath, String modelType, int decodeMode){
+    this(context);
+    this.contentPath = contentPath;
+    this.decodeMode = decodeMode;
+    this.modelType = modelType;
   }
+  /***chanju***/
 
   /**
    * @deprecated Use {@link #DefaultRenderersFactory(Context)} and {@link
@@ -327,7 +340,10 @@ public class DefaultRenderersFactory implements RenderersFactory {
               long.class,
               android.os.Handler.class,
               com.google.android.exoplayer2.video.VideoRendererEventListener.class,
-              int.class);
+              int.class,
+              String.class,
+              String.class,
+              int.class    );
       // LINT.ThenChange(../../../../../../../proguard-rules.txt)
       Renderer renderer =
           (Renderer)
@@ -336,7 +352,10 @@ public class DefaultRenderersFactory implements RenderersFactory {
                   allowedVideoJoiningTimeMs,
                   eventHandler,
                   eventListener,
-                  MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY);
+                  MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
+                  contentPath,
+                  modelType,
+                  decodeMode);
       out.add(extensionRendererIndex++, renderer);
       Log.i(TAG, "Loaded LibvpxVideoRenderer.");
     } catch (ClassNotFoundException e) {

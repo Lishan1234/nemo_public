@@ -85,7 +85,7 @@ import com.google.android.exoplayer2.video.MediaCodecVideoRenderer;
  *
  * <p>The figure below shows ExoPlayer's threading model.
  *
- * <p align="center"><img src="doc-files/exoplayer-threading-model.svg" alt="ExoPlayer's threading
+ * <p align="center"><img src="doc-files/activity_player-threading-model.svg" alt="ExoPlayer's threading
  * model">
  *
  * <ul>

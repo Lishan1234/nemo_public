@@ -1,3 +1,20 @@
 <resources>
     <string name="app_name">ExoPlayerNewLibvpx</string>
+
+    <string-array name = "devices">
+        <item>9</item>
+        <item>21</item>
+        <item>32</item>
+    </string-array>
+
+    <string-array name = "modes">
+        <item>Decode</item>
+        <item>Decode-SR</item>
+        <item>Decode-Cache</item>
+    </string-array>
+
+    <string-array name = "contents">
+        <item>unboxing</item>
+        <item>vlogs</item>
+    </string-array>
 </resources>

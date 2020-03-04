@@ -257,7 +257,7 @@ static void convert_16_to_8_standard(const vpx_image_t* const img,
   int sampleY = 0;
   for (int y = 0; y < img->d_h; y++) {
     const uint16_t* srcBase = reinterpret_cast<uint16_t*>(
-        img->planes[VPX_PLANE_Y] + img->stride[VPX_PLANE_Y] * y);
+            img->planes[VPX_PLANE_Y] + img->stride[VPX_PLANE_Y] * y);
     int8_t* destBase = data + img->stride[VPX_PLANE_Y] * y;
     for (int x = 0; x < img->d_w; x++) {
       // Lightweight dither. Carryover the remainder of each 10->8 bit
@@ -273,12 +273,12 @@ static void convert_16_to_8_standard(const vpx_image_t* const img,
   const int32_t uvWidth = (img->d_w + 1) / 2;
   for (int y = 0; y < uvHeight; y++) {
     const uint16_t* srcUBase = reinterpret_cast<uint16_t*>(
-        img->planes[VPX_PLANE_U] + img->stride[VPX_PLANE_U] * y);
+            img->planes[VPX_PLANE_U] + img->stride[VPX_PLANE_U] * y);
     const uint16_t* srcVBase = reinterpret_cast<uint16_t*>(
-        img->planes[VPX_PLANE_V] + img->stride[VPX_PLANE_V] * y);
+            img->planes[VPX_PLANE_V] + img->stride[VPX_PLANE_V] * y);
     int8_t* destUBase = data + yLength + img->stride[VPX_PLANE_U] * y;
     int8_t* destVBase =
-        data + yLength + uvLength + img->stride[VPX_PLANE_V] * y;
+            data + yLength + uvLength + img->stride[VPX_PLANE_V] * y;
     for (int x = 0; x < uvWidth; x++) {
       // Lightweight dither. Carryover the remainder of each 10->8 bit
       // conversion to the next pixel.
@@ -293,236 +293,235 @@ static void convert_16_to_8_standard(const vpx_image_t* const img,
 }
 
 struct JniFrameBuffer {
-  friend class JniBufferManager;
+    friend class JniBufferManager;
 
-  int stride[4];
-  uint8_t* planes[4];
-  int d_w;
-  int d_h;
+    int stride[4];
+    uint8_t* planes[4];
+    int d_w;
+    int d_h;
 
- private:
-  int id;
-  int ref_count;
-  vpx_codec_frame_buffer_t vpx_fb;
+private:
+    int id;
+    int ref_count;
+    vpx_codec_frame_buffer_t vpx_fb;
 };
 
 class JniBufferManager {
-  static const int MAX_FRAMES = 32;
+    static const int MAX_FRAMES = 32;
 
-  JniFrameBuffer* all_buffers[MAX_FRAMES];
-  int all_buffer_count = 0;
+    JniFrameBuffer* all_buffers[MAX_FRAMES];
+    int all_buffer_count = 0;
 
-  JniFrameBuffer* free_buffers[MAX_FRAMES];
-  int free_buffer_count = 0;
+    JniFrameBuffer* free_buffers[MAX_FRAMES];
+    int free_buffer_count = 0;
 
-  pthread_mutex_t mutex;
+    pthread_mutex_t mutex;
 
- public:
-  JniBufferManager() { pthread_mutex_init(&mutex, NULL); }
+public:
+    JniBufferManager() { pthread_mutex_init(&mutex, NULL); }
 
-  ~JniBufferManager() {
-    while (all_buffer_count--) {
-      free(all_buffers[all_buffer_count]->vpx_fb.data);
+    ~JniBufferManager() {
+      while (all_buffer_count--) {
+        free(all_buffers[all_buffer_count]->vpx_fb.data);
+      }
     }
-  }
 
-  int get_buffer(size_t min_size, vpx_codec_frame_buffer_t* fb) {
-    pthread_mutex_lock(&mutex);
-    JniFrameBuffer* out_buffer;
-    if (free_buffer_count) {
-      out_buffer = free_buffers[--free_buffer_count];
+    int get_buffer(size_t min_size, vpx_codec_frame_buffer_t* fb) {
+      pthread_mutex_lock(&mutex);
+      JniFrameBuffer* out_buffer;
+      if (free_buffer_count) {
+        out_buffer = free_buffers[--free_buffer_count];
 //      if (out_buffer->vpx_fb.size < min_size) {
 //        free(out_buffer->vpx_fb.data);
         out_buffer->vpx_fb.data = (uint8_t*)malloc(min_size);
         out_buffer->vpx_fb.size = min_size;
 //      }
-    } else {
-      out_buffer = new JniFrameBuffer();
-      out_buffer->id = all_buffer_count;
-      all_buffers[all_buffer_count++] = out_buffer;
-      out_buffer->vpx_fb.data = (uint8_t*)malloc(min_size);
-      out_buffer->vpx_fb.size = min_size;
-      out_buffer->vpx_fb.priv = &out_buffer->id;
-    }
-    *fb = out_buffer->vpx_fb;
-    int retVal = 0;
-    if (!out_buffer->vpx_fb.data || all_buffer_count >= MAX_FRAMES) {
-      LOGE("ERROR: JniBufferManager get_buffer OOM.");
-      retVal = -1;
-    } else {
-      memset(fb->data, 0, fb->size);
-    }
-    out_buffer->ref_count = 1;
-    pthread_mutex_unlock(&mutex);
-    return retVal;
-  }
-
-  JniFrameBuffer* get_buffer(int id) const {
-    if (id < 0 || id >= all_buffer_count) {
-      LOGE("ERROR: JniBufferManager get_buffer invalid id %d.", id);
-      return NULL;
-    }
-    return all_buffers[id];
-  }
-
-  void add_ref(int id) {
-    if (id < 0 || id >= all_buffer_count) {
-      LOGE("ERROR: JniBufferManager add_ref invalid id %d.", id);
-      return;
-    }
-    pthread_mutex_lock(&mutex);
-    all_buffers[id]->ref_count++;
-    pthread_mutex_unlock(&mutex);
-  }
-
-  int release(int id) {
-    if (id < 0 || id >= all_buffer_count) {
-      LOGE("ERROR: JniBufferManager release invalid id %d.", id);
-      return -1;
-    }
-    pthread_mutex_lock(&mutex);
-    JniFrameBuffer* buffer = all_buffers[id];
-    if (!buffer->ref_count) {
-      LOGE("ERROR: JniBufferManager release, buffer already released.");
+      } else {
+        out_buffer = new JniFrameBuffer();
+        out_buffer->id = all_buffer_count;
+        all_buffers[all_buffer_count++] = out_buffer;
+        out_buffer->vpx_fb.data = (uint8_t*)malloc(min_size);
+        out_buffer->vpx_fb.size = min_size;
+        out_buffer->vpx_fb.priv = &out_buffer->id;
+      }
+      *fb = out_buffer->vpx_fb;
+      int retVal = 0;
+      if (!out_buffer->vpx_fb.data || all_buffer_count >= MAX_FRAMES) {
+        LOGE("ERROR: JniBufferManager get_buffer OOM.");
+        retVal = -1;
+      } else {
+        memset(fb->data, 0, fb->size);
+      }
+      out_buffer->ref_count = 1;
       pthread_mutex_unlock(&mutex);
-      return -1;
+      return retVal;
     }
-    if (!--buffer->ref_count) {
-      free_buffers[free_buffer_count++] = buffer;
+
+    JniFrameBuffer* get_buffer(int id) const {
+      if (id < 0 || id >= all_buffer_count) {
+        LOGE("ERROR: JniBufferManager get_buffer invalid id %d.", id);
+        return NULL;
+      }
+      return all_buffers[id];
     }
-    pthread_mutex_unlock(&mutex);
-    return 0;
-  }
+
+    void add_ref(int id) {
+      if (id < 0 || id >= all_buffer_count) {
+        LOGE("ERROR: JniBufferManager add_ref invalid id %d.", id);
+        return;
+      }
+      pthread_mutex_lock(&mutex);
+      all_buffers[id]->ref_count++;
+      pthread_mutex_unlock(&mutex);
+    }
+
+    int release(int id) {
+      if (id < 0 || id >= all_buffer_count) {
+        LOGE("ERROR: JniBufferManager release invalid id %d.", id);
+        return -1;
+      }
+      pthread_mutex_lock(&mutex);
+      JniFrameBuffer* buffer = all_buffers[id];
+      if (!buffer->ref_count) {
+        LOGE("ERROR: JniBufferManager release, buffer already released.");
+        pthread_mutex_unlock(&mutex);
+        return -1;
+      }
+      if (!--buffer->ref_count) {
+        free_buffers[free_buffer_count++] = buffer;
+      }
+      pthread_mutex_unlock(&mutex);
+      return 0;
+    }
 };
 
 struct JniCtx {
-  JniCtx(bool enableBufferManager) {
-    if (enableBufferManager) {
-      buffer_manager = new JniBufferManager();
+    JniCtx(bool enableBufferManager) {
+      if (enableBufferManager) {
+        buffer_manager = new JniBufferManager();
+      }
     }
-  }
 
-  ~JniCtx() {
-    if (native_window) {
-      ANativeWindow_release(native_window);
-    }
-    if (buffer_manager) {
-      delete buffer_manager;
-    }
-  }
-
-  void acquire_native_window(JNIEnv* env, jobject new_surface) {
-    if (surface != new_surface) {
+    ~JniCtx() {
       if (native_window) {
         ANativeWindow_release(native_window);
       }
-      native_window = ANativeWindow_fromSurface(env, new_surface);
-      surface = new_surface;
-      width = 0;
+      if (buffer_manager) {
+        delete buffer_manager;
+      }
     }
-  }
 
-  JniBufferManager* buffer_manager = NULL;
-  vpx_codec_ctx_t* decoder = NULL;
-  ANativeWindow* native_window = NULL;
-  jobject surface = NULL;
-  int width = 0;
-  int height = 0;
+    void acquire_native_window(JNIEnv* env, jobject new_surface) {
+      if (surface != new_surface) {
+        if (native_window) {
+          ANativeWindow_release(native_window);
+        }
+        native_window = ANativeWindow_fromSurface(env, new_surface);
+        surface = new_surface;
+        width = 0;
+      }
+    }
+
+    JniBufferManager* buffer_manager = NULL;
+    vpx_codec_ctx_t* decoder = NULL;
+    ANativeWindow* native_window = NULL;
+    jobject surface = NULL;
+    int width = 0;
+    int height = 0;
 };
 
 int vpx_get_frame_buffer(void* priv, size_t min_size,
                          vpx_codec_frame_buffer_t* fb) {
   JniBufferManager* const buffer_manager =
-      reinterpret_cast<JniBufferManager*>(priv);
+          reinterpret_cast<JniBufferManager*>(priv);
   return buffer_manager->get_buffer(min_size, fb);
 }
 
 int vpx_release_frame_buffer(void* priv, vpx_codec_frame_buffer_t* fb) {
   JniBufferManager* const buffer_manager =
-      reinterpret_cast<JniBufferManager*>(priv);
+          reinterpret_cast<JniBufferManager*>(priv);
   return buffer_manager->release(*(int*)fb->priv);
 }
 
 /*** chanju - copied from vpxdec_wrapper.cpp ***/
 static void _mkdir(const char *dir) {
-    char tmp[PATH_MAX];
-    char *p = NULL;
-    size_t len;
+  char tmp[PATH_MAX];
+  char *p = NULL;
+  size_t len;
 
-    snprintf(tmp, sizeof(tmp),"%s",dir);
-    len = strlen(tmp);
-    if(tmp[len - 1] == '/')
-        tmp[len - 1] = 0;
-    for(p = tmp + 1; *p; p++)
-        if(*p == '/') {
-            *p = 0;
-            mkdir(tmp, S_IRWXU);
-            *p = '/';
-        }
-    mkdir(tmp, S_IRWXU);
+  snprintf(tmp, sizeof(tmp),"%s",dir);
+  len = strlen(tmp);
+  if(tmp[len - 1] == '/')
+    tmp[len - 1] = 0;
+  for(p = tmp + 1; *p; p++)
+    if(*p == '/') {
+      *p = 0;
+      mkdir(tmp, S_IRWXU);
+      *p = '/';
+    }
+  mkdir(tmp, S_IRWXU);
 }
 
 mobinas_cfg_t * setup(const char *content_dir, const char *input_video) {
-    mobinas_cfg_t * mobinas_cfg = (mobinas_cfg_t *) calloc(1, sizeof(mobinas_cfg_t));
+  mobinas_cfg_t * mobinas_cfg = (mobinas_cfg_t *) calloc(1, sizeof(mobinas_cfg_t));
 
-    sprintf(mobinas_cfg->log_dir, "%s/log/%s", content_dir, input_video);
-    sprintf(mobinas_cfg->input_frame_dir, "%s/image/%s", content_dir, input_video);
-    _mkdir(mobinas_cfg->log_dir);
-    _mkdir(mobinas_cfg->input_frame_dir);
+  sprintf(mobinas_cfg->log_dir, "%s/log/%s", content_dir, input_video);
+  sprintf(mobinas_cfg->input_frame_dir, "%s/image/%s", content_dir, input_video);
+  _mkdir(mobinas_cfg->log_dir);
+  _mkdir(mobinas_cfg->input_frame_dir);
 
-    mobinas_cfg->save_frame = 0;
-    mobinas_cfg->save_latency = 1;
-    mobinas_cfg->save_metadata = 0;
-    mobinas_cfg->save_metadata = 0;
+  mobinas_cfg->save_frame = 0;
 
-    mobinas_cfg->decode_mode = DECODE_CACHE;
-    mobinas_cfg->dnn_mode = NO_DNN;
-    mobinas_cfg->cache_policy = NO_CACHE;
+  mobinas_cfg->save_latency = 0;
+  mobinas_cfg->save_metadata = 0;
+  mobinas_cfg->save_metadata = 0;
 
-    return mobinas_cfg;
+  mobinas_cfg->decode_mode = DECODE_CACHE;
+  mobinas_cfg->dnn_mode = NO_DNN;
+  mobinas_cfg->cache_policy = NO_CACHE;
+
+  return mobinas_cfg;
 }
 
 
 mobinas_cfg_t * online_sr(const char * content_dir, const char * input_video, const char * compare_video, const char * dnn_name, const char * dnn_file){
-    mobinas_cfg_t * mobinas_cfg = (mobinas_cfg_t *) calloc(1, sizeof(mobinas_cfg_t));
-    if(mobinas_cfg == NULL){
-        __android_log_print(6,"CHECK","CHECK:OOM\n");
-    }
+  mobinas_cfg_t * mobinas_cfg = (mobinas_cfg_t *) calloc(1, sizeof(mobinas_cfg_t));
+  if(mobinas_cfg == NULL){
+    __android_log_print(6,"CHECK","CHECK:OOM\n");
+  }
 
-    sprintf(mobinas_cfg->log_dir, "%s/log/%s/%s", content_dir, input_video, dnn_name);
-    sprintf(mobinas_cfg->input_frame_dir, "%s/image/%s", content_dir, input_video);
-    sprintf(mobinas_cfg->sr_frame_dir, "%s/image/%s/%s", content_dir, input_video, dnn_name);
-    sprintf(mobinas_cfg->sr_compare_frame_dir, "%s/image/%s", content_dir, compare_video);
-    _mkdir(mobinas_cfg->log_dir);
-    _mkdir(mobinas_cfg->input_frame_dir);
-    _mkdir(mobinas_cfg->sr_frame_dir);
-    _mkdir(mobinas_cfg->sr_compare_frame_dir);
+  sprintf(mobinas_cfg->log_dir, "%s/log/%s/%s", content_dir, input_video, dnn_name);
+  sprintf(mobinas_cfg->input_frame_dir, "%s/image/%s", content_dir, input_video);
+  sprintf(mobinas_cfg->sr_frame_dir, "%s/image/%s/%s", content_dir, input_video, dnn_name);
+  sprintf(mobinas_cfg->sr_compare_frame_dir, "%s/image/%s", content_dir, compare_video);
+  _mkdir(mobinas_cfg->log_dir);
+  _mkdir(mobinas_cfg->input_frame_dir);
+  _mkdir(mobinas_cfg->sr_frame_dir);
+  _mkdir(mobinas_cfg->sr_compare_frame_dir);
 
-    mobinas_cfg->save_frame = 0;
-    mobinas_cfg->save_quality = 0;
-    mobinas_cfg->save_latency = 1;
-    mobinas_cfg->save_metadata = 0;
+  mobinas_cfg->save_frame = 0;
+  mobinas_cfg->save_quality = 0;
+  mobinas_cfg->save_latency = 0;
+  mobinas_cfg->save_metadata = 0;
 
-    mobinas_cfg->decode_mode = DECODE_CACHE;
-    mobinas_cfg->dnn_mode = ONLINE_DNN;
-    mobinas_cfg->cache_policy = KEY_FRAME_CACHE;
-//    mobinas_cfg->dnn_mode = NO_DNN;
-    mobinas_cfg->dnn_runtime = GPU_FLOAT16;
+  mobinas_cfg->decode_mode = DECODE_SR;
+  mobinas_cfg->dnn_mode = ONLINE_DNN;
+  mobinas_cfg->cache_policy = KEY_FRAME_CACHE;
+  mobinas_cfg->dnn_runtime = GPU_FLOAT16;
 
-    sprintf(mobinas_cfg->dnn_path, "%s/checkpoint/%s/%s", content_dir, dnn_name, dnn_file);
-
-    return mobinas_cfg;
+  return mobinas_cfg;
 }
 
 DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
-             jboolean enableBufferManager) {
-    JniCtx* context = new JniCtx(enableBufferManager);
+             jboolean enableBufferManager, jstring content_path, jstring model_type, jint decode_mode) {
+
+  JniCtx* context = new JniCtx(enableBufferManager);
   context->decoder = new vpx_codec_ctx_t();
   vpx_codec_dec_cfg_t cfg = {0, 0, 0};
   cfg.threads = android_getCpuCount();
   errorCode = 0;
   vpx_codec_err_t err =
-      vpx_codec_dec_init(context->decoder, &vpx_codec_vp9_dx_algo, &cfg, 0);
+          vpx_codec_dec_init(context->decoder, &vpx_codec_vp9_dx_algo, &cfg, 0);
   if (err) {
     LOGE("ERROR: Failed to initialize libvpx decoder, error = %d.", err);
     errorCode = err;
@@ -537,63 +536,90 @@ DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
   }
 
   /***chanju***/
-    //mobinas config
-    const char *content_dir = "/storage/emulated/0/Android/data/android.example.testlibvpx/files";
-    const char *input_video = "240p_s0_d60_encoded.webm";
-    const char *compare_video = "960p_s0_d60.webm";
-    const char *dnn_name = "EDSR_S_B8_F64_S4";
-//    const char * dnn_name = "high";
-    const char *dnn_file = "ckpt-100.dlc";
+  mobinas_cfg_t * mobinas_cfg = init_mobinas_cfg();
 
-//    mobinas_cfg * setup_mobinas_cfg = setup(content_dir, input_video);
-    mobinas_cfg * setup_mobinas_cfg = online_sr(content_dir, input_video, compare_video, dnn_name, dnn_file);
-    __android_log_print(6,"CHECK","decode_mode1: %d\n",setup_mobinas_cfg->decode_mode);
-//    __android_log_print(6,"CHECK","dnn_mode1: %d\n",setup_mobinas_cfg->dnn_mode);
+  mobinas_cfg->decode_mode = static_cast<mobinas_decode_mode>(decode_mode);
+  mobinas_cfg->dnn_mode = ONLINE_DNN;
+  mobinas_cfg->cache_policy = PROFILE_CACHE;
+  mobinas_cfg->dnn_runtime = GPU_FLOAT16;
 
+  mobinas_cfg->save_frame = 0;
+  mobinas_cfg->save_quality = 0;
+  mobinas_cfg->save_latency = 1;
+  mobinas_cfg->save_metadata = 1;
 
-    if(vpx_load_mobinas_cfg(context->decoder, setup_mobinas_cfg)){
-        //go to fail
-        LOGE("fail");
+  const char * contentPath = env->GetStringUTFChars(content_path, NULL);
+  const char * modelType = env->GetStringUTFChars(model_type,NULL);
+  const char * content_dir = contentPath;
+  const char * input_video_name = "240p_s0_d300_encoded.webm";
+  const char * compare_video_name = "1080p_s0_d300.webm";
+  char dnn_name[MAX_INPUT];
+  sprintf(dnn_name, "NEMO_S_B8_F%s_S4_deconv",modelType);
+  const char * checkpoint_name = "ckpt-100.dlc";
+  char dnn_file[MAX_INPUT];
+  sprintf(dnn_file, "%s/checkpoint/%s/%s/%s",content_dir,input_video_name,dnn_name,checkpoint_name);
+  char cache_profile[MAX_INPUT];
+  const char * cache_profile_name = "NEMO_0.5.profile";
+  sprintf(cache_profile, "%s/profile/%s/%s/%s", content_dir, input_video_name, dnn_name, cache_profile_name);
+
+  //setup log directories
+  switch(mobinas_cfg->decode_mode){
+    case DECODE:
+      if(mobinas_cfg->save_latency){
+        sprintf(mobinas_cfg->log_dir,"%s/log/%s",content_dir,input_video_name);
+        _mkdir(mobinas_cfg->log_dir);
+      }
+      break;
+    case DECODE_SR:
+      if(mobinas_cfg->save_latency){
+        sprintf(mobinas_cfg->log_dir, "%s/log/%s/%s",content_dir, input_video_name,dnn_name);
+        _mkdir(mobinas_cfg->log_dir);
+      }
+      break;
+    case DECODE_CACHE:
+      if(mobinas_cfg->save_latency){
+        sprintf(mobinas_cfg->log_dir, "%s/log/%s/%s/%s", content_dir, input_video_name, dnn_name, cache_profile_name);
+        _mkdir(mobinas_cfg->log_dir);
+      }
+      break;
+  }
+  sprintf(mobinas_cfg->input_frame_dir, "%s/log/%s/%s", content_dir, input_video_name, dnn_name);
+  sprintf(mobinas_cfg->sr_frame_dir, "%s/image/%s", content_dir, input_video_name);
+  sprintf(mobinas_cfg->sr_compare_frame_dir, "%s/image/%s", content_dir, compare_video_name);
+  _mkdir(mobinas_cfg->input_frame_dir);
+  _mkdir(mobinas_cfg->sr_frame_dir);
+  _mkdir(mobinas_cfg->sr_compare_frame_dir);
+
+  if(vpx_load_mobinas_cfg(context->decoder, mobinas_cfg)){
+    LOGE("fail1");
+  }
+
+  if(mobinas_cfg->dnn_mode == DECODE_SR || mobinas_cfg->dnn_mode == DECODE_CACHE){
+    if(vpx_load_mobinas_dnn(context->decoder, mobinas_cfg, 240, dnn_file)){
+      LOGE("fail2");
     }
-    __android_log_print(6,"CHECK","decode_mode2: %d\n",setup_mobinas_cfg->decode_mode);
-//    __android_log_print(6,"CHECK","dnn_mode2: %d\n",setup_mobinas_cfg->dnn_mode);
+  }
 
-
-    LOGE("setup mobinas fine");
-    if(setup_mobinas_cfg->dnn_mode == DECODE_SR || setup_mobinas_cfg->dnn_mode == DECODE_CACHE){
-        if(vpx_load_mobinas_dnn(context->decoder, setup_mobinas_cfg)){
-            //go to fail
-            LOGE("fail2");
-        }
+  if(mobinas_cfg->cache_policy == PROFILE_CACHE){
+    if(vpx_load_mobinas_cache_profile(context->decoder, mobinas_cfg, 240, cache_profile)){
+      LOGE("fail3");
     }
-    __android_log_print(6,"CHECK","decode_mode3: %d\n",setup_mobinas_cfg->decode_mode);
-//    __android_log_print(6,"CHECK","dnn_mode3: %d\n",setup_mobinas_cfg->dnn_mode);
-
-
-    LOGE("setup snpe fine");
-
-
+  }
   /***chanju***/
 
-
-
-
-    if (enableBufferManager) {
+  if (enableBufferManager) {
     err = vpx_codec_set_frame_buffer_functions(
-        context->decoder, vpx_get_frame_buffer, vpx_release_frame_buffer,
-        context->buffer_manager);
+            context->decoder, vpx_get_frame_buffer, vpx_release_frame_buffer,
+            context->buffer_manager);
     if (err) {
       LOGE("ERROR: Failed to set libvpx frame buffer functions, error = %d.",
            err);
     }
   }
 
-    __android_log_print(6,"CHECK","decode_mode4: %d\n",setup_mobinas_cfg->decode_mode);
-
-
-    // Populate JNI References.
+  // Populate JNI References.
   const jclass outputBufferClass = env->FindClass(
-      "com/google/android/exoplayer2/ext/vp9/VpxOutputBuffer");
+          "com/google/android/exoplayer2/ext/vp9/VpxOutputBuffer");
   initForYuvFrame = env->GetMethodID(outputBufferClass, "initForYuvFrame",
                                      "(IIIII)Z");
   initForRgbFrame = env->GetMethodID(outputBufferClass, "initForRgbFrame",
@@ -602,17 +628,17 @@ DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
                               "Ljava/nio/ByteBuffer;");
   outputModeField = env->GetFieldID(outputBufferClass, "mode", "I");
   decoderPrivateField =
-      env->GetFieldID(outputBufferClass, "decoderPrivate", "I");
+          env->GetFieldID(outputBufferClass, "decoderPrivate", "I");
   return reinterpret_cast<intptr_t>(context);
 }
 
 DECODER_FUNC(jlong, vpxDecode, jlong jContext, jobject encoded, jint len) {
-  __android_log_print(6,"TAG","vpxDecode");
-  JniCtx* const context = reinterpret_cast<JniCtx*>(jContext);
+
+    JniCtx* const context = reinterpret_cast<JniCtx*>(jContext);
   const uint8_t* const buffer =
-      reinterpret_cast<const uint8_t*>(env->GetDirectBufferAddress(encoded));
+          reinterpret_cast<const uint8_t*>(env->GetDirectBufferAddress(encoded));
   const vpx_codec_err_t status =
-      vpx_codec_decode(context->decoder, buffer, len, NULL, 0);
+          vpx_codec_decode(context->decoder, buffer, len, NULL, 0);
   errorCode = 0;
   if (status != VPX_CODEC_OK) {
     LOGE("ERROR: vpx_codec_decode() failed, status= %d", status);
@@ -623,9 +649,9 @@ DECODER_FUNC(jlong, vpxDecode, jlong jContext, jobject encoded, jint len) {
 }
 
 DECODER_FUNC(jlong, vpxSecureDecode, jlong jContext, jobject encoded, jint len,
-    jobject mediaCrypto, jint inputMode, jbyteArray&, jbyteArray&,
-    jint inputNumSubSamples, jintArray numBytesOfClearData,
-    jintArray numBytesOfEncryptedData) {
+             jobject mediaCrypto, jint inputMode, jbyteArray&, jbyteArray&,
+             jint inputNumSubSamples, jintArray numBytesOfClearData,
+             jintArray numBytesOfEncryptedData) {
   // Doesn't support
   // Java client should have checked vpxSupportSecureDecode
   // and avoid calling this
@@ -665,7 +691,7 @@ DECODER_FUNC(jint, vpxGetFrame, jlong jContext, jobject jOutputBuffer) {
     // get pointer to the data buffer.
     const jobject dataObject = env->GetObjectField(jOutputBuffer, dataField);
     uint8_t* const dst =
-        reinterpret_cast<uint8_t*>(env->GetDirectBufferAddress(dataObject));
+            reinterpret_cast<uint8_t*>(env->GetDirectBufferAddress(dataObject));
 
     libyuv::I420ToRGB565(img->planes[VPX_PLANE_Y], img->stride[VPX_PLANE_Y],
                          img->planes[VPX_PLANE_U], img->stride[VPX_PLANE_U],
@@ -681,21 +707,21 @@ DECODER_FUNC(jint, vpxGetFrame, jlong jContext, jobject jOutputBuffer) {
     switch (img->cs) {
       case VPX_CS_BT_601:
         colorspace = kColorspaceBT601;
-        break;
+            break;
       case VPX_CS_BT_709:
         colorspace = kColorspaceBT709;
-        break;
-    case VPX_CS_BT_2020:
+            break;
+      case VPX_CS_BT_2020:
         colorspace = kColorspaceBT2020;
-        break;
+            break;
       default:
         break;
     }
 
     // resize buffer if required.
     jboolean initResult = env->CallBooleanMethod(
-        jOutputBuffer, initForYuvFrame, img->d_w, img->d_h,
-        img->stride[VPX_PLANE_Y], img->stride[VPX_PLANE_U], colorspace);
+            jOutputBuffer, initForYuvFrame, img->d_w, img->d_h,
+            img->stride[VPX_PLANE_Y], img->stride[VPX_PLANE_U], colorspace);
     if (env->ExceptionCheck() || !initResult) {
       return -1;
     }
@@ -703,7 +729,7 @@ DECODER_FUNC(jint, vpxGetFrame, jlong jContext, jobject jOutputBuffer) {
     // get pointer to the data buffer.
     const jobject dataObject = env->GetObjectField(jOutputBuffer, dataField);
     jbyte* const data =
-        reinterpret_cast<jbyte*>(env->GetDirectBufferAddress(dataObject));
+            reinterpret_cast<jbyte*>(env->GetDirectBufferAddress(dataObject));
 
     const int32_t uvHeight = (img->d_h + 1) / 2;
     const uint64_t yLength = img->stride[VPX_PLANE_Y] * img->d_h;
@@ -772,7 +798,7 @@ DECODER_FUNC(jint, vpxRenderFrame, jlong jContext, jobject jSurface,
   const size_t src_y_stride = srcBuffer->stride[VPX_PLANE_Y];
   int stride = srcBuffer->d_w;
   const uint8_t* src_base =
-      reinterpret_cast<uint8_t*>(srcBuffer->planes[VPX_PLANE_Y]);
+          reinterpret_cast<uint8_t*>(srcBuffer->planes[VPX_PLANE_Y]);
   uint8_t* dest_base = (uint8_t*)buffer.bits;
   for (int y = 0; y < srcBuffer->d_h; y++) {
     memcpy(dest_base, src_base, stride);
@@ -784,13 +810,13 @@ DECODER_FUNC(jint, vpxRenderFrame, jlong jContext, jobject jSurface,
   const int dest_uv_stride = (buffer.stride / 2 + 15) & (~15);
   const int32_t buffer_uv_height = (buffer.height + 1) / 2;
   const int32_t height =
-      std::min((int32_t)(srcBuffer->d_h + 1) / 2, buffer_uv_height);
+          std::min((int32_t)(srcBuffer->d_h + 1) / 2, buffer_uv_height);
   stride = (srcBuffer->d_w + 1) / 2;
   src_base = reinterpret_cast<uint8_t*>(srcBuffer->planes[VPX_PLANE_U]);
   const uint8_t* src_v_base =
-      reinterpret_cast<uint8_t*>(srcBuffer->planes[VPX_PLANE_V]);
+          reinterpret_cast<uint8_t*>(srcBuffer->planes[VPX_PLANE_V]);
   uint8_t* dest_v_base =
-      ((uint8_t*)buffer.bits) + buffer.stride * buffer.height;
+          ((uint8_t*)buffer.bits) + buffer.stride * buffer.height;
   dest_base = dest_v_base + buffer_uv_height * dest_uv_stride;
   for (int y = 0; y < height; y++) {
     memcpy(dest_base, src_base, stride);

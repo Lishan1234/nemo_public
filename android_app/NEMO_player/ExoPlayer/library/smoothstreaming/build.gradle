@@ -51,7 +51,7 @@ ext {
 apply from: '../../javadoc_library.gradle'
 
 ext {
-    releaseArtifact = 'exoplayer-smoothstreaming'
+    releaseArtifact = 'activity_player-smoothstreaming'
     releaseDescription = 'The ExoPlayer library SmoothStreaming module.'
 }
 apply from: '../../publish.gradle'
