@@ -82,7 +82,7 @@ if __name__ == '__main__':
     elif args.task == 'summary':
         if args.chunk_idx is None:
             num_chunks = int(math.ceil(lr_video_info['duration'] / (args.gop / lr_video_info['frame_rate'])))
-            aps.summary(0, num_chunks - 1)
+            aps.summary(0, num_chunks)
         else:
             if ',' in args.chunk_idx:
                 start_index = int(args.chunk_idx.split(',')[0])

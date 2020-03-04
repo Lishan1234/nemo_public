@@ -1,10 +1,9 @@
 import os
 import numpy as np
 
-def mac_and_quality_gain(dataset_dir, lr_video_name, model, aps_class, threshold):
-        log_dir = os.path.join(dataset_dir, 'log', lr_video_name, model.name)
-        quality_log_file = os.path.join(log_dir, 'quality_{}_{:.2f}.txt'.format(aps_class.__name__, threshold))
-        mac_log_file = os.path.join(log_dir, 'mac_{}_{:.2f}.txt'.format(aps_class.__name__, threshold))
+def mac_and_quality_gain(log_dir):
+        quality_log_file = os.path.join(log_dir, 'quality.txt')
+        mac_log_file = os.path.join(log_dir, 'mac.txt')
         quality_gain_cache = []
         quality_gain_dnn = []
         mac_cache = []

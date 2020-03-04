@@ -137,14 +137,20 @@ def valid_feature_dataset(lr_dir, feature_dir, hr_dir):
 
 def decode_raw(filepath, width, height, channel, precision):
     file = tf.io.read_file(filepath)
-    image = tf.decode_raw(file, precision)
+    if tf.__version__.startswith('2'):
+        image = tf.io.decode_raw(file, precision)
+    else:
+        image = tf.decode_raw(file, precision)
     image = tf.reshape(image, [height, width, channel])
     #return image, filepath
     return image
 
 def decode_raw_with_name(filepath, width, height, channel, precision):
     file = tf.io.read_file(filepath)
-    image = tf.decode_raw(file, precision)
+    if tf.__version__.startswith('2'):
+        image = tf.io.decode_raw(file, precision)
+    else:
+        image = tf.decode_raw(file, precision)
     image = tf.reshape(image, [height, width, channel])
     return image, filepath
 
@@ -170,7 +176,7 @@ def single_raw_dataset_with_name(image_dir, width, height, channel, exp, repeat_
     ds = tf.data.Dataset.from_tensor_slices(images)
     ds = ds.map(lambda x: decode_raw_with_name(x, width, height, channel, precision), num_parallel_calls=AUTOTUNE)
     ds = ds.batch(1)
-    ds = ds.repeat(repeat_count)
+    ds = ds.repeat(1)
     ds = ds.prefetch(buffer_size=AUTOTUNE)
     return ds
 

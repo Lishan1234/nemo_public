@@ -16,16 +16,21 @@ def count_mac_for_nas_s(model_name, height, width):
 
 def count_mac_for_nemo_s(model_name, height, width):
     if height == 240 and width == 426:
-        if model_name == 'NEMO_S_B8_F21_S4_deconv':
-            return 10344 * 1000 * 1000
+        if model_name == 'NEMO_S_B8_F9_S4_deconv':
+            return 1913 * 1000 * 1000
+        elif model_name == 'NEMO_S_B8_F21_S4_deconv':
+            return 10337 * 1000 * 1000
         elif model_name == 'NEMO_S_B8_F32_S4_deconv':
-            return 23964 * 1000 * 1000
+            return 23958 * 1000 * 1000
         elif model_name == 'NEMO_S_B8_F48_S4_deconv':
-            return 53846 * 1000 * 1000
+            return 53846 * 1000 * 1000 #TODO: needed tob updated excluding bilinear
         else:
             return None
+    #TODO: needed tob updated excluding bilinear
     if height == 360 and width == 640:
-        if model_name == 'NEMO_S_B8_F18_S3_deconv':
+        if model_name == 'NEMO_S_B8_F8_S3_deconv':
+            return 3411 * 1000 * 1000
+        elif model_name == 'NEMO_S_B8_F18_S3_deconv':
             return 17132 * 1000 * 1000
         elif model_name == 'NEMO_S_B8_F29_S3_deconv':
             return 44359 * 1000 * 1000
@@ -33,8 +38,11 @@ def count_mac_for_nemo_s(model_name, height, width):
             return 92926 * 1000 * 1000
         else:
             return None
+    #TODO: needed tob updated excluding bilinear
     if height == 480 and width == 854:
-        if model_name == 'NEMO_S_B8_F9_S2_deconv':
+        if model_name == 'NEMO_S_B8_F4_S2_deconv':
+            return 1539 * 1000 * 1000
+        elif model_name == 'NEMO_S_B8_F9_S2_deconv':
             return 7676 * 1000 * 1000
         elif model_name == 'NEMO_S_B8_F18_S2_deconv':
             return 30487 * 1000 * 1000

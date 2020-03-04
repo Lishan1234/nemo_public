@@ -5,6 +5,7 @@ import copy
 import subprocess
 import shlex
 import time
+import gc
 
 import tensorflow as tf
 
@@ -82,7 +83,9 @@ class CacheProfile():
     def save(self):
         path = os.path.join(self.save_dir, self.name)
 
-        num_remained_bits = len(self.frames) % 8
+        num_remained_bits = 8 - (len(self.frames) % 8)
+        num_remained_bits = num_remained_bits % 8
+
         with open(path, "wb") as f:
             f.write(struct.pack("=I", num_remained_bits))
 
@@ -113,7 +116,7 @@ def libvpx_save_frame(vpxdec_file, content_dir, video_name, skip=None, limit=Non
         image_dir = os.path.join(content_dir, 'image', video_name, postfix)
     os.makedirs(image_dir, exist_ok=True)
 
-    command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} --input-video={} --save-frame'.format(vpxdec_file, content_dir, video_name)
+    command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} --input-video={} --threads=16 --save-frame'.format(vpxdec_file, content_dir, video_name)
     if skip is not None:
         command += ' --skip={}'.format(skip)
     if limit is not None:
@@ -124,7 +127,7 @@ def libvpx_save_frame(vpxdec_file, content_dir, video_name, skip=None, limit=Non
 
 #def libvpx_save_metadata(vpxdec_file, content_dir, video_name, gop, chunk_idx):
 def libvpx_save_metadata(vpxdec_file, content_dir, video_name, skip=None, limit=None, postfix=None):
-    command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} --input-video={} --save-metadata'.format(vpxdec_file, content_dir, video_name)
+    command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} --input-video={} --threads=16 --save-metadata'.format(vpxdec_file, content_dir, video_name)
     if skip is not None:
         command += ' --skip={}'.format(skip)
     if limit is not None:
@@ -133,10 +136,12 @@ def libvpx_save_metadata(vpxdec_file, content_dir, video_name, skip=None, limit=
         command += ' --postfix={}'.format(postfix)
     subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
-def libvpx_load_frame_index(content_dir, video_name, chunk_idx):
-    postfix = 'chunk{:04d}'.format(chunk_idx)
+def libvpx_load_frame_index(content_dir, video_name, postfix=None):
     frames = []
-    log_path = os.path.join(content_dir, 'log', video_name, postfix, 'metadata.txt')
+    if postfix is None:
+        log_path = os.path.join(content_dir, 'log', video_name, 'metadata.txt')
+    else:
+        log_path = os.path.join(content_dir, 'log', video_name, postfix, 'metadata.txt')
     with open(log_path, 'r') as f:
         lines = f.readlines()
         for line in lines:
@@ -148,16 +153,19 @@ def libvpx_load_frame_index(content_dir, video_name, chunk_idx):
     return frames
 
 #def libvpx_setup_sr_frame(vpxdec_file, content_dir, video_name, gop, chunk_idx, model):
-def libvpx_setup_sr_frame(vpxdec_file, content_dir, video_name, chunk_idx, model):
-    postfix = 'chunk{:04d}'.format(chunk_idx)
-
-    lr_image_dir = os.path.join(content_dir, 'image', video_name, postfix)
-    sr_image_dir = os.path.join(content_dir, 'image', video_name, model.name, postfix)
+def libvpx_setup_sr_frame(vpxdec_file, content_dir, video_name, model, postfix=None):
+    if postfix is None:
+        lr_image_dir = os.path.join(content_dir, 'image', video_name)
+        sr_image_dir = os.path.join(content_dir, 'image', video_name, model.name)
+    else:
+        lr_image_dir = os.path.join(content_dir, 'image', video_name, postfix)
+        sr_image_dir = os.path.join(content_dir, 'image', video_name, model.name, postfix)
     os.makedirs(sr_image_dir, exist_ok=True)
 
     input_video_path = os.path.join(content_dir, 'video', video_name)
     input_video_info = profile_video(input_video_path)
 
+    #single_raw_ds = single_raw_dataset(lr_image_dir, input_video_info['width'], input_video_info['height'], 3, exp='.raw')
     single_raw_ds = single_raw_dataset_with_name(lr_image_dir, input_video_info['width'], input_video_info['height'], 3, exp='.raw')
     for idx, img in enumerate(single_raw_ds):
         lr = img[0]
@@ -241,9 +249,9 @@ def libvpx_offline_dnn_quality(vpxdec_file, content_dir, input_video_name, compa
     return quality
 
 def libvpx_offline_cache_quality(vpxdec_file, content_dir, input_video_name, compare_video_name,  \
-                                model_name, cache_profile, resolution, skip=None, limit=None, postfix=None):
+                                model_name, cache_profile_file, resolution, skip=None, limit=None, postfix=None):
     #log file
-    log_dir = os.path.join(content_dir, 'log', input_video_name, model_name, os.path.basename(cache_profile.name))
+    log_dir = os.path.join(content_dir, 'log', input_video_name, model_name, os.path.basename(cache_profile_file))
     if postfix is not None:
         log_dir = os.path.join(log_dir, postfix)
     log_file = os.path.join(log_dir, 'quality.txt')
@@ -253,7 +261,7 @@ def libvpx_offline_cache_quality(vpxdec_file, content_dir, input_video_name, com
         command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} \
         --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=2 --cache-policy=1 \
         --save-quality --save-metadata --dnn-name={} --cache-profile={} --resolution={}'.format(vpxdec_file, content_dir, input_video_name, \
-                                                        compare_video_name, model_name, cache_profile.path, resolution)
+                                                        compare_video_name, model_name, cache_profile_file, resolution)
         if skip is not None:
             command += ' --skip={}'.format(skip)
         if limit is not None:
@@ -262,6 +270,7 @@ def libvpx_offline_cache_quality(vpxdec_file, content_dir, input_video_name, com
             command += ' --postfix={}'.format(postfix)
         subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
         #subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL)
+        #os.system(command)
 
     #load quality from a log file
     quality = []
@@ -280,14 +289,14 @@ def libvpx_offline_cache_quality_mt(q0, q1, vpxdec_file, content_dir, input_vide
             return
         else:
             start_time = time.time()
-            cache_profile = item[0]
+            cache_profile_file = item[0]
             skip = item[1]
             limit = item[2]
             postfix = item[3]
             idx = item[4]
 
             #log file
-            log_dir = os.path.join(content_dir, 'log', input_video_name, model_name, os.path.basename(cache_profile.name))
+            log_dir = os.path.join(content_dir, 'log', input_video_name, model_name, os.path.basename(cache_profile_file))
             if postfix is not None:
                 log_dir = os.path.join(log_dir, postfix)
             log_file = os.path.join(log_dir, 'quality.txt')
@@ -297,7 +306,7 @@ def libvpx_offline_cache_quality_mt(q0, q1, vpxdec_file, content_dir, input_vide
                 command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} \
                 --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=2 --cache-policy=1 \
                 --save-quality --save-metadata --dnn-name={} --cache-profile={} --resolution={}'.format(vpxdec_file, content_dir, input_video_name, \
-                                                                compare_video_name, model_name, cache_profile.path, resolution)
+                                                                compare_video_name, model_name, cache_profile_file, resolution)
                 #command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} \
                 #--input-video={} --compare-video={} --decode-mode=2 --dnn-mode=2 --cache-policy=1 \
                 #--dnn-name={} --cache-profile={}'.format(vpxdec_file, content_dir, input_video_name, \
