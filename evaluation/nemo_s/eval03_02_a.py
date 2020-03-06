@@ -59,6 +59,7 @@ if __name__ == '__main__':
         #NEMO
         nemo_log_dir = os.path.join(dataset_dir, 'log', lr_video_name, nemo_s.name, '{}_{}'.format(APS_NEMO.NAME1, args.threshold), postfix)
         nemo_quality, dnn_quality = chunk_quality(nemo_log_dir)
+        estimated_quality = chunk_estimated_quality(nemo_log_dir)
 
         #Uniform
         uniform_log_dir = os.path.join(dataset_dir, 'log', lr_video_name, nemo_s.name, '{}_{}'.format(APS_Uniform.NAME1, args.threshold), postfix)
@@ -74,6 +75,10 @@ if __name__ == '__main__':
             f.write('{}'.format(i+1))
             if i < len(nemo_quality):
                 f.write('\t{:.2f}'.format(nemo_quality[i]))
+            else:
+                f.write('\t')
+            if i < len(estimated_quality):
+                f.write('\t{:.2f}'.format(estimated_quality[i]))
             else:
                 f.write('\t')
             if i < len(uniform_quality):
