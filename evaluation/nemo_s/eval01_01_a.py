@@ -62,7 +62,7 @@ if __name__ == '__main__':
     #log
     log_dir = os.path.join(args.dataset_rootdir, 'evaluation', args.device_id)
     os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, 'eval01_01_a_{}p.txt'.format(args.lr_resolution))
+    log_file = os.path.join(log_dir, 'eval01_01_a_{}p_latency.txt'.format(args.lr_resolution))
     with open(log_file, 'w') as f:
         for content in args.content:
             cache_avg_latency = []
@@ -91,3 +91,25 @@ if __name__ == '__main__':
             f.write('{}\t{}\t{}\t{}\t{}\n'.format(content, '\t'.join(str(x) for x in cache_avg_latency), \
                     '\t'.join(str(x) for x in dnn_avg_latency), '\t'.join(str(x) for x in cache_std_latency),
                     '\t'.join(str(x) for x in dnn_std_latency)))
+
+    log_dir = os.path.join(args.dataset_rootdir, 'evaluation')
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, 'eval01_01_a_{}p_mac.txt'.format(args.lr_resolution))
+    with open(log_file, 'w') as f:
+        for content in args.content:
+            cache_avg_mac = []
+            dnn_avg_mac = []
+            video_dir = os.path.join(args.dataset_rootdir, content, 'video')
+            lr_video_file = os.path.abspath(glob.glob(os.path.join(video_dir, '{}p*'.format(args.lr_resolution)))[0])
+            lr_video_profile = profile_video(lr_video_file)
+            lr_video_name = os.path.basename(lr_video_file)
+
+            #cache
+            for idx, threshold in enumerate(args.threshold):
+                log_dir = os.path.join(args.dataset_rootdir, content, 'log', lr_video_name, nemo_s.name, '{}_{}'.format(aps_class.NAME1, threshold))
+                cache_mac, dnn_mac = libvpx_mac(log_dir)
+                cache_avg_mac.append(np.round(np.average(cache_mac), 2))
+                dnn_avg_mac.append(np.round(np.average(dnn_mac), 2))
+
+            f.write('{}\t{}\t{}\n'.format(content, '\t'.join(str(x) for x in cache_avg_mac), \
+                    '\t'.join(str(x) for x in dnn_avg_mac)))
