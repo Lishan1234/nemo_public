@@ -8,6 +8,7 @@ from tool.video import profile_video, FFmpegOption
 from cache_profile.anchor_point_selector_uniform import APS_Uniform
 from cache_profile.anchor_point_selector_random import APS_Random
 from cache_profile.anchor_point_selector_nemo import APS_NEMO
+from cache_profile.anchor_point_selector_uniform_eval import APS_Uniform_Eval
 from dnn.model.nemo_s import NEMO_S
 
 if __name__ == '__main__':
@@ -35,7 +36,7 @@ if __name__ == '__main__':
     parser.add_argument('--gop', type=int, required=True)
     parser.add_argument('--chunk_idx', default=None, type=str)
     parser.add_argument('--num_decoders', default=24, type=int)
-    parser.add_argument('--mode', choices=['uniform','random','nemo'], required=True)
+    parser.add_argument('--mode', choices=['uniform','random','nemo', 'uniform_eval'], required=True)
     parser.add_argument('--task', choices=['profile','summary'], required=True)
     parser.add_argument('--profile_all', action='store_true')
 
@@ -67,6 +68,8 @@ if __name__ == '__main__':
             aps = APS_Random(checkpoint.model, args.vpxdec_file, dataset_dir, args.lr_video_name, args.hr_video_name, args.gop, args.threshold)
         elif args.mode == 'nemo':
             aps = APS_NEMO(checkpoint.model, args.vpxdec_file, dataset_dir, args.lr_video_name, args.hr_video_name, args.gop, args.threshold, args.num_decoders, args.profile_all)
+        elif args.mode == 'uniform_eval':
+            aps = APS_Uniform_Eval(checkpoint.model, args.vpxdec_file, dataset_dir, args.lr_video_name, args.hr_video_name, args.gop, args.threshold, args.num_decoders, args.profile_all)
         else:
             raise NotImplementedError
 
