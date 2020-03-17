@@ -3,6 +3,7 @@ import sys
 import argparse
 import collections
 
+import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 
@@ -30,12 +31,95 @@ class FDA():
             node_name = '{}.{}'.format(frame_index[0], frame_index[1])
         return  node_name
 
+    def cdf(self):
+        libvpx_save_metadata(self.vpxdec_file, self.dataset_dir, self.video_name)
+        metadata_log_file = os.path.join(self.dataset_dir, 'log', self.video_name, 'metadata.txt')
+
+        #node index
+        node_index_dict = {}
+        count = 0
+        with open(metadata_log_file, 'r') as f:
+            lines = f.readlines()
+            for line in lines:
+                line = line.strip().split('\t')
+                video_frame = int(line[0])
+                super_frame = int(line[1])
+                node_index_dict[(video_frame, super_frame)] = count
+                count += 1
+
+        #build a DAG
+        G = nx.DiGraph()
+        with open(metadata_log_file, 'r') as f:
+            lines = f.readlines()
+            for idx, line in enumerate(lines):
+                result = line.strip().split('\t')
+                video_frame = int(result[0])
+                super_frame = int(result[1])
+                frame_type = result[-1]
+                node_name = self.node_name((video_frame, super_frame), node_index_dict)
+
+                if len(result) == 12:
+                    #add node
+                    G.add_node(node_name, video_frame=video_frame, super_frame=super_frame, frame_type=frame_type)
+
+                    #add edge
+                    for i in range(3):
+                        ref_video_frame = int(result[2*i+5])
+                        ref_super_frame = int(result[2*i+6])
+                        ref_node_name = self.node_name((ref_video_frame, ref_super_frame), node_index_dict)
+                        G.add_edge(ref_node_name, node_name)
+                else:
+                    #add node
+                    G.add_node(node_name, video_frame=video_frame, super_frame=super_frame, frame_type=frame_type)
+
+        #log0: out-degree per frame index
+        out_degree = []
+        nodes = sorted(G.nodes, key=lambda x: float(x))
+        for node in nodes:
+            out_degree.append(G.out_degree(node))
+
+        x_vals = np.sort(out_degree)
+        y_vals= np.arange(len(x_vals))/float(len(x_vals)-1)
+        cdf_log_file = os.path.join(self.dataset_dir, 'log', self.video_name, 'out_degree_cdf.txt')
+        with open(cdf_log_file, 'w') as f:
+            for x_val, y_val in zip(x_vals, y_vals):
+                f.write("{}\t{}\n".format(x_val, y_val))
+
+        #log1: (portion, degree of dependency) for each type
+        key_frame = []
+        alternative_reference_frame = []
+        golden_frame = []
+        normal_frame = []
+        nodes = sorted(G.nodes, key=lambda x: float(x))
+        for node in nodes:
+            #print(node, G.out_degree(node), list(G.successors(node)))
+            if G.nodes[node]['frame_type'] == 'key_frame':
+                key_frame.append(G.out_degree(node))
+            elif G.nodes[node]['frame_type'] == 'alternative_reference_frame':
+                alternative_reference_frame.append(G.out_degree(node))
+            elif G.nodes[node]['frame_type'] == 'normal_frame':
+                if G.out_degree(node) > 1:
+                    golden_frame.append(G.out_degree(node))
+                else:
+                    normal_frame.append(G.out_degree(node))
+            else:
+                print(G.nodes[node]['frame_type'])
+                raise NotImplementedError
+
+        frame_type_log_file = os.path.join(self.dataset_dir, 'log', self.video_name, 'frame_type.txt')
+        with open(frame_type_log_file, 'w') as f:
+            f.write("Key frame\t{:.2f}\t{:.2f}\n".format(len(key_frame)/len(nodes) * 100, np.average(key_frame)))
+            f.write("Alternative reference frame\t{:.2f}\t{:.2f}\n".format(len(alternative_reference_frame)/len(nodes) * 100, np.average(alternative_reference_frame)))
+            f.write("Golden frame\t{:.2f}\t{:.2f}\n".format(len(golden_frame)/len(nodes) * 100, np.average(golden_frame)))
+            f.write("Normal frame\t{:.2f}\t{:.2f}\n".format(len(normal_frame)/len(nodes) * 100, np.average(normal_frame)))
+
+
     def run(self, chunk_idx):
         #decode
-        libvpx_save_metadata(self.vpxdec_file, self.dataset_dir, self.video_name, self.gop, chunk_idx)
-
-        #load metadata
+        start_idx = self.gop * chunk_idx
+        end_idx = self.gop * (chunk_idx + 1)
         postfix = 'chunk{:04d}'.format(chunk_idx)
+        libvpx_save_metadata(self.vpxdec_file, self.dataset_dir, self.video_name, start_idx, end_idx, postfix)
         metadata_log_file = os.path.join(self.dataset_dir, 'log', self.video_name, postfix, 'metadata.txt')
 
         #node index
@@ -60,7 +144,7 @@ class FDA():
                 super_frame = int(result[1])
                 node_name = self.node_name((video_frame, super_frame), node_index_dict)
 
-                if len(result) == 11:
+                if len(result) == 12:
                     #add node
                     G.add_node(node_name, video_frame=video_frame, super_frame=super_frame)
 
@@ -106,11 +190,13 @@ class FDA():
                 result = line.strip().split('\t')
                 video_frame = int(result[0])
                 super_frame = int(result[1])
+                frame_type = result[-1]
                 node_name = self.node_name((video_frame, super_frame), node_index_dict)
 
-                if len(result) == 11:
+                if len(result) == 12:
                     #add node
-                    G.add_node(node_name, video_frame=video_frame, super_frame=super_frame)
+                    #G.add_node(node_name, video_frame=video_frame, super_frame=super_frame)
+                    G.add_node(node_name, video_frame=video_frame, super_frame=super_frame, frame_type=frame_type)
 
                     #add edge
                     for i in range(3):
@@ -120,16 +206,39 @@ class FDA():
                         G.add_edge(ref_node_name, node_name)
                 else:
                     #add node
-                    G.add_node(node_name, video_frame=video_frame, super_frame=super_frame)
+                    #G.add_node(node_name, video_frame=video_frame, super_frame=super_frame)
+                    G.add_node(node_name, video_frame=video_frame, super_frame=super_frame, frame_type=frame_type)
 
                 if self.num_visualized_frames is not None and idx + 1 >= self.num_visualized_frames:
                     break
 
+        color_map = []
+        size_map = []
+        for node in G:
+            if G.nodes[node]['frame_type'] == 'key_frame':
+                color_map.append('blue')
+                size_map.append(2800)
+            elif G.nodes[node]['frame_type'] == 'alternative_reference_frame':
+                color_map.append('green')
+                size_map.append(1400)
+            elif G.nodes[node]['frame_type'] == 'normal_frame':
+                if G.out_degree(node) > 1:
+                    color_map.append('yellow')
+                    size_map.append(1400)
+                else:
+                    color_map.append('grey')
+                    size_map.append(700)
+
         #visualize a DAG
-        pos = nx.spring_layout(G)
-        nx.draw_networkx_nodes(G, pos, node_size=700)
-        nx.draw_networkx_edges(G, pos, width=4, arrowsize=15)
-        nx.draw_networkx_labels(G, pos, font_size=17, font_family='sans-serif')
+        pos = nx.spring_layout(G,k=1/3.5)
+        #nx.draw_networkx_nodes(G, pos, node_size=200)
+        #nx.draw_networkx_edges(G, pos, width=5, arrowsize=5)
+        #nx.draw_networkx_labels(G, pos, font_size=5, font_family='sans-serif')
+        nx.draw_networkx_nodes(G, pos, node_color=color_map, node_size=size_map)
+        #nx.draw_networkx_edges(G, pos, width=4, arrowsize=15)
+        nx.draw_networkx_labels(G, pos, font_size=20, font_color='black', font_family='sans-serif')
+        #nx.draw_networkx_nodes(G, pos, node_size=100)
+        nx.draw_networkx_edges(G, pos, width=3, arrowsize=20)
         graph_file = os.path.join(self.dataset_dir, 'log', self.video_name, postfix, 'graph_spring.png')
         plt.savefig(graph_file)
         plt.clf()
@@ -149,8 +258,11 @@ class FDA():
         pos['9'] = [1.6, 0.0]
         """
         nx.draw_networkx_nodes(G, pos, node_size=700)
-        nx.draw_networkx_edges(G, pos, width=4, arrowsize=15)
-        nx.draw_networkx_labels(G, pos, font_size=17, font_family='sans-serif')
+        #nx.draw_networkx_edges(G, pos, width=4, arrowsize=15)
+        #nx.draw_networkx_labels(G, pos, font_size=17, font_family='sans-serif')
+        nx.draw_networkx_nodes(G, pos, node_color=color_map, node_size=100)
+        nx.draw_networkx_edges(G, pos, width=2, arrowsize=10)
+        #nx.draw_networkx_labels(G, pos, font_size=17, font_family='sans-serif')
         graph_file = os.path.join(self.dataset_dir, 'log', self.video_name, postfix, 'graph_spectral.png')
         plt.savefig(graph_file)
         plt.clf()
@@ -174,9 +286,13 @@ if __name__ == '__main__':
 
     fda = FDA(os.path.abspath(args.vpxdec_file), os.path.abspath(args.dataset_dir), args.video_name, args.gop, \
                 args.num_visualized_frames, args.show_super_frame)
+
     if args.chunk_idx is None:
+        fda.cdf()
+        """
         num_chunks = int(video_info['duration'] // (args.gop / video_info['frame_rate']))
         for i in range(num_chunks):
             fda.run(args.chunk_idx)
+        """
     else:
         fda.run(args.chunk_idx)

@@ -14,6 +14,19 @@ def libvpx_quality(log_dir):
 
         return quality
 
+def libvpx_anchor_points(log_dir):
+        quality_log_file = os.path.join(log_dir, 'quality.txt')
+        anchor_points = []
+
+        with open(quality_log_file, 'r') as f:
+            quality_lines = f.readlines()
+
+            for quality_line in quality_lines:
+                quality_line = quality_line.strip().split('\t')
+                anchor_points.append(float(quality_line[1]))
+
+        return anchor_points
+
 def libvpx_latency(log_dir):
         latency_log_file = os.path.join(log_dir, 'latency.txt')
         latency = []

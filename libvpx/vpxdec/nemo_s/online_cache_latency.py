@@ -94,6 +94,7 @@ if __name__ == '__main__':
 
             start_time = time.time()
             command = 'adb -s {} shell sh {}'.format(args.device_id, device_script_file)
+            #subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
             subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
             adb_pull(device_log_file0, host_log_file0, args.device_id)
             adb_pull(device_log_file1, host_log_file1, args.device_id)

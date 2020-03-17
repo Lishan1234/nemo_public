@@ -4,5 +4,5 @@ python $MOBINAS_CODE_ROOT/cache_profile/frame_dependency_analyzer.py \
                 --vpxdec_file $MOBINAS_CODE_ROOT/third_party/libvpx/vpxdec \
                 --video_name 240p_s0_d300_encoded.webm \
                 --gop 120 \
-                --chunk_idx 10 \
-                --num_visualized_frames 15
+                --num_visualized_frames 30 \
+                --chunk_idx 0
