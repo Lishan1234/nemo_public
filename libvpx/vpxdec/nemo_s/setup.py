@@ -97,6 +97,7 @@ if __name__ == '__main__':
             model.scale = scale
             ffmpeg_option = FFmpegOption(args.filter_type, args.filter_fps, None)
             checkpoint_dir = os.path.join(dataset_dir, 'checkpoint', ffmpeg_option.summary(lr_video_name), model.name)
+            print(checkpoint_dir)
             assert(os.path.exists(checkpoint_dir))
 
             #setup directory

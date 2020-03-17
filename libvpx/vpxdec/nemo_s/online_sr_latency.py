@@ -76,6 +76,7 @@ if __name__ == '__main__':
             command = 'adb -s {} shell sh {}'.format(args.device_id, device_script_file)
             subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
             adb_pull(device_log_file, host_log_file, args.device_id)
+            print(host_log_file)
             end_time = time.time()
             print("online sr takes {}sec".format(end_time - start_time))
 

@@ -74,7 +74,7 @@ if __name__ == '__main__':
             lr_video_name = os.path.basename(lr_video_file)
             fps = lr_video_profile['frame_rate']
             log_dir = os.path.join(args.dataset_rootdir, content, 'log')
-            min_len = 0
+            max_len = 0
 
             #bilienar
             bilinear_log_dir = os.path.join(log_dir, lr_video_name, args.device_name, 'flir')
@@ -83,12 +83,14 @@ if __name__ == '__main__':
             bilinear_fps = total_frame / (time[-1] - time[0]) * 1000
             time = [x * (bilinear_fps / fps) for x in time]
             bilinear_time = time
-            bilinear_temperature = temperature
-            min_len = len(bilinear_time)
+            max_len = len(bilinear_time)
+            bilinear_temperature = []
+            for i in range(total_frame):
+                bilinear_temperature.append(temperature[int(i / total_frame * len(temperature))])
 
             #cache
-            cache_time = []
-            cache_temperature = []
+            cache_times = []
+            cache_temperatures = []
             for idx, threshold in enumerate(args.threshold):
                 cache_profile_name = '{}_{}.profile'.format(aps_class.NAME1, threshold)
                 cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, cache_profile_name, args.device_name, 'flir')
@@ -96,13 +98,15 @@ if __name__ == '__main__':
                 time, temperature = libvpx_temperature(os.path.join(cache_log_dir, 'temperature.csv'))
                 cache_fps = total_frame / (time[-1] - time[0]) * 1000
                 time = [x * (cache_fps / fps) for x in time]
-                cache_time.append(time)
-                cache_temperature.append(temperature)
-                if len(cache_time[-1]) < min_len:
-                    min_len = len(cache_time[-1])
+                cache_times.append(time)
+                cache_temperature = []
+                for i in range(total_frame):
+                    cache_temperature.append(temperature[int(i / total_frame * len(temperature))])
+                cache_temperatures.append(cache_temperature)
+
             #dnn
-            dnn_time = []
-            dnn_temperature = []
+            dnn_times = []
+            dnn_temperatures = []
             for num_layers, num_filters in zip(args.baseline_num_blocks, args.baseline_num_filters):
                 nemo_s = NEMO_S(num_layers, num_filters, scale, args.upsample_type)
                 dnn_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, args.device_name, 'flir')
@@ -110,15 +114,45 @@ if __name__ == '__main__':
                 time, temperature = libvpx_temperature(os.path.join(dnn_log_dir, 'temperature.csv'))
                 dnn_fps = total_frame / (time[-1] - time[0]) * 1000
                 time = [x * (dnn_fps / fps) for x in time]
-                dnn_time.append(time)
-                dnn_temperature.append(temperature)
-                if len(dnn_time[-1]) < min_len:
-                    min_len = len(dnn_time[-1])
+                dnn_times.append(time)
+                dnn_temperature = []
+                for i in range(total_frame):
+                    dnn_temperature.append(temperature[int(i / total_frame * len(temperature))])
+                dnn_temperatures.append(dnn_temperature)
 
-            for i in range(min_len):
-                f.write('{:.2f}\t{:.2f}'.format(bilinear_time[i] / 1000 / 60, bilinear_temperature[i]))
-                for time, temperature in zip(cache_time, cache_temperature):
-                    f.write('\t{:.2f}\t{:.2f}'.format(time[i] / 1000 / 60, temperature[i]))
-                for time, temperature in zip(dnn_time, dnn_temperature):
-                    f.write('\t{:.2f}\t{:.2f}'.format(time[i] / 1000 / 60, temperature[i]))
+            """
+            for i in range(9000):
+                if i < len(bilinear_time):
+                    f.write('{:.2f}\t{:.2f}'.format(bilinear_time[i] / 1000 / 60, bilinear_temperature[i]))
+                else:
+                    f.write('\t')
+                for time, temperature in zip(cache_times, cache_temperatures):
+                    if i < len(time):
+                        f.write('\t{:.2f}\t{:.2f}'.format(time[i] / 1000 / 60, temperature[i]))
+                    else:
+                        f.write('\t\t')
+                for time, temperature in zip(dnn_times, dnn_temperatures):
+                    if i < len(time):
+                        f.write('\t{:.2f}\t{:.2f}'.format(time[i] / 1000 / 60, temperature[i]))
+                    else:
+                        f.write('\t\t')
+                f.write('\n')
+            """
+
+            for i in range(9000):
+                f.write('{}'.format(i))
+                if i < len(bilinear_temperature):
+                    f.write('\t{:.2f}'.format(bilinear_temperature[i]))
+                else:
+                    f.write('\t')
+                for temperature in cache_temperatures:
+                    if i < len(temperature):
+                        f.write('\t{:.2f}'.format(temperature[i]))
+                    else:
+                        f.write('\t')
+                for temperature in dnn_temperatures:
+                    if i < len(temperature):
+                        f.write('\t{:.2f}'.format(temperature[i]))
+                    else:
+                        f.write('\t')
                 f.write('\n')

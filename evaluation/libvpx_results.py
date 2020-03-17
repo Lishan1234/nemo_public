@@ -1,4 +1,5 @@
 import os
+import sys
 
 def libvpx_quality(log_dir):
         quality_log_file = os.path.join(log_dir, 'quality.txt')
@@ -40,6 +41,21 @@ def libvpx_latency(log_dir):
                 latency.append(float(latency_line[2]))
 
         return latency
+
+def libvpx_mac(log_dir):
+        mac_log_file = os.path.join(log_dir, 'mac.txt')
+        cache_mac = []
+        dnn_mac = []
+
+        with open(mac_log_file, 'r') as f:
+            mac_lines = f.readlines()
+
+            for mac_line in mac_lines:
+                mac_line = mac_line.strip().split('\t')
+                cache_mac.append(float(mac_line[2]))
+                dnn_mac.append(float(mac_line[3]))
+
+        return cache_mac, dnn_mac
 
 def libvpx_breakdown_latency(log_dir):
         latency_log_file = os.path.join(log_dir, 'latency_thread04.txt')

@@ -16,7 +16,9 @@ def count_mac_for_nas_s(model_name, height, width):
 
 def count_mac_for_nemo_s(model_name, height, width):
     if height == 240 and width == 426:
-        if model_name == 'NEMO_S_B8_F9_S4_deconv':
+        if model_name == 'NEMO_S_B8_F4_S4_deconv':
+            return 384 * 1000 * 1000
+        elif model_name == 'NEMO_S_B8_F9_S4_deconv':
             return 1913 * 1000 * 1000
         elif model_name == 'NEMO_S_B8_F21_S4_deconv':
             return 10337 * 1000 * 1000
