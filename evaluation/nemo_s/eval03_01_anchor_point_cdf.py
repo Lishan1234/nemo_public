@@ -93,7 +93,7 @@ if __name__ == '__main__':
 
         count = 0
         f.write('0\t0\t0\t0\n')
-        for nq, fq, pfq in zip(nemo_num_anchor_points, random_num_anchor_points, uniform_num_anchor_points):
-            f.write('{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(count/len(nemo_num_anchor_points), nq, fq, pfq))
-            f.write('{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format((count+1)/len(nemo_num_anchor_points), nq, fq, pfq))
+        for na, ua, ua in zip(nemo_num_anchor_points, uniform_num_anchor_points, random_num_anchor_points):
+            f.write('{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(count/len(nemo_num_anchor_points), na, ua, ua))
+            f.write('{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format((count+1)/len(nemo_num_anchor_points), na, ua, ua))
             count += 1
