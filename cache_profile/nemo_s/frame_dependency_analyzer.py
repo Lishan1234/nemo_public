@@ -9,17 +9,20 @@ import matplotlib.pyplot as plt
 
 from tool.video import profile_video
 from tool.libvpx import libvpx_save_metadata
+from cache_profile.anchor_point_selector_uniform import APS_Uniform
+from cache_profile.anchor_point_selector_random import APS_Random
+from cache_profile.anchor_point_selector_nemo import APS_NEMO
+from cache_profile.anchor_point_selector_uniform_eval import APS_Uniform_Eval
+from cache_profile.anchor_point_selector_random_eval import APS_Random_Eval
+from dnn.model.nemo_s import NEMO_S
 
-#Assumption: Fixed GOP interval
-#TODO: set proper number of threads as CRA
-#TODO: run()
-#TODO: script/{}
-#TODO: show_super_frame
 class FDA():
-    def __init__(self, vpxdec_file, dataset_dir, video_name, gop, num_visualized_frames, show_super_frame):
+    def __init__(self, vpxdec_file, dataset_dir, video_name, model_name, cache_profile_name, gop, num_visualized_frames, show_super_frame):
         self.vpxdec_file = vpxdec_file
         self.dataset_dir = dataset_dir
         self.video_name = video_name
+        self.model_name = model_name
+        self.cache_profile_name = cache_profile_name
         self.gop = gop
         self.num_visualized_frames = num_visualized_frames
         self.show_super_frame = show_super_frame
@@ -31,9 +34,10 @@ class FDA():
             node_name = '{}.{}'.format(frame_index[0], frame_index[1])
         return  node_name
 
-    def cdf(self):
-        libvpx_save_metadata(self.vpxdec_file, self.dataset_dir, self.video_name)
-        metadata_log_file = os.path.join(self.dataset_dir, 'log', self.video_name, 'metadata.txt')
+    #Caution: Need to run NEMO first to prepare 'metdata.txt' by 'online_cache_latency.py'
+    def all(self):
+        metadata_log_file = os.path.join(self.dataset_dir, 'log', self.video_name, self.model_name, self.cache_profile_name, 'metadata.txt')
+        assert(os.path.exists(metadata_log_file))
 
         #node index
         node_index_dict = {}
@@ -56,11 +60,12 @@ class FDA():
                 video_frame = int(result[0])
                 super_frame = int(result[1])
                 frame_type = result[-1]
+                is_anchor_point = int(result[2])
                 node_name = self.node_name((video_frame, super_frame), node_index_dict)
 
                 if len(result) == 12:
                     #add node
-                    G.add_node(node_name, video_frame=video_frame, super_frame=super_frame, frame_type=frame_type)
+                    G.add_node(node_name, video_frame=video_frame, super_frame=super_frame, frame_type=frame_type, is_anchor_point=is_anchor_point)
 
                     #add edge
                     for i in range(3):
@@ -70,22 +75,28 @@ class FDA():
                         G.add_edge(ref_node_name, node_name)
                 else:
                     #add node
-                    G.add_node(node_name, video_frame=video_frame, super_frame=super_frame, frame_type=frame_type)
+                    G.add_node(node_name, video_frame=video_frame, super_frame=super_frame, frame_type=frame_type, is_anchor_point=is_anchor_point)
 
-        #log0: out-degree per frame index
+        #log0: out-degree per anchor point (CDF)
         out_degree = []
         nodes = sorted(G.nodes, key=lambda x: float(x))
         for node in nodes:
-            out_degree.append(G.out_degree(node))
+            if G.nodes[node]['is_anchor_point'] is True:
+                out_degree.append(G.out_degree(node))
 
         x_vals = np.sort(out_degree)
         y_vals= np.arange(len(x_vals))/float(len(x_vals)-1)
         cdf_log_file = os.path.join(self.dataset_dir, 'log', self.video_name, 'out_degree_cdf.txt')
-        with open(cdf_log_file, 'w') as f:
-            for x_val, y_val in zip(x_vals, y_vals):
-                f.write("{}\t{}\n".format(x_val, y_val))
 
-        #log1: (portion, degree of dependency) for each type
+        with open(cdf_log_file, 'w') as f:
+            f.write('0\t0\n')
+            x_prev_val = 0
+            for x_val, y_val in zip(x_vals, y_vals):
+                f.write('{}\t{}\n'.format(x_prev_val, y_val))
+                f.write('{}\t{}\n'.format(x_val, y_val))
+                x_prev_val = x_val
+
+        #log2: (portion, degree of dependency) for each type
         key_frame = []
         alternative_reference_frame = []
         golden_frame = []
@@ -113,7 +124,7 @@ class FDA():
             f.write("Golden frame\t{:.2f}\t{:.2f}\n".format(len(golden_frame)/len(nodes) * 100, np.average(golden_frame)))
             f.write("Normal frame\t{:.2f}\t{:.2f}\n".format(len(normal_frame)/len(nodes) * 100, np.average(normal_frame)))
 
-
+    #deprecated
     def run(self, chunk_idx):
         #decode
         start_idx = self.gop * chunk_idx
@@ -273,26 +284,53 @@ if __name__ == '__main__':
     #options for libvpx
     parser.add_argument('--vpxdec_file', type=str, required=True)
     parser.add_argument('--dataset_dir', type=str, required=True)
-    parser.add_argument('--video_name', type=str, required=True)
+    parser.add_argument('--lr_video_name', type=str, required=True)
+    parser.add_argument('--hr_video_name', type=str, required=True)
     parser.add_argument('--gop', type=int, required=True)
     parser.add_argument('--chunk_idx', type=int, default=None)
     parser.add_argument('--num_visualized_frames', type=int, default=None)
     parser.add_argument('--show_super_frame', type=bool, default=False)
 
+    #dnn
+    parser.add_argument('--num_filters', type=int, required=True)
+    parser.add_argument('--num_blocks', type=int, required=True)
+
+    #anchor point selector
+    parser.add_argument('--threshold', type=float, required=True)
+    parser.add_argument('--mode', required=True)
+
     args = parser.parse_args()
 
-    video_file = os.path.join(args.dataset_dir, 'video', args.video_name)
-    video_info = profile_video(video_file)
+    #scale, nhwc
+    lr_video_file = os.path.join(args.dataset_dir, 'video', args.lr_video_name)
+    hr_video_file = os.path.join(args.dataset_dir, 'video', args.hr_video_name)
+    lr_video_info = profile_video(lr_video_file)
+    hr_video_info = profile_video(hr_video_file)
+    scale = int(hr_video_info['height'] / lr_video_info['height'])
+    nhwc = [1, lr_video_info['height'], lr_video_info['width'], 3]
 
-    fda = FDA(os.path.abspath(args.vpxdec_file), os.path.abspath(args.dataset_dir), args.video_name, args.gop, \
-                args.num_visualized_frames, args.show_super_frame)
+    #model
+    nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale)
+
+    #cache profile
+    aps = None
+    if args.mode == 'uniform':
+        aps = APS_Uniform
+    elif args.mode == 'random':
+        aps = APS_Random
+    elif args.mode == 'nemo':
+        aps = APS_NEMO
+    elif args.mode == 'uniform_eval':
+        aps = APS_Uniform_Eval
+    elif args.mode == 'random_eval':
+        aps = APS_Random_Eval
+    else:
+        raise NotImplementedError
+
+    fda = FDA(os.path.abspath(args.vpxdec_file), os.path.abspath(args.dataset_dir), args.lr_video_name, nemo_s.name, '{}_{}.profile'.format(aps.NAME1, args.threshold),
+            args.gop, args.num_visualized_frames, args.show_super_frame)
 
     if args.chunk_idx is None:
-        fda.cdf()
-        """
-        num_chunks = int(video_info['duration'] // (args.gop / video_info['frame_rate']))
-        for i in range(num_chunks):
-            fda.run(args.chunk_idx)
-        """
+        fda.all()
     else:
         fda.run(args.chunk_idx)
