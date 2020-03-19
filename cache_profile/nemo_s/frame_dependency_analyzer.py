@@ -92,7 +92,6 @@ class FDA():
 
         cdf_log_file = os.path.join(self.dataset_dir, 'log', self.video_name, self.model_name, self.cache_profile_name, 'out_degree_cdf.txt')
         is_first = True
-        print(value, cdf)
         with open(cdf_log_file, 'w') as f:
             for x_val, y_val in zip(value, cdf):
                 if is_first:
@@ -110,6 +109,34 @@ class FDA():
                 y_pre_val = y_val
 
         #log1: frame type per anchor point (CDF)
+        key_frame = []
+        alternative_reference_frame = []
+        golden_frame = []
+        normal_frame = []
+        nodes = sorted(G.nodes, key=lambda x: float(x))
+        for node in nodes:
+            #print(node, G.out_degree(node), list(G.successors(node)))
+            if G.nodes[node]['is_anchor_point'] == 1:
+                if G.nodes[node]['frame_type'] == 'key_frame':
+                    key_frame.append(G.out_degree(node))
+                elif G.nodes[node]['frame_type'] == 'alternative_reference_frame':
+                    alternative_reference_frame.append(G.out_degree(node))
+                elif G.nodes[node]['frame_type'] == 'normal_frame':
+                    if G.out_degree(node) > 1:
+                        golden_frame.append(G.out_degree(node))
+                    else:
+                        normal_frame.append(G.out_degree(node))
+                else:
+                    print(G.nodes[node]['frame_type'])
+                    raise NotImplementedError
+
+        total_num = len(key_frame) + len(alternative_reference_frame) + len(golden_frame) + len(normal_frame)
+        frame_type_log = os.path.join(self.dataset_dir, 'log', self.video_name, self.model_name, self.cache_profile_name, 'frame_type.txt')
+        with open(frame_type_log, 'w') as f:
+            f.write('Key\t{:.2f}\n'.format(len(key_frame)/total_num))
+            f.write('Alf_ref\t{:.2f}\n'.format(len(alternative_reference_frame)/total_num))
+            f.write('Golden\t{:.2f}\n'.format(len(golden_frame)/total_num))
+            f.write('Others\t{:.2f}\n'.format(len(normal_frame)/total_num))
 
         #log2: (portion, degree of dependency) for each type
         key_frame = []
