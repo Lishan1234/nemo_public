@@ -230,7 +230,7 @@ if __name__ == '__main__':
             cmds = ['#!/system/bin/sh',
                     'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{}'.format(device_libs_dir),
                     'cd {}'.format(device_root_dir),
-                    '{} --codec=vp9  --noblit --threads={} --frame-buffers=50 {} --content-dir={} --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=1 --dnn-runtime=3 --cache-policy=1 --dnn-name={} --checkpoint-name={} --resolution={} --cache-profile={} --save-latency'.format(os.path.join(device_bin_dir, 'vpxdec'), args.threads, limit, device_root_dir, lr_video_name, hr_video_name, model.name, dlc_dict['dlc_name'], lr_video_profile['height'],
+                    '{} --codec=vp9  --noblit --threads={} --frame-buffers=50 {} --content-dir={} --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=1 --dnn-runtime=3 --cache-policy=1 --dnn-name={} --checkpoint-name={} --resolution={} --cache-profile={} --save-latency --save-metadata'.format(os.path.join(device_bin_dir, 'vpxdec'), args.threads, limit, device_root_dir, lr_video_name, hr_video_name, model.name, dlc_dict['dlc_name'], lr_video_profile['height'],
                         device_cache_profile_file),
                     'exit']
             cmd_script_path = os.path.join(script_dir, 'online_profile_cache_latency.sh')

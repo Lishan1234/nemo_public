@@ -81,20 +81,35 @@ class FDA():
         out_degree = []
         nodes = sorted(G.nodes, key=lambda x: float(x))
         for node in nodes:
-            if G.nodes[node]['is_anchor_point'] is True:
+            if G.nodes[node]['is_anchor_point'] == 1:
                 out_degree.append(G.out_degree(node))
+        out_degree.sort()
+        count = {x:out_degree.count(x) for x in out_degree}
+        value, count = list(count.keys()), list(count.values())
+        cdf = []
+        for i in range(len(count)):
+            cdf.append(sum(count[0:i+1]) / sum(count))
 
-        x_vals = np.sort(out_degree)
-        y_vals= np.arange(len(x_vals))/float(len(x_vals)-1)
-        cdf_log_file = os.path.join(self.dataset_dir, 'log', self.video_name, 'out_degree_cdf.txt')
-
+        cdf_log_file = os.path.join(self.dataset_dir, 'log', self.video_name, self.model_name, self.cache_profile_name, 'out_degree_cdf.txt')
+        is_first = True
+        print(value, cdf)
         with open(cdf_log_file, 'w') as f:
-            f.write('0\t0\n')
-            x_prev_val = 0
-            for x_val, y_val in zip(x_vals, y_vals):
-                f.write('{}\t{}\n'.format(x_prev_val, y_val))
-                f.write('{}\t{}\n'.format(x_val, y_val))
-                x_prev_val = x_val
+            for x_val, y_val in zip(value, cdf):
+                if is_first:
+                    if x_val != 0:
+                        f.write('{}\t{}\n'.format(0, 0))
+                        f.write('{}\t{}\n'.format(x_val, 0))
+                        f.write('{}\t{}\n'.format(x_val, y_val))
+                    else:
+                        f.write('{}\t{}\n'.format(x_val, 0))
+                        f.write('{}\t{}\n'.format(x_val, y_val))
+                    is_first = False
+                else:
+                    f.write('{}\t{}\n'.format(x_val, y_pre_val))
+                    f.write('{}\t{}\n'.format(x_val, y_val))
+                y_pre_val = y_val
+
+        #log1: frame type per anchor point (CDF)
 
         #log2: (portion, degree of dependency) for each type
         key_frame = []

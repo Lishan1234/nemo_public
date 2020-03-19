@@ -1,6 +1,6 @@
 #!/bin/bash
 python $MOBINAS_CODE_ROOT/evaluation/nemo_s/eval03_02_anchor_point_analysis.py \
-                --dataset_rootdir /ssd/nemo-mobicom \
+                --dataset_rootdir $MOBINAS_DATA_ROOT \
                 --content unboxing \
                 --lr_resolution 240 \
                 --hr_resolution 1080 \

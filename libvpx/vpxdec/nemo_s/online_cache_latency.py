@@ -87,9 +87,11 @@ if __name__ == '__main__':
             device_script_file = os.path.join(device_script_dir, 'online_profile_cache_latency.sh')
             device_log_file0 = os.path.join(device_log_dir, 'latency.txt')
             device_log_file1 = os.path.join(device_log_dir, 'latency_thread0{}.txt'.format(args.threads))
+            device_log_file2 = os.path.join(device_log_dir, 'metadata.txt')
             host_log_dir = os.path.join(dataset_dir, 'log', lr_video_name, model.name, cache_profile_name, args.device_id)
             host_log_file0 = os.path.join(host_log_dir, 'latency.txt')
             host_log_file1 = os.path.join(host_log_dir, 'latency_thread0{}.txt'.format(args.threads))
+            host_log_file2 = os.path.join(host_log_dir, 'metadata.txt')
             os.makedirs(host_log_dir, exist_ok=True)
 
             start_time = time.time()
@@ -98,6 +100,7 @@ if __name__ == '__main__':
             subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
             adb_pull(device_log_file0, host_log_file0, args.device_id)
             adb_pull(device_log_file1, host_log_file1, args.device_id)
+            adb_pull(device_log_file2, host_log_file2, args.device_id)
             end_time = time.time()
             print("online cache takes {}sec".format(end_time - start_time))
 
