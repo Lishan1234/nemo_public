@@ -129,6 +129,6 @@ if __name__ == '__main__':
         dnn_frame_quality = load_frame_quality(cache_log_dir)
 
         count = 0
-        for nq, uq, rq in zip(nemo_frame_quality, uniform_frame_quality, random_frame_quality):
-            f_1.write('{}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(count, nq, uq, rq))
+        for nq, uq, rq, dq in zip(nemo_frame_quality, uniform_frame_quality, random_frame_quality, dnn_frame_quality):
+            f_1.write('{}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(count, nq, uq, rq, dq))
             count += 1
