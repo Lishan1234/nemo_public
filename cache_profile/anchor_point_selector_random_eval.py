@@ -6,6 +6,7 @@ import math
 import time
 import multiprocessing as mp
 import shutil
+import random
 
 import numpy as np
 import tensorflow as tf
@@ -16,9 +17,9 @@ from tool.mac import count_mac_for_dnn, count_mac_for_cache
 from dnn.model.nas_s import NAS_S
 from dnn.utility import raw_quality
 
-class APS_Uniform_Eval():
+class APS_Random_Eval():
     NAME0 = "APS"
-    NAME1 = "Uniform_Eval"
+    NAME1 = "Random_Eval"
 
     def __init__(self, model, vpxdec_file, dataset_dir, lr_video_name, hr_video_name, gop, threshold, num_decoders, profile_all=False):
         self.model = model
@@ -33,10 +34,11 @@ class APS_Uniform_Eval():
 
     def create_cache_profile(self, ap_cache_profiles, profile_dir, num_anchor_points):
         cache_profile = None
-        interval = len(ap_cache_profiles) // num_anchor_points
+        #interval = len(ap_cache_profiles) // num_anchor_points
+        index = random.sample(list(range(len(ap_cache_profiles))), num_anchor_points)
 
         for i in range(num_anchor_points):
-            ap_cache_profile = ap_cache_profiles[interval * i]
+            ap_cache_profile = ap_cache_profiles[index[i]]
 
             if cache_profile is None:
                 cache_profile = CacheProfile.fromcacheprofile(ap_cache_profile, profile_dir, '{}_{}.tmp'.format(self.NAME1, num_anchor_points))
