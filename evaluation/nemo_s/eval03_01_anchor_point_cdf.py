@@ -87,13 +87,19 @@ if __name__ == '__main__':
             cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, cache_profile_name)
             uniform_num_anchor_points.append(np.average(load_num_anchor_points(cache_log_dir)))
 
+        saving_to_random = np.divide(np.asarray(nemo_num_anchor_points), np.asarray(random_num_anchor_points))
+        saving_to_uniform = np.divide(np.asarray(nemo_num_anchor_points), np.asarray(uniform_num_anchor_points))
+
+        print((1-np.average(saving_to_uniform)) * 100)
+        print((1-np.average(saving_to_random)) * 100)
+
         nemo_num_anchor_points.sort()
         random_num_anchor_points.sort()
         uniform_num_anchor_points.sort()
 
         count = 0
         f.write('0\t0\t0\t0\n')
-        for na, ua, ua in zip(nemo_num_anchor_points, uniform_num_anchor_points, random_num_anchor_points):
-            f.write('{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(count/len(nemo_num_anchor_points), na, ua, ua))
-            f.write('{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format((count+1)/len(nemo_num_anchor_points), na, ua, ua))
+        for na, ua, ra in zip(nemo_num_anchor_points, uniform_num_anchor_points, random_num_anchor_points):
+            f.write('{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(count/len(nemo_num_anchor_points), na, ua, ra))
+            f.write('{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format((count+1)/len(nemo_num_anchor_points), na, ua, ra))
             count += 1

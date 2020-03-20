@@ -37,7 +37,7 @@ def load_chunk_quality(log_dir, chunk_idx):
         quality_lines = f.readlines()
 
         quality_line = quality_lines[chunk_idx].strip().split('\t')
-        return float(quality_line[1])
+        return float(quality_line[1]), float(quality_line[2])
 
 def load_frame_quality(log_dir):
     quality_log_file = os.path.join(log_dir, 'quality.txt')
@@ -99,17 +99,17 @@ if __name__ == '__main__':
             postfix = 'chunk{:04d}'.format(i)
             cache_profile_name = '{}_{}'.format(APS_NEMO.NAME1, args.threshold)
             cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, cache_profile_name, postfix)
-            nemo_chunk_quality = load_chunk_quality(cache_log_dir, -1)
+            nemo_chunk_quality, dnn_chunk_quality = load_chunk_quality(cache_log_dir, -1)
 
             cache_profile_name = '{}_{}'.format(APS_Uniform.NAME1, args.threshold)
             cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, cache_profile_name, postfix)
-            uniform_chunk_quality = load_chunk_quality(cache_log_dir, num_anchor_points[i] - 1)
+            uniform_chunk_quality, _ = load_chunk_quality(cache_log_dir, num_anchor_points[i] - 1)
 
             cache_profile_name = '{}_{}'.format(APS_Random.NAME1, args.threshold)
             cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, cache_profile_name, postfix)
-            random_chunk_quality = load_chunk_quality(cache_log_dir, num_anchor_points[i] - 1)
+            random_chunk_quality, _ = load_chunk_quality(cache_log_dir, num_anchor_points[i] - 1)
 
-            f_0.write('{}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(i, nemo_chunk_quality, uniform_chunk_quality, random_chunk_quality))
+            f_0.write('{}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(i, nemo_chunk_quality, uniform_chunk_quality, random_chunk_quality, dnn_chunk_quality))
 
         #frame quality
         postfix = 'chunk0010'
@@ -125,7 +125,10 @@ if __name__ == '__main__':
         cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, cache_profile_name, postfix)
         random_frame_quality = load_frame_quality(cache_log_dir)
 
+        cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, postfix)
+        dnn_frame_quality = load_frame_quality(cache_log_dir)
+
         count = 0
-        for nq, uq, rq in zip(nemo_frame_quality, uniform_frame_quality, random_frame_quality):
-            f_1.write('{}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(count, nq, uq, rq))
+        for nq, uq, rq, dq in zip(nemo_frame_quality, uniform_frame_quality, random_frame_quality, dnn_frame_quality):
+            f_1.write('{}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(count, nq, uq, rq, dq))
             count += 1
