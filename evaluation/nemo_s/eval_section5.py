@@ -71,6 +71,8 @@ if __name__ == '__main__':
                 lines = f.readlines()
                 for line in lines:
                     line = line.strip().split('\t')
-                    error.append(float(line[1]) - float(line[4]))
+                    estimation_error = float(line[1]) - float(line[4])
+                    if estimation_error >= 0:
+                        error.append(estimation_error)
         print(np.average(impact))
-        print(np.average(error), np.max(error))
+        print(np.average(error), np.min(error), np.max(error))
