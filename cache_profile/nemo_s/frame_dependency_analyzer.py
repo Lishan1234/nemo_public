@@ -90,6 +90,8 @@ class FDA():
         for i in range(len(count)):
             cdf.append(sum(count[0:i+1]) / sum(count))
 
+        print(np.average(out_degree))
+
         cdf_log_file = os.path.join(self.dataset_dir, 'log', self.video_name, self.model_name, self.cache_profile_name, 'out_degree_cdf.txt')
         is_first = True
         with open(cdf_log_file, 'w') as f:

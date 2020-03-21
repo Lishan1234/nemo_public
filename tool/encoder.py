@@ -241,8 +241,6 @@ class Encoder():
 
     def encode_all(self):
         start_time = time.time()
-        self.encode_1080p_lossless()
-        """
         self.cut_2160p()
         print('elaspsed_time (1/9): {}sec'.format(time.time() - start_time))
         start_time = time.time()
@@ -273,7 +271,6 @@ class Encoder():
         #print('elaspsed_time (10/11): {}sec'.format(time.time() - start_time))
         #self.encode_2160p()
         #print('elaspsed_time (11/11): {}sec'.format(time.time() - start_time))
-        """
 
     def prepare_manifest(self):
         #TODO
