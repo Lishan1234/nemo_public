@@ -1,5 +1,5 @@
 #!/bin/bash
-python $MOBINAS_CODE_ROOT/evaluation/nemo_s/eval_section5.py \
+python $MOBINAS_CODE_ROOT/evaluation/nemo_s/eval_section5_a.py \
                 --dataset_rootdir $MOBINAS_DATA_ROOT \
                 --content unboxing \
                 --lr_resolution 240 \
