@@ -15,6 +15,19 @@ from tool.mac import *
 content_order = {'product_review': 0, 'how_to': 1, 'vlogs': 2, 'game_play': 3, 'skit': 4,
                 'haul': 5, 'challenge':6, 'favorite': 7, 'education': 8, 'unboxing': 9}
 
+def load_num_anchor_points(log_dir):
+    quality_log_file = os.path.join(log_dir, 'quality.txt')
+    num_anchor_points = []
+
+    with open(quality_log_file, 'r') as f:
+        quality_lines = f.readlines()
+
+        for quality_line in quality_lines:
+            quality_line = quality_line.strip().split('\t')
+            num_anchor_points.append(int(quality_line[1]))
+
+    return num_anchor_points
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
@@ -64,6 +77,7 @@ if __name__ == '__main__':
             #cache
             for idx, threshold in enumerate(args.threshold):
                 log_dir = os.path.join(args.dataset_rootdir, content, 'log', lr_video_name, nemo_s.name, '{}_{}'.format(aps_class.NAME1, threshold))
-                anchor_points = libvpx_anchor_points(log_dir)
+                num_anchor_points = load_num_anchor_points(log_dir)
+                print(content, sum(1 for i in num_anchor_points if i > 30))
 
-                f.write('{}\t{}\t{}\t{}\n'.format(content, np.round(np.average(anchor_points), 2), np.round(np.amin(anchor_points), 2), np.round(np.amax(anchor_points), 2)))
+                f.write('{}\t{}\t{}\t{}\n'.format(content, np.round(np.average(num_anchor_points), 2), np.round(np.amin(num_anchor_points), 2), np.round(np.amax(num_anchor_points), 2)))
