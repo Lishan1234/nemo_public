@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
     #directory, path
     parser.add_argument('--dataset_rootdir', type=str, required=True)
-    parser.add_argument('--content', type=str, nargs='+', required=True)
+    parser.add_argument('--content', type=str, required=True)
     parser.add_argument('--lr_resolution', type=int, required=True)
     parser.add_argument('--hr_resolution', type=int, required=True)
 
@@ -29,32 +29,50 @@ if __name__ == '__main__':
     parser.add_argument('--gop', type=int, default=120)
 
     #dnn
-    parser.add_argument('--baseline_num_filters', type=int, nargs='+', required=True)
-    parser.add_argument('--baseline_num_blocks', type=int, nargs='+', required=True)
+    parser.add_argument('--num_filters', type=int, required=True)
+    parser.add_argument('--num_blocks', type=int, required=True)
     parser.add_argument('--upsample_type', type=str, required=True)
-
-    #device
-    parser.add_argument('--device_id', type=str, required=True)
-    parser.add_argument('--device_name', type=str, required=True)
 
     args = parser.parse_args()
 
-    #sort
-    args.content.sort(key=lambda val: content_order[val])
+    #dnn
+    scale = int(args.hr_resolution // args.lr_resolution)
+    nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale, args.upsample_type)
 
-    #1. latency log
-    log_dir = os.path.join(args.dataset_rootdir, 'evaluation', args.device_id)
+    log_dir = os.path.join(args.dataset_rootdir, 'evaluation')
     os.makedirs(log_dir, exist_ok=True)
     log_file = os.path.join(log_dir, 'eval_section3_01.txt'.format(args.lr_resolution))
     with open(log_file, 'w') as f:
-        for content in args.content:
-            #video, directory
-            lr_video_dir = os.path.join(args.dataset_rootdir, content, 'video')
-            lr_video_file = os.path.abspath(glob.glob(os.path.join(lr_video_dir, '{}p*'.format(args.lr_resolution)))[0])
-            lr_video_profile = profile_video(lr_video_file)
-            lr_video_name = os.path.basename(lr_video_file)
-            log_dir = os.path.join(args.dataset_rootdir, content, 'log')
+        #video, directory
+        lr_video_dir = os.path.join(args.dataset_rootdir, args.content, 'video')
+        lr_video_file = os.path.abspath(glob.glob(os.path.join(lr_video_dir, '{}p*'.format(args.lr_resolution)))[0])
+        lr_video_profile = profile_video(lr_video_file)
+        lr_video_name = os.path.basename(lr_video_file)
+        log_dir = os.path.join(args.dataset_rootdir, args.content, 'log')
+
+        impact = []
+        error = []
+        for i in range(75):
+            postfix = 'chunk{:04d}'.format(i)
 
             #dominant anchor points: Uniform_Eval_0.5
+            cache_log_file = os.path.join(log_dir, lr_video_name, nemo_s.name, 'Uniform_Eval_0.5', postfix, 'quality.txt')
+            with open(cache_log_file, 'r') as f:
+                lines = f.readlines()
+                for line in lines:
+                    line = line.strip().split('\t')
+                    cache_gain = float(line[1]) - float(line[3])
+                    dnn_gain = float(line[2]) - float(line[3])
+                    impact.append(cache_gain/dnn_gain * 100)
 
             #quality estimation error: Random_Eval_0.5
+            cache_log_file = os.path.join(log_dir, lr_video_name, nemo_s.name, 'Random_Eval_0.5', postfix, 'quality.txt')
+            with open(cache_log_file, 'r') as f:
+                lines = f.readlines()
+                for line in lines:
+                    line = line.strip().split('\t')
+                    estimation_error = float(line[1]) - float(line[4])
+                    if estimation_error >= 0:
+                        error.append(estimation_error)
+        print(np.average(impact))
+        print(np.average(error), np.min(error), np.max(error))

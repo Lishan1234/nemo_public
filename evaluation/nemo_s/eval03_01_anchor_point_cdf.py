@@ -87,6 +87,12 @@ if __name__ == '__main__':
             cache_log_dir = os.path.join(log_dir, lr_video_name, nemo_s.name, cache_profile_name)
             uniform_num_anchor_points.append(np.average(load_num_anchor_points(cache_log_dir)))
 
+        saving_to_random = np.divide(np.asarray(nemo_num_anchor_points), np.asarray(random_num_anchor_points))
+        saving_to_uniform = np.divide(np.asarray(nemo_num_anchor_points), np.asarray(uniform_num_anchor_points))
+
+        print((1-np.average(saving_to_uniform)) * 100)
+        print((1-np.average(saving_to_random)) * 100)
+
         nemo_num_anchor_points.sort()
         random_num_anchor_points.sort()
         uniform_num_anchor_points.sort()

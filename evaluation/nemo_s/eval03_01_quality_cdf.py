@@ -109,6 +109,10 @@ if __name__ == '__main__':
         fast_quality.sort()
         per_frame_quality.sort()
 
+        print(np.average(np.asarray(fast_quality) - np.asarray(per_frame_quality)))
+        print(np.max(np.asarray(fast_quality) - np.asarray(per_frame_quality)))
+        print(np.min(np.asarray(fast_quality) - np.asarray(per_frame_quality)))
+
         count = 0
         f.write('0\t0\t0\t0\n')
         for nq, fq, pfq in zip(nemo_quality, fast_quality, per_frame_quality):
