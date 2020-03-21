@@ -8,7 +8,7 @@ python $MOBINAS_CODE_ROOT/libvpx/vpxdec/nemo_s/setup.py \
     --hr_resolution 1080 \
     --upsample_type deconv \
     --num_filters 32 \
-    --num_blocks 4 \
+    --num_blocks 8 \
     --device_id 7b7f59d1 \
     --abi arm64-v8a \
     --aps_class nemo \
