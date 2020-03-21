@@ -32,9 +32,6 @@ class SingleTrainer:
         for idx, ds in enumerate(dataset):
             lr = ds[0]
             hr = ds[1]
-            if idx == 0:
-                height = tf.shape(hr)[1]
-                width = tf.shape(hr)[2]
 
             lr = tf.cast(lr, tf.float32)
             sr = self.checkpoint.model(lr)
@@ -44,9 +41,15 @@ class SingleTrainer:
             sr_psnr_value = tf.image.psnr(sr, hr, max_val=255)[0]
             sr_psnr_values.append(sr_psnr_value)
 
+            height = tf.shape(hr)[1]
+            width = tf.shape(hr)[2]
             bilinear = resolve_bilinear(lr, height, width)
             bilinear_psnr_value = tf.image.psnr(bilinear, hr, max_val=255)[0]
             bilinear_psnr_values.append(bilinear_psnr_value)
+
+            if idx == 20:
+                break
+
         return tf.reduce_mean(sr_psnr_values), tf.reduce_mean(bilinear_psnr_values)
 
     def train(self, train_dataset, valid_dataset, steps, evaluate_every=1000, save_best_only=False):
