@@ -2,7 +2,7 @@
 python $MOBINAS_CODE_ROOT/cache_profile/nemo_s/quality_selector_nemo_s.py \
                 --dataset_rootdir $MOBINAS_DATA_ROOT \
                 --reference_content unboxing \
-                --content game_play \
+                --content unboxing \
                 --vpxdec_file $MOBINAS_CODE_ROOT/third_party/libvpx/vpxdec \
                 --lr_resolution 240 \
                 --hr_resolution 1080 \

@@ -55,7 +55,7 @@ if __name__ == '__main__':
 
     #reference video
     cache_profile_name = '{}_{}.profile'.format(APS_NEMO.NAME1, args.threshold)
-    latency = {}
+    latency_dict = {}
     for model in models:
         anchor_point = []
         non_anchor_frame = []
@@ -82,8 +82,30 @@ if __name__ == '__main__':
                 else:
                     raise RuntimeError
 
-            latency[model.name] = {}
-            latency[model.name]['anchor_point'] = np.average(anchor_point)
-            latency[model.name]['non_anchor_frame'] = np.average(non_anchor_frame)
+            latency_dict[model.name] = {}
+            latency_dict[model.name]['anchor_point'] = np.average(anchor_point)
+            latency_dict[model.name]['non_anchor_frame'] = np.average(non_anchor_frame)
 
             print('Device {}: Anchor point {:.2f}ms, Non-anchor frame {:.2f}ms'.format(args.device_id, np.average(anchor_point), np.average(non_anchor_frame)))
+
+
+    for content in args.content:
+        selected_model = None
+        video_file = os.path.abspath(glob.glob(os.path.join(args.dataset_rootdir, content,  'video', '{}p*'.format(args.lr_resolution)))[0])
+        video_name = os.path.basename(video_file)
+        fps = profile_video(video_file)['frame_rate']
+        log = os.path.join(args.dataset_rootdir, content, 'log', video_name, model.name, '{}_{}'.format(APS_NEMO.NAME1, args.threshold), 'quality.txt')
+
+        with open(log, 'r') as f:
+            lines = f.readlines()
+            for line in lines:
+                line = line.strip().split('\t')
+                num_anchor_points = int(line[1])
+                for model in models:
+                    latency = num_anchor_points * latency_dict[model.name]['anchor_point'] + (args.gop - num_anchor_points) * latency_dict[model.name]['non_anchor_frame']
+                    if latency < (args.gop / fps) * 1000:
+                        selected_model = model
+
+        print('Content {}: Selected model {}'.format(content, selected_model.name))
+
+        #TODO: json file
