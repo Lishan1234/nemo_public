@@ -207,7 +207,7 @@ class APS_NEMO_Bound():
         shutil.rmtree(sr_image_dir, ignore_errors=True)
 
     def summary(self, start_idx, end_idx):
-        log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name, '{}_{}'.format(self.NAME1, self.threshold))
+        log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name, '{}_{}_{}'.format(self.NAME1, self.max_num_anchor_points, self.threshold))
         profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, self.model.name)
 
         #log
@@ -233,10 +233,10 @@ class APS_NEMO_Bound():
                         sf2.write('{}\t{}\n'.format(chunk_idx, m_lines[-1].strip()))
 
         #cache profile
-        cache_profile = os.path.join(profile_dir, '{}_{}.profile'.format(self.NAME1, self.threshold))
+        cache_profile = os.path.join(profile_dir, '{}_{}_{}.profile'.format(self.NAME1, self.max_num_anchor_points, self.threshold))
         cache_data = b''
         with open(cache_profile, 'wb') as f0:
             for chunk_idx in range(start_idx, end_idx):
-                chunk_cache_profile = os.path.join(profile_dir, 'chunk{:04d}'.format(chunk_idx), '{}_{}.profile'.format(self.NAME1, self.threshold))
+                chunk_cache_profile = os.path.join(profile_dir, 'chunk{:04d}'.format(chunk_idx), '{}_{}_{}.profile'.format(self.NAME1, self.max_num_anchor_points, self.threshold))
                 with open(chunk_cache_profile, 'rb') as f1:
                     f0.write(f1.read())
