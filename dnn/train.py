@@ -19,7 +19,7 @@ class SingleTrainer:
                                                 model=model)
         self.checkpoint_manager = tf.train.CheckpointManager(checkpoint=self.checkpoint,
                                                                 directory=checkpoint_dir,
-                                                                max_to_keep=3)
+                                                                max_to_keep=None)
         self.writer = tf.contrib.summary.create_file_writer(log_dir)
         self.initial_step = 0
 
