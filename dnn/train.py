@@ -13,6 +13,7 @@ class SingleTrainer:
     def __init__(self, model, loss, learning_rate, checkpoint_dir, log_dir):
         self.now = None
         self.loss = loss
+        self.learning_rate = learning_rate
         self.checkpoint = tf.train.Checkpoint(step=tf.Variable(0),
                                                 psnr=tf.Variable(-1.0),
                                                 optimizer=Adam(learning_rate),
@@ -21,7 +22,6 @@ class SingleTrainer:
                                                                 directory=checkpoint_dir,
                                                                 max_to_keep=None)
         self.writer = tf.contrib.summary.create_file_writer(log_dir)
-        self.initial_step = 0
 
     @property
     def model(self):
@@ -57,7 +57,7 @@ class SingleTrainer:
         loss_mean = Mean()
         self.now = time.perf_counter()
 
-        for lr, hr in train_dataset.take(steps + self.initial_step - self.checkpoint.step.numpy()):
+        for lr, hr in train_dataset.take(steps - self.checkpoint.step.numpy()):
             self.checkpoint.step.assign_add(1)
             step = self.checkpoint.step.numpy()
 
@@ -98,13 +98,11 @@ class SingleTrainer:
         return loss_value
 
     def restore(self, checkpoint_dir):
-        checkpoint_manager = tf.train.CheckpointManager(checkpoint=self.checkpoint, directory=checkpoint_dir, max_to_keep=None)
-        print(checkpoint_manager.latest_checkpoint)
-        print(checkpoint_dir)
-        if checkpoint_manager.latest_checkpoint:
-            self.checkpoint.restore(checkpoint_manager.latest_checkpoint)
-            print(f'Model restored from checkpoint at step {self.checkpoint.step.numpy()}.')
-        self.initial_step = self.checkpoint.step.numpy()
+        self.checkpoint.restore(os.path.join(checkpoint_dir, 'ckpt-200'))
+        self.checkpoint = tf.train.Checkpoint(step=tf.Variable(0),
+                                                psnr=tf.Variable(-1.0),
+                                                optimizer=Adam(self.learning_rate),
+                                                model=self.checkpoint.model)
 
 class SingleTrainerV1(SingleTrainer):
     def __init__(self,
