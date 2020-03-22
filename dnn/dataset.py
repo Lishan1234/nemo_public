@@ -19,11 +19,10 @@ from tool.video import FFmpegOption, VideoMetadata, profile_video
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 def setup_images(video_path, image_dir, ffmpeg_path, ffmpeg_option):
-    if not os.path.exists(image_dir):
-        os.makedirs(image_dir, exist_ok=True)
-        video_name = os.path.basename(video_path)
-        cmd = '{} -i {} {} {}/%04d.png'.format(ffmpeg_path, video_path, ffmpeg_option, image_dir)
-        os.system(cmd)
+    os.makedirs(image_dir, exist_ok=True)
+    video_name = os.path.basename(video_path)
+    cmd = '{} -i {} {} {}/%04d.png'.format(ffmpeg_path, video_path, ffmpeg_option, image_dir)
+    os.system(cmd)
 
 def setup_yuv_images(vpxdec_file, content_dir, video_file, filter_fps):
     image_dir = os.path.join(content_dir, 'image', os.path.basename(video_file), 'libvpx')
