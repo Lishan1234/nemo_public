@@ -282,6 +282,50 @@ def libvpx_offline_cache_quality(vpxdec_file, content_dir, input_video_name, com
 
     return quality
 
+def libvpx_offline_cache_quality_mt_v1(q0, q1, vpxdec_file, content_dir, input_video_name, compare_video_name, model_name, resolution):
+    while True:
+        item = q0.get()
+        if item == 'end':
+            return
+        else:
+            start_time = time.time()
+            cache_profile = item[0]
+            skip = item[1]
+            limit = item[2]
+            postfix = item[3]
+
+            #log file
+            log_dir = os.path.join(content_dir, 'log', input_video_name, model_name, os.path.basename(cache_profile.path))
+            if postfix is not None:
+                log_dir = os.path.join(log_dir, postfix)
+            log_file = os.path.join(log_dir, 'quality.txt')
+
+            #run sr-integrated decoder
+            cache_profile.save()
+            command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} \
+            --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=2 --cache-policy=1 \
+            --save-quality --save-metadata --dnn-name={} --cache-profile={} --resolution={}'.format(vpxdec_file, content_dir, input_video_name, \
+                                                            compare_video_name, model_name, cache_profile.path, resolution)
+            if skip is not None:
+                command += ' --skip={}'.format(skip)
+            if limit is not None:
+                command += ' --limit={}'.format(limit)
+            if postfix is not None:
+                command += ' --postfix={}'.format(postfix)
+            subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            cache_profile.remove()
+
+            #load quality from a log file
+            quality = []
+            with open(log_file, 'r') as f:
+                lines = f.readlines()
+                for line in lines:
+                    line = line.strip()
+                    quality.append(float(line.split('\t')[1]))
+            end_time = time.time()
+
+            q1.put(quality)
+
 def libvpx_offline_cache_quality_mt(q0, q1, vpxdec_file, content_dir, input_video_name, compare_video_name, model_name, resolution):
     while True:
         item = q0.get()
