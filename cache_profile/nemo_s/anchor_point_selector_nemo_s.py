@@ -79,7 +79,6 @@ if __name__ == '__main__':
         elif args.mode == 'random_eval':
             aps = APS_Random_Eval(checkpoint.model, args.vpxdec_file, dataset_dir, args.lr_video_name, args.hr_video_name, args.gop, args.threshold, args.num_decoders, args.profile_all)
         elif args.mode == 'exhaustive':
-            assert(args.num_iterations is not None)
             assert(args.num_anchor_points is not None)
             aps = APS_Exhaustive(checkpoint.model, args.vpxdec_file, dataset_dir, args.lr_video_name, args.hr_video_name, args.gop, args.num_decoders, args.num_anchor_points, args.num_iterations)
         elif args.mode == 'nemo_bound':
