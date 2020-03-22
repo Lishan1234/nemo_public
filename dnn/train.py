@@ -21,6 +21,7 @@ class SingleTrainer:
                                                                 directory=checkpoint_dir,
                                                                 max_to_keep=3)
         self.writer = tf.contrib.summary.create_file_writer(log_dir)
+        self.initial_step = 0
 
     @property
     def model(self):
@@ -56,7 +57,7 @@ class SingleTrainer:
         loss_mean = Mean()
         self.now = time.perf_counter()
 
-        for lr, hr in train_dataset.take(steps - self.checkpoint.step.numpy()):
+        for lr, hr in train_dataset.take(steps + self.initial_step - self.checkpoint.step.numpy()):
             self.checkpoint.step.assign_add(1)
             step = self.checkpoint.step.numpy()
 
@@ -96,10 +97,14 @@ class SingleTrainer:
 
         return loss_value
 
-    def restore(self):
-        if self.checkpoint_manager.latest_checkpoint:
-            self.checkpoint.restore(self.checkpoint_manager.latest_checkpoint)
+    def restore(self, checkpoint_dir):
+        checkpoint_manager = tf.train.CheckpointManager(checkpoint=self.checkpoint, directory=checkpoint_dir, max_to_keep=None)
+        print(checkpoint_manager.latest_checkpoint)
+        print(checkpoint_dir)
+        if checkpoint_manager.latest_checkpoint:
+            self.checkpoint.restore(checkpoint_manager.latest_checkpoint)
             print(f'Model restored from checkpoint at step {self.checkpoint.step.numpy()}.')
+        self.initial_step = self.checkpoint.step.numpy()
 
 class SingleTrainerV1(SingleTrainer):
     def __init__(self,
