@@ -55,7 +55,6 @@ if __name__ == '__main__':
         for i in range(75):
             postfix = 'chunk{:04d}'.format(i)
 
-            #dominant anchor points: Uniform_Eval_0.5
             cache_log_file = os.path.join(log_dir, lr_video_name, nemo_s.name, 'Uniform_Eval_0.5', postfix, 'quality.txt')
             with open(cache_log_file, 'r') as f:
                 lines = f.readlines()
@@ -64,15 +63,4 @@ if __name__ == '__main__':
                     cache_gain = float(line[1]) - float(line[3])
                     dnn_gain = float(line[2]) - float(line[3])
                     impact.append(cache_gain/dnn_gain * 100)
-
-            #quality estimation error: Random_Eval_0.5
-            cache_log_file = os.path.join(log_dir, lr_video_name, nemo_s.name, 'Random_Eval_0.5', postfix, 'quality.txt')
-            with open(cache_log_file, 'r') as f:
-                lines = f.readlines()
-                for line in lines:
-                    line = line.strip().split('\t')
-                    estimation_error = float(line[1]) - float(line[4])
-                    if estimation_error >= 0:
-                        error.append(estimation_error)
         print(np.average(impact))
-        print(np.average(error), np.min(error), np.max(error))

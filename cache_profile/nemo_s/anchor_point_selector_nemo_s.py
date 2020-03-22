@@ -11,6 +11,7 @@ from cache_profile.anchor_point_selector_nemo import APS_NEMO
 from cache_profile.anchor_point_selector_uniform_eval import APS_Uniform_Eval
 from cache_profile.anchor_point_selector_random_eval import APS_Random_Eval
 from cache_profile.anchor_point_selector_exhaustive import APS_Exhaustive
+from cache_profile.anchor_point_selector_nemo_bound import APS_NEMO_Bound
 from dnn.model.nemo_s import NEMO_S
 
 if __name__ == '__main__':
@@ -36,9 +37,10 @@ if __name__ == '__main__':
     #anchor point selector
     parser.add_argument('--threshold', type=float, default=None)
     parser.add_argument('--gop', type=int, required=True)
+    parser.add_argument('--max_num_anchor_points', type=int, default=None)
     parser.add_argument('--chunk_idx', default=None, type=str)
     parser.add_argument('--num_decoders', default=24, type=int)
-    parser.add_argument('--num_anchor_points', default=3, type=int)
+    parser.add_argument('--num_anchor_points', default=None, type=int)
     parser.add_argument('--num_iterations', default=None, type=int)
     parser.add_argument('--mode', required=True)
     parser.add_argument('--task', choices=['profile','summary'], required=True)
@@ -77,7 +79,12 @@ if __name__ == '__main__':
         elif args.mode == 'random_eval':
             aps = APS_Random_Eval(checkpoint.model, args.vpxdec_file, dataset_dir, args.lr_video_name, args.hr_video_name, args.gop, args.threshold, args.num_decoders, args.profile_all)
         elif args.mode == 'exhaustive':
+            assert(args.num_iterations is not None)
+            assert(args.num_anchor_points is not None)
             aps = APS_Exhaustive(checkpoint.model, args.vpxdec_file, dataset_dir, args.lr_video_name, args.hr_video_name, args.gop, args.num_decoders, args.num_anchor_points, args.num_iterations)
+        elif args.mode == 'nemo_bound':
+            assert(args.max_num_anchor_points is not None)
+            aps = APS_NEMO_Bound(checkpoint.model, args.vpxdec_file, dataset_dir, args.lr_video_name, args.hr_video_name, args.gop, args.threshold, args.num_decoders, args.max_num_anchor_points, args.profile_all)
         else:
             raise NotImplementedError
 
