@@ -39,7 +39,7 @@ if __name__ == '__main__':
     parser.add_argument('--gop', type=int, required=True)
     parser.add_argument('--max_num_anchor_points', type=int, default=None)
     parser.add_argument('--chunk_idx', default=None, type=str)
-    parser.add_argument('--num_decoders', default=24, type=int)
+    parser.add_argument('--num_decoders', default=16, type=int)
     parser.add_argument('--num_anchor_points', default=None, type=int)
     parser.add_argument('--num_iterations', default=None, type=int)
     parser.add_argument('--mode', required=True)

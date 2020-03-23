@@ -143,14 +143,9 @@ class APS_NEMO():
                 '{}_{}'.format(self.NAME1, self.threshold), postfix)
         os.makedirs(log_dir, exist_ok=True)
         quality_log_file = os.path.join(log_dir, 'quality.txt')
-        error_log_file = os.path.join(log_dir, 'error.txt')
-        mac_log_file = os.path.join(log_dir, 'mac.txt')
 
-        cache_mac = count_mac_for_cache(self.model.nhwc[1] * self.model.scale, self.model.nhwc[2] * self.model.scale, 3)
-        dnn_mac = count_mac_for_dnn(self.model.name, self.model.nhwc[1], self.model.nhwc[2])
-        decode_dnn_mac = dnn_mac * end_idx
         found = False
-        with open(quality_log_file, 'w') as f0, open(error_log_file, 'w') as f1, open(mac_log_file, 'w') as f2:
+        with open(quality_log_file, 'w') as f:
             for cache_profile in ordered_cache_profiles:
                 #log
                 cache_profile.save()
@@ -164,15 +159,9 @@ class APS_NEMO():
                 frame_count_2 = sum(map(lambda x : x >= 1.0, quality_diff))
                 frame_count_3 = sum(map(lambda x : x >= 2.0, quality_diff))
                 frame_count_4 = sum(map(lambda x : x >= 3.0, quality_diff))
-                decode_cache_mac = dnn_mac * len(cache_profile.anchor_points) + cache_mac * (end_idx - len(cache_profile.anchor_points))
 
                 quality_log = '{}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(len(cache_profile.anchor_points), np.average(quality_cache), np.average(quality_dnn), np.average(quality_bilinear), np.average(cache_profile.estimated_quality))
-                f0.write(quality_log)
-                error_log = '{}\t{}\t{}\t{}\t{}\t{}\n'.format(len(cache_profile.anchor_points), frame_count_1, frame_count_2, frame_count_3, frame_count_4, '\t'.join(str(np.round(x, 2)) for x in quality_error))
-                np.average(cache_profile.estimated_quality)
-                f1.write(error_log)
-                mac_log = '{}\t{:.2f}\t{:.2f}\n'.format(len(cache_profile.anchor_points), decode_cache_mac / 1e9, decode_dnn_mac / 1e9)
-                f2.write(mac_log)
+                f.write(quality_log)
 
                 print('{} video chunk, {} anchor points: PSNR(Cache)={:.2f}, PSNR(SR)={:.2f}, PSNR(Bilinear)={:.2f}'.format( \
                                         chunk_idx, len(cache_profile.anchor_points), np.average(quality_cache), np.average(quality_dnn), \
