@@ -193,7 +193,8 @@ def libvpx_bilinear_quality(vpxdec_file, content_dir, input_video_name, compare_
     log_file = os.path.join(log_dir, 'quality.txt')
 
     #run sr-integrated decoder
-    if not os.path.exists(log_file):
+    #if not os.path.exists(log_file):
+    if True:
         command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} \
         --input-video={} --compare-video={} --decode-mode=0  \
         --save-quality --save-metadata'.format(vpxdec_file, content_dir, input_video_name, \
@@ -225,7 +226,8 @@ def libvpx_offline_dnn_quality(vpxdec_file, content_dir, input_video_name, compa
     log_file = os.path.join(log_dir, 'quality.txt')
 
     #run sr-integrated decoder
-    if not os.path.exists(log_file):
+    #if not os.path.exists(log_file):
+    if True:
         command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} \
         --input-video={} --compare-video={} --decode-mode=1 --dnn-mode=2 \
         --save-quality --save-metadata --dnn-name={} --resolution={}'.format(vpxdec_file, content_dir, input_video_name, \
@@ -257,7 +259,8 @@ def libvpx_offline_cache_quality(vpxdec_file, content_dir, input_video_name, com
     log_file = os.path.join(log_dir, 'quality.txt')
 
     #run sr-integrated decoder
-    if not os.path.exists(log_file):
+    #if not os.path.exists(log_file):
+    if True:
         command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} \
         --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=2 --cache-policy=1 \
         --save-quality --save-metadata --dnn-name={} --cache-profile={} --resolution={}'.format(vpxdec_file, content_dir, input_video_name, \
@@ -346,7 +349,8 @@ def libvpx_offline_cache_quality_mt(q0, q1, vpxdec_file, content_dir, input_vide
             log_file = os.path.join(log_dir, 'quality.txt')
 
             #run sr-integrated decoder
-            if not os.path.exists(log_file):
+            #if not os.path.exists(log_file):
+            if True:
                 command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} \
                 --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=2 --cache-policy=1 \
                 --save-quality --save-metadata --dnn-name={} --cache-profile={} --resolution={}'.format(vpxdec_file, content_dir, input_video_name, \
