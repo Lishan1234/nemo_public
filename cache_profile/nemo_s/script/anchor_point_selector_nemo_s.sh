@@ -8,8 +8,8 @@ python $MOBINAS_CODE_ROOT/cache_profile/nemo_s/anchor_point_selector_nemo_s.py \
                 --num_blocks 8 \
                 --num_filters 32 \
                 --gop 120 \
-                --num_decoders 24 \
-                --num_anchor_points 3 \
-                --mode exhaustive \
+                --mode nemo \
                 --task profile \
                 --chunk_idx 19
+
+

@@ -87,6 +87,8 @@ if __name__ == '__main__':
             bilinear_temperature = []
             for i in range(total_frame):
                 bilinear_temperature.append(temperature[int(i / total_frame * len(temperature))])
+            if max_len < total_frame:
+                max_len = total_frame
 
             #cache
             cache_times = []
@@ -103,6 +105,8 @@ if __name__ == '__main__':
                 for i in range(total_frame):
                     cache_temperature.append(temperature[int(i / total_frame * len(temperature))])
                 cache_temperatures.append(cache_temperature)
+                if max_len < total_frame:
+                    max_len = total_frame
 
             #dnn
             dnn_times = []
@@ -119,6 +123,8 @@ if __name__ == '__main__':
                 for i in range(total_frame):
                     dnn_temperature.append(temperature[int(i / total_frame * len(temperature))])
                 dnn_temperatures.append(dnn_temperature)
+                if max_len < total_frame:
+                    max_len = total_frame
 
             """
             for i in range(9000):
@@ -139,20 +145,21 @@ if __name__ == '__main__':
                 f.write('\n')
             """
 
-            for i in range(9000):
-                f.write('{}'.format(i))
-                if i < len(bilinear_temperature):
-                    f.write('\t{:.2f}'.format(bilinear_temperature[i]))
+            num_samples = max_len // 100
+            for i in range(num_samples):
+                f.write('{}'.format(i * 100))
+                if i * 100 < len(bilinear_temperature):
+                    f.write('\t{:.2f}'.format(bilinear_temperature[i * 100]))
                 else:
                     f.write('\t')
                 for temperature in cache_temperatures:
-                    if i < len(temperature):
-                        f.write('\t{:.2f}'.format(temperature[i]))
+                    if i * 100 < len(temperature):
+                        f.write('\t{:.2f}'.format(temperature[i * 100]))
                     else:
                         f.write('\t')
                 for temperature in dnn_temperatures:
-                    if i < len(temperature):
-                        f.write('\t{:.2f}'.format(temperature[i]))
+                    if i * 100 < len(temperature):
+                        f.write('\t{:.2f}'.format(temperature[i * 100]))
                     else:
                         f.write('\t')
                 f.write('\n')
