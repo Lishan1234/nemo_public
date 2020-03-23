@@ -78,7 +78,7 @@ class Encoder():
     def encode_1080p_lossless(self):
         input_video_path = os.path.join(self.video_dir, "2160p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
         output_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
-        #output_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.mp4".format(self.start_time, self.duration))
+        #output_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.webm".format(self.start_time, self.duration))
 
         if os.path.exists(output_video_path):
             logging.info("{} already exists".format(output_video_path))
@@ -90,7 +90,7 @@ class Encoder():
     def encode_960p_v1_lossless(self):
         input_video_path = os.path.join(self.video_dir, "2160p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
         output_video_path = os.path.join(self.video_dir, "960p_240p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
-        #output_video_path = os.path.join(self.video_dir, "960p_240p_s{}_d{}.mp4".format(self.start_time, self.duration, self.video_fmt))
+        #output_video_path = os.path.join(self.video_dir, "960p_240p_s{}_d{}.webm".format(self.start_time, self.duration, self.video_fmt))
 
         if os.path.exists(output_video_path):
             logging.info("{} already exists".format(output_video_path))
@@ -103,7 +103,7 @@ class Encoder():
     def encode_960p_v2_lossless(self):
         input_video_path = os.path.join(self.video_dir, "2160p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
         output_video_path = os.path.join(self.video_dir, "960p_480p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
-        #output_video_path = os.path.join(self.video_dir, "960p_480p_s{}_d{}.mp4".format(self.start_time, self.duration, self.video_fmt))
+        #output_video_path = os.path.join(self.video_dir, "960p_480p_s{}_d{}.webm".format(self.start_time, self.duration, self.video_fmt))
 
         if os.path.exists(output_video_path):
             logging.info("{} already exists".format(output_video_path))
@@ -114,7 +114,7 @@ class Encoder():
         os.system(cmd)
 
     def encode_240p(self):
-        input_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.mp4".format(self.start_time, self.duration))
+        input_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.webm".format(self.start_time, self.duration))
         output_video_path = os.path.join(self.video_dir, "240p_s{}_d{}_encoded.{}".format(self.start_time, self.duration, self.video_fmt))
 
         if os.path.exists(output_video_path):
@@ -132,7 +132,7 @@ class Encoder():
         os.system(cmd)
 
     def encode_360p(self):
-        input_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.mp4".format(self.start_time, self.duration))
+        input_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.webm".format(self.start_time, self.duration))
         output_video_path = os.path.join(self.video_dir, "360p_s{}_d{}_encoded.{}".format(self.start_time, self.duration, self.video_fmt))
 
         if os.path.exists(output_video_path):
@@ -150,7 +150,7 @@ class Encoder():
         os.system(cmd)
 
     def encode_480p(self):
-        input_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.mp4".format(self.start_time, self.duration))
+        input_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.webm".format(self.start_time, self.duration))
         output_video_path = os.path.join(self.video_dir, "480p_s{}_d{}_encoded.{}".format(self.start_time, self.duration, self.video_fmt))
 
         if os.path.exists(output_video_path):
@@ -168,7 +168,7 @@ class Encoder():
         os.system(cmd)
 
     def encode_720p(self):
-        input_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.mp4".format(self.start_time, self.duration))
+        input_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.webm".format(self.start_time, self.duration))
         output_video_path = os.path.join(self.video_dir, "720p_s{}_d{}_encoded.{}".format(self.start_time, self.duration, self.video_fmt))
 
         if os.path.exists(output_video_path):
@@ -241,16 +241,16 @@ class Encoder():
 
     def encode_all(self):
         start_time = time.time()
-        self.cut_2160p()
+        #self.cut_2160p()
         print('elaspsed_time (1/9): {}sec'.format(time.time() - start_time))
         start_time = time.time()
-        self.encode_1080p_lossless()
+        #self.encode_1080p_lossless()
         print('elaspsed_time (2/9): {}sec'.format(time.time() - start_time))
         start_time = time.time()
-        self.encode_960p_v1_lossless()
+        #self.encode_960p_v1_lossless()
         print('elaspsed_time (3/9): {}sec'.format(time.time() - start_time))
         start_time = time.time()
-        self.encode_960p_v2_lossless()
+        #self.encode_960p_v2_lossless()
         print('elaspsed_time (4/9): {}sec'.format(time.time() - start_time))
         start_time = time.time()
         self.encode_240p()

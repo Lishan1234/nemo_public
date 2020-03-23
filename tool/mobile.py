@@ -10,3 +10,13 @@ def playback_time(current, device_name):
         return 8200 / current
     else:
         raise NotImplementedError
+
+def id_to_name(id):
+    if id == '7b7f59d1':
+        return 'mi9'
+    elif id == '10098e40':
+        return 'redmi'
+    elif id == 'LMT605728961d9':
+        return 'gpad'
+    else:
+        raise NotImplementedError

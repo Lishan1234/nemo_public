@@ -13,13 +13,14 @@ class SingleTrainer:
     def __init__(self, model, loss, learning_rate, checkpoint_dir, log_dir):
         self.now = None
         self.loss = loss
+        self.learning_rate = learning_rate
         self.checkpoint = tf.train.Checkpoint(step=tf.Variable(0),
                                                 psnr=tf.Variable(-1.0),
                                                 optimizer=Adam(learning_rate),
                                                 model=model)
         self.checkpoint_manager = tf.train.CheckpointManager(checkpoint=self.checkpoint,
                                                                 directory=checkpoint_dir,
-                                                                max_to_keep=3)
+                                                                max_to_keep=None)
         self.writer = tf.contrib.summary.create_file_writer(log_dir)
 
     @property
@@ -96,10 +97,12 @@ class SingleTrainer:
 
         return loss_value
 
-    def restore(self):
-        if self.checkpoint_manager.latest_checkpoint:
-            self.checkpoint.restore(self.checkpoint_manager.latest_checkpoint)
-            print(f'Model restored from checkpoint at step {self.checkpoint.step.numpy()}.')
+    def restore(self, checkpoint_dir):
+        self.checkpoint.restore(os.path.join(checkpoint_dir, 'ckpt-200'))
+        self.checkpoint = tf.train.Checkpoint(step=tf.Variable(0),
+                                                psnr=tf.Variable(-1.0),
+                                                optimizer=Adam(self.learning_rate),
+                                                model=self.checkpoint.model)
 
 class SingleTrainerV1(SingleTrainer):
     def __init__(self,

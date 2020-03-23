@@ -33,6 +33,7 @@ if __name__ == '__main__':
     parser.add_argument('--patch_size', type=int, default=64)
     parser.add_argument('--load_on_memory', action='store_true')
     parser.add_argument('--num_steps', type=int, default=300000)
+    parser.add_argument('--div2k_checkpoint_dir', type=str, default=None)
 
     #architecture
     parser.add_argument('--num_filters', type=int, required=True)
@@ -70,9 +71,13 @@ if __name__ == '__main__':
 
     #trainer
     checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option.summary(args.lr_video_name), model.name)
-    log_dir = os.path.join(args.dataset_dir, 'tensorflow', ffmpeg_option.summary(args.lr_video_name), model.name)
+    #log_dir = os.path.join(args.dataset_dir, 'tensorflow', ffmpeg_option.summary(args.lr_video_name), model.name)
+    log_dir = os.path.join(os.path.basename(args.dataset_dir), ffmpeg_option.summary(args.lr_video_name), model.name)
     #log_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '.log', ffmpeg_option.summary(args.lr_video_name), model.name)
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
     trainer = SingleTrainerV1(model, checkpoint_dir, log_dir)
+    if args.div2k_checkpoint_dir is not None:
+        div2k_checkpoint_dir = os.path.join(args.div2k_checkpoint_dir, 'x{}'.format(scale), 'checkpoint', model.name)
+        trainer.restore(div2k_checkpoint_dir)
     trainer.train(train_ds, valid_ds, steps=args.num_steps)
