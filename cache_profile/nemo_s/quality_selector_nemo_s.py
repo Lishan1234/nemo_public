@@ -166,3 +166,12 @@ if __name__ == '__main__':
 
         with open(json_file, 'w') as f:
             json.dump(selected_model[content], f)
+
+    log_file = os.path.join(args.dataset_rootdir, 'evaluation', 'device_to_dnn_{}p.txt'.format(args.lr_resolution))
+    with open(log_file, 'w') as f:
+        f.write('Content\t{}\n'.format('\t'.join(args.device_id)))
+        for content in args.content:
+            f.write(content)
+            for device_id in args.device_id:
+                f.write('\t{}'.format(selected_model[content][device_id]['num_filters']))
+            f.write('\n')
