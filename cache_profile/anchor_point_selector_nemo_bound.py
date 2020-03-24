@@ -194,9 +194,7 @@ class APS_NEMO_Bound():
 
         #log
         quality_summary_file = os.path.join(log_dir, 'quality.txt')
-        error_summary_file = os.path.join(log_dir, 'error.txt')
-        mac_summary_file = os.path.join(log_dir, 'mac.txt')
-        with open(quality_summary_file, 'w') as sf0, open(error_summary_file, 'w') as sf1, open(mac_summary_file, 'w') as sf2:
+        with open(quality_summary_file, 'w') as f0:
             #iterate over chunks
             for chunk_idx in range(start_idx, end_idx + 1):
                 chunk_log_dir = os.path.join(log_dir, 'chunk{:04d}'.format(chunk_idx))
@@ -204,15 +202,9 @@ class APS_NEMO_Bound():
                     break
                 else:
                     quality_log_file = os.path.join(chunk_log_dir, 'quality.txt')
-                    error_log_file = os.path.join(chunk_log_dir, 'error.txt')
-                    mac_log_file = os.path.join(chunk_log_dir, 'mac.txt')
-                    with open(quality_log_file, 'r') as lf0, open(error_log_file, 'r') as lf1, open(mac_log_file, 'r') as lf2:
-                        q_lines = lf0.readlines()
-                        e_lines = lf1.readlines()
-                        m_lines = lf2.readlines()
-                        sf0.write('{}\t{}\n'.format(chunk_idx, q_lines[-1].strip()))
-                        sf1.write('{}\t{}\n'.format(chunk_idx, e_lines[-1].strip()))
-                        sf2.write('{}\t{}\n'.format(chunk_idx, m_lines[-1].strip()))
+                    with open(quality_log_file, 'r') as f1:
+                        q_lines = f1.readlines()
+                        f0.write('{}\t{}\n'.format(chunk_idx, q_lines[-1].strip()))
 
         #cache profile
         cache_profile = os.path.join(profile_dir, '{}_{}_{}.profile'.format(self.NAME1, self.max_num_anchor_points, self.threshold))
