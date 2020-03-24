@@ -2,6 +2,8 @@ import tensorflow as tf
 from tensorflow.keras import layers
 from tensorflow.keras import Model
 
+import os
+
 class NEMO_S():
     def __init__(self, num_blocks, num_filters, scale, upsample_type='deconv'):
         assert(upsample_type == 'deconv' or upsample_type == 'subpixel')
@@ -76,6 +78,8 @@ class NEMO_S():
         checkpoint_manager = tf.train.CheckpointManager(checkpoint=checkpoint,
                                                         directory=checkpoint_dir, max_to_keep=3)
         checkpoint_path = checkpoint_manager.latest_checkpoint
+        if checkpoint_path is None:
+            checkpoint_path = os.path.join(checkpoint_dir, 'ckpt-250') #TODO: remove this
         print('checkpoint: {}'.format(checkpoint_path))
         assert(checkpoint_path is not None)
         checkpoint.restore(checkpoint_path).expect_partial()
