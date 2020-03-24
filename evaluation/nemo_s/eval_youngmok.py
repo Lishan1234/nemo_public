@@ -2,6 +2,7 @@ import argparse
 import os
 import glob
 import operator
+import json
 
 import numpy as np
 
@@ -9,15 +10,34 @@ from tool.video import profile_video
 from cache_profile.anchor_point_selector_uniform import APS_Uniform
 from cache_profile.anchor_point_selector_random import APS_Random
 from cache_profile.anchor_point_selector_nemo import APS_NEMO
+from cache_profile.anchor_point_selector_nemo_bound import APS_NEMO_Bound
 from dnn.model.nemo_s import NEMO_S
 
 from evaluation.libvpx_results import *
 from evaluation.cache_profile_results import *
 from tool.mac import *
+from tool.mobile import *
 
 content_order = {'product_review': 0, 'how_to': 1, 'vlogs': 2, 'game_play': 3, 'skit': 4,
                 'haul': 5, 'challenge':6, 'favorite': 7, 'education': 8, 'unboxing': 9}
 GOP = 120
+
+def load_quality(log_dir):
+    quality_log_file = os.path.join(log_dir, 'quality.txt')
+    quality_cache = []
+    quality_dnn = []
+    quality_bilinear = []
+
+    with open(quality_log_file, 'r') as f:
+        quality_lines = f.readlines()
+
+        for quality_line in quality_lines:
+            quality_line = quality_line.strip().split('\t')
+            quality_cache.append(float(quality_line[2]))
+            quality_dnn.append(float(quality_line[3]))
+            quality_bilinear.append(float(quality_line[4]))
+
+    return quality_cache, quality_dnn, quality_bilinear
 
 def chunk_quality(index, quality):
     start_index = index * GOP
@@ -49,6 +69,10 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    #validation
+    if args.aps_class == 'nemo_bound':
+        assert(args.bound is not None)
+
     #sort
     args.content.sort(key=lambda val: content_order[val])
 
@@ -60,6 +84,7 @@ if __name__ == '__main__':
     elif args.aps_class == 'random':
         aps_class = APS_Random
 
+    #hard-coded configuration
     hr_resolution = 1080
     bilinear_resolution = [240, 360, 480, 720, 1080]
     cache_resolution = [240, 360, 480]
@@ -73,13 +98,10 @@ if __name__ == '__main__':
     num_filters[480] = 18
 
     #log
-    log_dir = os.path.join(args.dataset_rootdir, 'evaluation', 'youngmok')
-    os.makedirs(log_dir, exist_ok=True)
     for content in args.content:
         #bilienar
         bilinear_quality = {}
         for resolution in bilinear_resolution:
-            #video, directory
             video_dir = os.path.join(args.dataset_rootdir, content, 'video')
             if resolution == 1080:
                 video_file = os.path.abspath(sorted(glob.glob(os.path.join(video_dir, '{}p*'.format(resolution))))[1])
@@ -90,38 +112,35 @@ if __name__ == '__main__':
             bilinear_log_dir = os.path.join(args.dataset_rootdir, content, 'log', video_name)
             bilinear_quality[resolution] = libvpx_quality(bilinear_log_dir)
 
-            #log_file= os.path.join(bilinear_log_dir, 'quality.txt')
-            #if not os.path.exists(log_file):
-            #    print(log_file)
-            #TODO: copy
-
         #cache
         cache_quality = {}
         for resolution in cache_resolution:
-            #video, directory
             video_dir = os.path.join(args.dataset_rootdir, content, 'video')
             video_file = os.path.abspath(glob.glob(os.path.join(video_dir, '{}p*'.format(resolution)))[0])
             video_profile = profile_video(video_file)
             video_name = os.path.basename(video_file)
             scale = int(hr_resolution // resolution)
-            nemo_s = NEMO_S(num_blocks[resolution], num_filters[resolution], scale, args.upsample_type)
+            json_file = os.path.join(args.dataset_rootdir, content, 'log', video_name, 'device_to_dnn.json')
+            with open(json_file, 'r') as f1:
+                json_data = json.load(f1)
+            nemo_s = NEMO_S(json_data[args.device_id]['num_blocks'], json_data[args.device_id]['num_filters'], json_data[args.device_id]['scale'])
 
-            #latency, quality
             cache_profile_name = '{}_{}.profile'.format(aps_class.NAME1, args.threshold)
-            cache_log_dir = os.path.join(args.dataset_rootdir, content, 'log', video_name, nemo_s.name, cache_profile_name)
-            cache_quality[resolution] = libvpx_quality(cache_log_dir)
+            if aps_class == APS_NEMO_Bound:
+                cache_log_dir = os.path.join(args.dataset_rootdir, content, 'log', video_name, nemo_s.name, '{}_{}_{}'.format(aps_class.NAME1, args.bound, args.threshold))
+            else:
+                cache_log_dir = os.path.join(args.dataset_rootdir, content, 'log', video_name, nemo_s.name, '{}_{}'.format(aps_class.NAME1, args.threshold))
+            cache_quality[resolution], _, _ = load_quality(cache_log_dir)
 
-            #log_file = os.path.join(cache_log_dir, 'quality.txt')
-            #if not os.path.exists(log_file):
-            #    print(log_file)
-
+        log_dir = os.path.join(args.dataset_rootdir, 'evaluation', 'youngmok', id_to_name(args.device_id))
+        os.makedirs(log_dir, exist_ok=True)
         log_file = os.path.join(log_dir, '{}.txt'.format(content))
         with open(log_file, 'w') as f:
             for i in range(75):
                 f.write('{}'.format(i))
-                f.write('\t{}'.format(chunk_quality(i, cache_quality[240])))
-                f.write('\t{}'.format(chunk_quality(i, cache_quality[360])))
-                f.write('\t{}'.format(chunk_quality(i, cache_quality[480])))
+                f.write('\t{}'.format(cache_quality[240][i]))
+                #f.write('\t{}'.format(cache_quality[360][i]))
+                #f.write('\t{}'.format(cache_quality[480][i]))
                 f.write('\t{}'.format(chunk_quality(i, bilinear_quality[240])))
                 f.write('\t{}'.format(chunk_quality(i, bilinear_quality[360])))
                 f.write('\t{}'.format(chunk_quality(i, bilinear_quality[480])))

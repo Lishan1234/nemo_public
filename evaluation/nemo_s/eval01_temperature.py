@@ -63,9 +63,9 @@ if __name__ == '__main__':
         aps_class = APS_Random
 
     #log
-    log_dir = os.path.join(args.dataset_rootdir, 'evaluation', args.device_name)
+    log_dir = os.path.join(args.dataset_rootdir, 'evaluation')
     os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, 'eval01_04_a.txt')
+    log_file = os.path.join(log_dir, 'eval01_temperature_{}.txt'.format(args.device_name))
     with open(log_file, 'w') as f:
         for content in args.content:
             lr_video_dir = os.path.join(args.dataset_rootdir, content, 'video')

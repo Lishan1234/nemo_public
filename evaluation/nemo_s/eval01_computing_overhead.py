@@ -18,8 +18,7 @@ from tool.mobile import *
 content_order = {'product_review': 0, 'how_to': 1, 'vlogs': 2, 'game_play': 3, 'skit': 4,
                 'haul': 5, 'challenge':6, 'favorite': 7, 'education': 8, 'unboxing': 9}
 
-UNIT = 400
-
+UNIT = 200
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
