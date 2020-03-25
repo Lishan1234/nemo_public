@@ -9,6 +9,7 @@ from dnn.model.nemo_s import NEMO_S
 from cache_profile.anchor_point_selector_uniform import APS_Uniform
 from cache_profile.anchor_point_selector_random import APS_Random
 from cache_profile.anchor_point_selector_nemo import APS_NEMO
+from cache_profile.anchor_point_selector_nemo_bound import APS_NEMO_Bound
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -35,7 +36,8 @@ if __name__ == '__main__':
 
     #anchor point selector
     parser.add_argument('--threshold', type=float, required=True)
-    parser.add_argument('--aps_class', type=str, choices=['nemo', 'random', 'uniform'], required=True)
+    parser.add_argument('--aps_class', type=str, required=True)
+    parser.add_argument('--bound', type=int, required=True)
 
     #device
     parser.add_argument('--device_id', type=str, required=True)
@@ -48,6 +50,22 @@ if __name__ == '__main__':
     parser.add_argument('--threads', type=str, default=4)
 
     args = parser.parse_args()
+
+    #validation
+    if args.aps_class == 'nemo_bound':
+        assert(args.bound is not None)
+
+    #setup a cache profile
+    if args.aps_class == 'nemo':
+        aps_class = APS_NEMO
+    elif args.aps_class == 'uniform':
+        aps_class = APS_Uniform
+    elif args.aps_class == 'random':
+        aps_class = APS_Random
+    elif args.aps_class == 'nemo_bound':
+        aps_class = APS_NEMO_Bound
+    else:
+        raise NotImplementedError
 
     for content in args.content:
         dataset_dir = os.path.join(args.dataset_rootdir, content)
@@ -72,14 +90,10 @@ if __name__ == '__main__':
             nemo_s = NEMO_S(num_blocks, num_filters, scale, args.upsample_type)
             model = nemo_s.build_model(apply_clip=True)
 
-            #setup a cache profile
-            if args.aps_class == 'nemo':
-                aps_class = APS_NEMO
-            elif args.aps_class == 'uniform':
-                aps_class = APS_Uniform
-            elif args.aps_class == 'random':
-                aps_class = APS_Random
-            cache_profile_name = '{}_{}.profile'.format(aps_class.NAME1, args.threshold)
+            if aps_class == APS_NEMO_Bound:
+                cache_profile_name = '{}_{}_{}.profile'.format(aps_class.NAME1, args.bound, args.threshold)
+            else:
+                cache_profile_name = '{}_{}.profile'.format(aps_class.NAME1, args.threshold)
 
             #case 4: online cache
             device_script_dir = os.path.join(device_root_dir, 'script', lr_video_name, model.name, cache_profile_name)
@@ -96,7 +110,6 @@ if __name__ == '__main__':
 
             start_time = time.time()
             command = 'adb -s {} shell sh {}'.format(args.device_id, device_script_file)
-            #subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
             subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
             adb_pull(device_log_file0, host_log_file0, args.device_id)
             adb_pull(device_log_file1, host_log_file1, args.device_id)

@@ -123,8 +123,11 @@ def snpe_convert_model(model, nhwc, checkpoint_dir):
     #restore
     checkpoint = tf.train.Checkpoint(model=model)
     latest_checkpoint = tf.train.latest_checkpoint(checkpoint_dir)
-    if not latest_checkpoint:
-        raise RuntimeError('checkpoint does not exist: {}'.format(checkpoint_dir))
+    #if not latest_checkpoint:
+    #    raise RuntimeError('checkpoint does not exist: {}'.format(checkpoint_dir))
+    #TODO: remove this
+    if latest_checkpoint is None:
+        latest_checkpoint = os.path.join(checkpoint_dir, 'ckpt-250') #TODO: remove this
 
     checkpoint_name = os.path.basename(latest_checkpoint).split('.')[0]
     pb_name = '{}.pb'.format(checkpoint_name)

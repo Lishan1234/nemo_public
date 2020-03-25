@@ -1,7 +1,10 @@
 #!/bin/bash
+source ~/anaconda3/etc/profile.d/conda.sh
+conda deactivate 
+conda activate mobinas-snpe
 python $MOBINAS_CODE_ROOT/evaluation/nemo_s/eval_youngmok.py \
                 --dataset_rootdir $MOBINAS_DATA_ROOT \
-                --content challenge education favorite game_play haul how_to product_review skit unboxing vlogs \
+                --content challenge education favorite game_play_1 haul how_to product_review skit unboxing vlogs \
                 --upsample_type deconv \
                 --threshold 0.5 \
                 --aps_class nemo \
@@ -9,7 +12,7 @@ python $MOBINAS_CODE_ROOT/evaluation/nemo_s/eval_youngmok.py \
 
 python $MOBINAS_CODE_ROOT/evaluation/nemo_s/eval_youngmok.py \
                 --dataset_rootdir $MOBINAS_DATA_ROOT \
-                --content challenge education favorite game_play haul how_to product_review skit unboxing vlogs \
+                --content challenge education favorite game_play_1 haul how_to product_review skit unboxing vlogs \
                 --upsample_type deconv \
                 --threshold 0.5 \
                 --aps_class nemo \
@@ -17,7 +20,7 @@ python $MOBINAS_CODE_ROOT/evaluation/nemo_s/eval_youngmok.py \
 
 python $MOBINAS_CODE_ROOT/evaluation/nemo_s/eval_youngmok.py \
                 --dataset_rootdir $MOBINAS_DATA_ROOT \
-                --content challenge education favorite game_play haul how_to product_review skit unboxing vlogs \
+                --content challenge education favorite game_play_1 haul how_to product_review skit unboxing vlogs \
                 --upsample_type deconv \
                 --threshold 0.5 \
                 --aps_class nemo \

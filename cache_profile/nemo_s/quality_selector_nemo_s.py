@@ -16,6 +16,9 @@ from cache_profile.anchor_point_selector_uniform_eval import APS_Uniform_Eval
 from cache_profile.anchor_point_selector_random_eval import APS_Random_Eval
 from dnn.model.nemo_s import NEMO_S
 
+content_order = {'product_review': 0, 'how_to': 1, 'vlogs': 2, 'game_play_1': 3, 'skit': 4,
+                'haul': 5, 'challenge':6, 'favorite': 7, 'education': 8, 'unboxing': 9}
+
 if __name__ == '__main__':
     tf.enable_eager_execution()
 
@@ -52,6 +55,9 @@ if __name__ == '__main__':
     if args.aps_class == 'nemo_bound':
         assert(args.bound is not None)
 
+    #sort
+    args.content.sort(key=lambda val: content_order[val])
+
     #scale, nhwc
     scale = int(args.hr_resolution // args.lr_resolution)
 
@@ -68,7 +74,7 @@ if __name__ == '__main__':
         aps_class = APS_Uniform
     elif args.aps_class == 'random':
         aps_class = APS_Random
-    elif args.aps_calss == 'nemo_bound':
+    elif args.aps_class == 'nemo_bound':
         aps_class = APS_NEMO_Bound
     else:
         raise NotImplementedError

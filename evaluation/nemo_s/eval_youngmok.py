@@ -18,7 +18,7 @@ from evaluation.cache_profile_results import *
 from tool.mac import *
 from tool.mobile import *
 
-content_order = {'product_review': 0, 'how_to': 1, 'vlogs': 2, 'game_play': 3, 'skit': 4,
+content_order = {'product_review': 0, 'how_to': 1, 'vlogs': 2, 'game_play_1': 3, 'skit': 4,
                 'haul': 5, 'challenge':6, 'favorite': 7, 'education': 8, 'unboxing': 9}
 GOP = 120
 
@@ -76,14 +76,6 @@ if __name__ == '__main__':
     #sort
     args.content.sort(key=lambda val: content_order[val])
 
-    #cache_profiler
-    if args.aps_class == 'nemo':
-        aps_class = APS_NEMO
-    elif args.aps_class == 'uniform':
-        aps_class = APS_Uniform
-    elif args.aps_class == 'random':
-        aps_class = APS_Random
-
     #hard-coded configuration
     hr_resolution = 1080
     bilinear_resolution = [240, 360, 480, 720, 1080]
@@ -125,11 +117,26 @@ if __name__ == '__main__':
                 json_data = json.load(f1)
             nemo_s = NEMO_S(json_data[args.device_id]['num_blocks'], json_data[args.device_id]['num_filters'], json_data[args.device_id]['scale'])
 
-            cache_profile_name = '{}_{}.profile'.format(aps_class.NAME1, args.threshold)
-            if aps_class == APS_NEMO_Bound:
-                cache_log_dir = os.path.join(args.dataset_rootdir, content, 'log', video_name, nemo_s.name, '{}_{}_{}'.format(aps_class.NAME1, args.bound, args.threshold))
+            if json_data[args.device_id]['aps_class'] == 'nemo':
+                aps_class = APS_NEMO
+            elif json_data[args.device_id]['aps_class'] == 'uniform':
+                aps_class = APS_Uniform
+            elif json_data[args.device_id]['aps_class'] == 'random':
+                aps_class = APS_Random
+            elif json_data[args.device_id]['aps_class'] == 'nemo_bound':
+                aps_class = APS_NEMO_Bound
             else:
-                cache_log_dir = os.path.join(args.dataset_rootdir, content, 'log', video_name, nemo_s.name, '{}_{}'.format(aps_class.NAME1, args.threshold))
+                raise NotImplementedError
+
+            if aps_class == APS_NEMO_Bound:
+                cache_profile_name = '{}_{}_{}.profile'.format(aps_class.NAME1, json_data[args.device_id]['bound'], json_data[args.device_id]['threshold'])
+            else:
+                cache_profile_name = '{}_{}.profile'.format(aps_class.NAME1, json_data[args.device_id]['threshold'])
+
+            if aps_class == APS_NEMO_Bound:
+                cache_log_dir = os.path.join(args.dataset_rootdir, content, 'log', video_name, nemo_s.name, '{}_{}_{}'.format(aps_class.NAME1, json_data[args.device_id]['bound'], json_data[args.device_id]['threshold']))
+            else:
+                cache_log_dir = os.path.join(args.dataset_rootdir, content, 'log', video_name, nemo_s.name, '{}_{}'.format(aps_class.NAME1, json_data[args.device_id]['threshold']))
             cache_quality[resolution], _, _ = load_quality(cache_log_dir)
 
         log_dir = os.path.join(args.dataset_rootdir, 'evaluation', 'youngmok', id_to_name(args.device_id))
@@ -139,8 +146,8 @@ if __name__ == '__main__':
             for i in range(75):
                 f.write('{}'.format(i))
                 f.write('\t{}'.format(cache_quality[240][i]))
-                #f.write('\t{}'.format(cache_quality[360][i]))
-                #f.write('\t{}'.format(cache_quality[480][i]))
+                f.write('\t{}'.format(cache_quality[360][i]))
+                f.write('\t{}'.format(cache_quality[480][i]))
                 f.write('\t{}'.format(chunk_quality(i, bilinear_quality[240])))
                 f.write('\t{}'.format(chunk_quality(i, bilinear_quality[360])))
                 f.write('\t{}'.format(chunk_quality(i, bilinear_quality[480])))

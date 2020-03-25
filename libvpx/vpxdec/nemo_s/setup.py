@@ -7,6 +7,7 @@ from tool.video import *
 from dnn.model.nemo_s import NEMO_S
 from cache_profile.anchor_point_selector_uniform import APS_Uniform
 from cache_profile.anchor_point_selector_random import APS_Random
+from cache_profile.anchor_point_selector_nemo_bound import APS_NEMO_Bound
 from cache_profile.anchor_point_selector_nemo import APS_NEMO
 
 if __name__ == '__main__':
@@ -33,7 +34,8 @@ if __name__ == '__main__':
 
     #anchor point selector
     parser.add_argument('--threshold', type=float, required=True)
-    parser.add_argument('--aps_class', type=str, choices=['nemo', 'random', 'uniform'], required=True)
+    parser.add_argument('--aps_class', type=str, required=True)
+    parser.add_argument('--bound', type=int, required=True)
 
     #device
     parser.add_argument('--abi', type=str, default='arm64-v8a')
@@ -45,6 +47,22 @@ if __name__ == '__main__':
     parser.add_argument('--limit', type=int, default=None)
 
     args = parser.parse_args()
+
+    #validation
+    if args.aps_class == 'nemo_bound':
+        assert(args.bound is not None)
+
+    #setup a cache profile
+    if args.aps_class == 'nemo':
+        aps_class = APS_NEMO
+    elif args.aps_class == 'uniform':
+        aps_class = APS_Uniform
+    elif args.aps_class == 'random':
+        aps_class = APS_Random
+    elif args.aps_class == 'nemo_bound':
+        aps_class = APS_NEMO_Bound
+    else:
+        raise NotImplementedError
 
     for content in args.content:
         dataset_dir = os.path.join(args.dataset_rootdir, content)
@@ -111,14 +129,10 @@ if __name__ == '__main__':
             dlc_path = os.path.join(checkpoint_dir, dlc_dict['dlc_name'])
             adb_push(device_checkpoint_dir, dlc_path, args.device_id)
 
-            #setup a cache profile
-            if args.aps_class == 'nemo':
-                aps_class = APS_NEMO
-            elif args.aps_class == 'uniform':
-                aps_class = APS_Uniform
-            elif args.aps_class == 'random':
-                aps_class = APS_Random
-            cache_profile = os.path.join(dataset_dir, 'profile', lr_video_name, model.name, '{}_{}.profile'.format(aps_class.NAME1, args.threshold))
+            if aps_class == APS_NEMO_Bound:
+                cache_profile = os.path.join(dataset_dir, 'profile', lr_video_name, model.name, '{}_{}_{}.profile'.format(aps_class.NAME1, args.bound, args.threshold))
+            else:
+                cache_profile = os.path.join(dataset_dir, 'profile', lr_video_name, model.name, '{}_{}.profile'.format(aps_class.NAME1, args.threshold))
             adb_push(device_cache_profile_dir, cache_profile, args.device_id)
 
             #setup scripts (setup.sh, offline_dnn.sh, online_dnn.sh)
@@ -212,9 +226,13 @@ if __name__ == '__main__':
 
             #case 4: online profile cache
             limit = ''
-            device_script_dir = os.path.join(device_root_dir, 'script', lr_video_name, model.name, '{}_{}.profile'.format(aps_class.NAME1, args.threshold))
+            if aps_class == APS_NEMO_Bound:
+                device_script_dir = os.path.join(device_root_dir, 'script', lr_video_name, model.name, '{}_{}_{}.profile'.format(aps_class.NAME1, args.bound, args.threshold))
+                device_cache_profile_file = os.path.join(device_cache_profile_dir, '{}_{}_{}.profile'.format(aps_class.NAME1, args.bound, args.threshold))
+            else:
+                device_cache_profile_file = os.path.join(device_cache_profile_dir, '{}_{}.profile'.format(aps_class.NAME1, args.threshold))
+                device_script_dir = os.path.join(device_root_dir, 'script', lr_video_name, model.name, '{}_{}.profile'.format(aps_class.NAME1, args.threshold))
             adb_mkdir(device_script_dir, args.device_id)
-            device_cache_profile_file = os.path.join(device_cache_profile_dir, '{}_{}.profile'.format(aps_class.NAME1, args.threshold))
             cmds = ['#!/system/bin/sh',
                     'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{}'.format(device_libs_dir),
                     'cd {}'.format(device_root_dir),
