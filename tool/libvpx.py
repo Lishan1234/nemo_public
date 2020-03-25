@@ -250,6 +250,28 @@ def libvpx_offline_dnn_quality(vpxdec_file, content_dir, input_video_name, compa
 
     return quality
 
+def libvpx_save_cache_frame(vpxdec_file, content_dir, input_video_name, compare_video_name,  \
+                                model_name, cache_profile_file, resolution, skip=None, limit=None, postfix=None):
+    #log file
+    log_dir = os.path.join(content_dir, 'log', input_video_name, model_name, os.path.basename(cache_profile_file))
+    if postfix is not None:
+        log_dir = os.path.join(log_dir, postfix)
+    log_file = os.path.join(log_dir, 'quality.txt')
+
+    #run sr-integrated decoder
+    command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} \
+    --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=2 --cache-policy=1 \
+    --save-quality --save-frame --save-metadata --dnn-name={} --cache-profile={} --resolution={}'.format(vpxdec_file, content_dir, input_video_name, \
+                                                    compare_video_name, model_name, cache_profile_file, resolution)
+    if skip is not None:
+        command += ' --skip={}'.format(skip)
+    if limit is not None:
+        command += ' --limit={}'.format(limit)
+    if postfix is not None:
+        command += ' --postfix={}'.format(postfix)
+    subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    #subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL)
+
 def libvpx_offline_cache_quality(vpxdec_file, content_dir, input_video_name, compare_video_name,  \
                                 model_name, cache_profile_file, resolution, skip=None, limit=None, postfix=None):
     #log file
@@ -260,7 +282,6 @@ def libvpx_offline_cache_quality(vpxdec_file, content_dir, input_video_name, com
 
     #run sr-integrated decoder
     if not os.path.exists(log_file):
-    #if True:
         command = '{} --codec=vp9 --noblit --frame-buffers=50 --content-dir={} \
         --input-video={} --compare-video={} --decode-mode=2 --dnn-mode=2 --cache-policy=1 \
         --save-quality --save-metadata --dnn-name={} --cache-profile={} --resolution={}'.format(vpxdec_file, content_dir, input_video_name, \
@@ -273,7 +294,6 @@ def libvpx_offline_cache_quality(vpxdec_file, content_dir, input_video_name, com
             command += ' --postfix={}'.format(postfix)
         subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
         #subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL)
-        #os.system(command)
 
     #load quality from a log file
     quality = []

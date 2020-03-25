@@ -12,7 +12,7 @@ from cache_profile.anchor_point_selector_random import APS_Random
 from cache_profile.anchor_point_selector_nemo import APS_NEMO
 from dnn.model.nemo_s import NEMO_S
 
-assert(tf.__version__.startswith('2'))
+#assert(tf.__version__.startswith('2'))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -63,8 +63,8 @@ if __name__ == '__main__':
 
         #setup lr, hr frames
         start_time = time.time()
-        libvpx_save_frame(args.vpxdec_file, dataset_dir, lr_video_name)
-        libvpx_save_frame(args.vpxdec_file, dataset_dir, hr_video_name)
+        #libvpx_save_frame(args.vpxdec_file, dataset_dir, lr_video_name)
+        #libvpx_save_frame(args.vpxdec_file, dataset_dir, hr_video_name)
         end_time = time.time()
         print('saving lr, hr image takes {}sec'.format(end_time - start_time))
 
@@ -93,15 +93,18 @@ if __name__ == '__main__':
             print('measuring online cache quality takes {}sec'.format(end_time - start_time))
 
             #remove sr images
+            """
             start_time = time.time()
             sr_image_dir = os.path.join(dataset_dir, 'image', lr_video_name, checkpoint.model.name)
             sr_image_files = glob.glob(os.path.join(sr_image_dir, '*.raw'))
             for sr_image_file in sr_image_files:
                 os.remove(sr_image_file)
             end_time = time.time()
+            """
             print('removing hr image takes {}sec'.format(end_time-start_time))
 
         #remove lr, hr images
+        """
         start_time = time.time()
         lr_image_dir = os.path.join(dataset_dir, 'image', lr_video_name)
         lr_image_files = glob.glob(os.path.join(lr_image_dir, '*.raw'))
@@ -111,4 +114,5 @@ if __name__ == '__main__':
             os.remove(lr_image_file)
             os.remove(hr_image_file)
         end_time = time.time()
+        """
         print('removing lr, hr image takes {}sec'.format(end_time-start_time))
