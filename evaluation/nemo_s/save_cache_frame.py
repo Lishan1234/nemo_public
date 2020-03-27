@@ -164,7 +164,7 @@ if __name__ == '__main__':
         sr_image_dir = os.path.join(dataset_dir, 'image', lr_video_name, checkpoint.model.name)
         sr_images = glob.glob(os.path.join(sr_image_dir, '*.raw'))
         for sr_image in sr_images:
-            os.remove(sr_image_file)
+            os.remove(sr_image)
         end_time = time.time()
         print('removing sr image takes {}sec'.format(end_time-start_time))
 
