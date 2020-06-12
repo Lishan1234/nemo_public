@@ -1,59 +1,26 @@
-import sys
-import os
-import shutil
-import logging
-import subprocess
-import re
 import argparse
-import time
-import shlex
+import os
+import subprocess
 
-#TODO: need to test on mov format
+#TODO: passlogfile
 
-logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+class LibvpxEncoder():
+    def __init__(self, output_video_dir, input_video_path, input_height, start, duration, ffmpeg_path):
+        self.output_video_dir = output_video_dir
+        self.input_video_path = input_video_path
+        self.input_height = input_height
+        self.start = start
+        self.duration = duration
+        self.ffmpeg_path = ffmpeg_path
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--video_dir', type=str, required=True)
-parser.add_argument('--start_time', type=int, required=True)
-parser.add_argument('--num_threads', type=int, default=4)
-parser.add_argument('--ffmpeg_path', type=str, default='/usr/bin/ffmpeg')
-parser.add_argument('--gop', type=str, default=120)
-parser.add_argument('--duration', type=int, default='300')
-parser.add_argument('--video_fmt', type=str, default='webm')
-parser.add_argument('--raw_video_fmt', type=str, default='webm')
+        if os.path.exists(self.ffmpeg_path) is None:
+            raise ValueError('ffmpeg does not exist')
+        if os.path.exists(self.input_video_path) is None:
+            raise ValueError('Video does not exist')
+        self._check_ffmpeg()
+        os.makedirs(self.output_video_dir, exist_ok=True)
 
-args = parser.parse_args()
-
-class Encoder():
-    def __init__(self, args):
-        self.video_dir = args.video_dir
-        self.ffmpeg_path = args.ffmpeg_path
-
-        self.gop = args.gop
-        self.num_threads = args.num_threads
-        self.start_time = args.start_time
-        self.duration= args.duration
-        self.raw_video_fmt = args.raw_video_fmt
-        self.video_fmt = args.video_fmt
-
-        self.ffmpeg_cut_options = ""
-        if self.start_time is not None:
-            self.ffmpeg_cut_options += "-ss {}".format(self.start_time)
-        if self.duration is not None:
-            self.ffmpeg_cut_options += " -t {}".format(self.duration)
-
-        #check a raw video
-        raw_video_path = os.path.join(self.video_dir, "2160p.{}".format(self.raw_video_fmt))
-        if not os.path.exists(raw_video_path):
-            logging.error("raw video does not exist")
-            sys.exit()
-
-        #check ffmpeg
-        if self.ffmpeg_path is None:
-            logging.error("youtube-dl does not exist")
-            sys.exit()
-
-        #check ffmpeg support for libvpx
+    def _check_ffmpeg(self):
         ffmpeg_cmd = []
         ffmpeg_cmd.append(self.ffmpeg_path)
         ffmpeg_cmd.append("-buildconf")
@@ -61,221 +28,111 @@ class Encoder():
         configuration = result.split()
         map(lambda x: x.strip(), configuration)
         if "--enable-libvpx" not in configuration:
-            logging.error("ffmpeg does not support libvpx")
-            sys.exit()
+            raise ValueError('ffmpeg is not build correctly')
 
-    def cut_2160p(self):
-        input_video_path = os.path.join(self.video_dir, "2160p.{}".format(self.raw_video_fmt))
-        output_video_path = os.path.join(self.video_dir, "2160p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
+    def _threads(self, height):
+        cmd = ''
+        if height < 360:
+            cmd += '-tile-columns 0 -threads 2'
+        elif height >= 360 and height < 720:
+            cmd += '-tile-columns 1 -threads 4'
+        elif height >= 720 and height < 1440:
+            cmd += '-tile-columns 2 -threads 8'
+        elif height >= 1440:
+            cmd += '-tile-columns 3 -threads 16'
+        return cmd
 
-        if os.path.exists(output_video_path):
-            logging.info("{} already exists".format(output_video_path))
-            return
+    def _speed(self, height, pass_):
+        cmd = ''
+        if pass_ == 1:
+            cmd += '-speed 4'
+        elif pass_ == 2:
+            if height < 720:
+                cmd += '-speed 1'
+            else:
+                cmd += '-speed 2'
+        return cmd
 
-        cmd = "{} -i {} {} -threads {} -c:v libvpx-vp9 -c copy {}".format(self.ffmpeg_path, input_video_path, self.ffmpeg_cut_options, self.num_threads * 8, output_video_path)
+    def _name(self, start, duration):
+        name = ''
+        if start is not None:
+            name += '_s{}'.format(start)
+        if duration is not None:
+            name += '_d{}'.format(duration)
+        return name
+
+    def cut(self, start, duration):
+        output_video_name = '{}p{}.webm'.format(self.input_height, self._name(start, duration))
+        output_video_path = os.path.join(self.output_video_dir, output_video_name)
+        cmd_opt = '-ss {} -t {}'.format(start, duration)
+        cmd = '{} -i {} -c:v libvpx-vp9 -c copy {} {} {}'.format(self.ffmpeg_path,
+            self.input_video_path, self._threads(self.input_height), cmd_opt, output_video_path)
         os.system(cmd)
 
-    def encode_1080p_lossless(self):
-        input_video_path = os.path.join(self.video_dir, "2160p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
-        output_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
-        #output_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.webm".format(self.start_time, self.duration))
+    def encode(self, width, height, bitrate, gop):
+        output_video_name = '{}p_{}kbps{}.webm'.format(height, bitrate, self._name(self.start, self.duration))
+        output_video_path = os.path.join(self.output_video_dir, output_video_name)
+        target_bitrate = '{}k'.format(bitrate)
+        min_bitrate = '{}k'.format(int(bitrate * 0.5))
+        max_bitrate = '{}k'.format(int(bitrate * 1.45))
+        passlog_name = '{}_{}'.format(self.output_video_dir.split('/')[-2], output_video_name) #assume output videos are saved as ".../[content]/video/*.webm"
 
-        if os.path.exists(output_video_path):
-            logging.info("{} already exists".format(output_video_path))
-            #return
-        cmd = "{} -i {} -vf scale=1920x1080 -threads {} -c:v libvpx-vp9 -lossless 1 -g {} -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, self.gop, output_video_path)
-        #cmd = "{} -i {} -vf scale=1920x1080 -threads {} -c:v libx265 -crf 0 -preset ultrafast -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
+        base_cmd = '{} -i {} -c:v libvpx-vp9 -vf scale={}x{} -b:v {} -minrate {} -maxrate {} -g {} -quality good {} -passlogfile {} -y'.format(
+                        self.ffmpeg_path, self.input_video_path, width, height, target_bitrate, min_bitrate, max_bitrate, gop,
+                        self._threads(height), passlog_name)
+
+        cmd = '{} -pass 1 {} {} && {} -pass 2 {} {}'.format(base_cmd, self._speed(height, 1),
+                            output_video_path, base_cmd, self._speed(height, 2), output_video_path)
         os.system(cmd)
 
-    def encode_960p_v1_lossless(self):
-        input_video_path = os.path.join(self.video_dir, "2160p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
-        output_video_path = os.path.join(self.video_dir, "960p_240p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
-        #output_video_path = os.path.join(self.video_dir, "960p_240p_s{}_d{}.webm".format(self.start_time, self.duration, self.video_fmt))
+        passlog_path = os.path.join('./', '{}-0.log'.format(passlog_name))
+        os.remove(passlog_path)
 
-        if os.path.exists(output_video_path):
-            logging.info("{} already exists".format(output_video_path))
-            return
+    def encode_lossless(self, width, height):
+        output_video_name = '{}p{}.webm'.format(height, self._name(self.start, self.duration))
+        output_video_path = os.path.join(self.output_video_dir, output_video_name)
 
-        cmd = "{} -i {} -vf scale=1704x960 -threads {} -c:v libvpx-vp9 -lossless 1 -g {} -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, self.gop, output_video_path)
-        #cmd = "{} -i {} -vf scale=1704x960 -threads {} -c:v libx265 -crf 0 -preset ultrafast -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
+        cmd = '{} -i {} -c:v libvpx-vp9 -vf scale={}x{} -lossless 1 {} {}'.format(
+                        self.ffmpeg_path, self.input_video_path, width, height,
+                        self._threads(height), output_video_path)
         os.system(cmd)
-
-    def encode_960p_v2_lossless(self):
-        input_video_path = os.path.join(self.video_dir, "2160p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
-        output_video_path = os.path.join(self.video_dir, "960p_480p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
-        #output_video_path = os.path.join(self.video_dir, "960p_480p_s{}_d{}.webm".format(self.start_time, self.duration, self.video_fmt))
-
-        if os.path.exists(output_video_path):
-            logging.info("{} already exists".format(output_video_path))
-            return
-
-        cmd = "{} -i {} -vf scale=1708x960 -threads {} -c:v libvpx-vp9 -lossless 1 -g {} -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, self.gop, output_video_path)
-        #cmd = "{} -i {} -vf scale=1708x960 -threads {} -c:v libx265 -crf 0 -preset ultrafast -c:a libopus {}".format(self.ffmpeg_path, input_video_path, self.num_threads * 4, output_video_path)
-        os.system(cmd)
-
-    def encode_240p(self):
-        input_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.webm".format(self.start_time, self.duration))
-        output_video_path = os.path.join(self.video_dir, "240p_s{}_d{}_encoded.{}".format(self.start_time, self.duration, self.video_fmt))
-
-        if os.path.exists(output_video_path):
-            logging.info("{} already exists".format(output_video_path))
-            return
-
-        cmd = "{} -i {} -vf scale=426x240 -b:v 150k \
-        -minrate 75k -maxrate 218k -tile-columns 0  -keyint_min {} -g {} -threads {} \
-        -quality good -crf 37 -c:v libvpx-vp9 -c:a libopus \
-        -pass 1 -speed 4 {} && \
-        {} -i {} -vf scale=426x240 -b:v 150k \
-        -minrate 75k -maxrate 218k -tile-columns 0  -keyint_min {} -g {} -threads {} \
-        -quality good -crf 37 -c:v libvpx-vp9 -c:a libopus \
-        -pass 2 -speed 1 -y {}".format(self.ffmpeg_path, input_video_path, self.gop, self.gop, self.num_threads, output_video_path, self.ffmpeg_path, input_video_path, self.gop, self.gop, self.num_threads, output_video_path)
-        os.system(cmd)
-
-    def encode_360p(self):
-        input_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.webm".format(self.start_time, self.duration))
-        output_video_path = os.path.join(self.video_dir, "360p_s{}_d{}_encoded.{}".format(self.start_time, self.duration, self.video_fmt))
-
-        if os.path.exists(output_video_path):
-            logging.info("{} already exists".format(output_video_path))
-            return
-
-        cmd = "{} -i {} -vf scale=640x360 -b:v 276k \
-        -minrate 138k -maxrate 400k -tile-columns 1  -keyint_min {} -g {} -threads {} \
-        -quality good -crf 36 -c:v libvpx-vp9 -c:a libopus \
-        -pass 1 -speed 4 {} && \
-        {} -i {} -vf scale=640x360 -b:v 276k \
-        -minrate 138k -maxrate 400k -tile-columns 1  -keyint_min {} -g {} -threads {}\
-        -quality good -crf 36 -c:v libvpx-vp9 -c:a libopus \
-        -pass 2 -speed 4 -y {}".format(self.ffmpeg_path, input_video_path, self.gop, self.gop, self.num_threads * 2, output_video_path, self.ffmpeg_path, input_video_path, self.gop, self.gop, self.num_threads* 2, output_video_path)
-        os.system(cmd)
-
-    def encode_480p(self):
-        input_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.webm".format(self.start_time, self.duration))
-        output_video_path = os.path.join(self.video_dir, "480p_s{}_d{}_encoded.{}".format(self.start_time, self.duration, self.video_fmt))
-
-        if os.path.exists(output_video_path):
-            logging.info("{} already exists".format(output_video_path))
-            return
-
-        cmd = "{} -i {} -vf scale=854x480 -b:v 750k \
-        -minrate 375k -maxrate 1088k -tile-columns 1  -keyint_min {} -g {} -threads {} \
-        -quality good -crf 33 -c:v libvpx-vp9 -c:a libopus \
-        -pass 1 -speed 4 {} && \
-        {} -i {} -vf scale=854x480 -b:v 750k \
-        -minrate 375k -maxrate 1088k -tile-columns 1  -keyint_min {} -g {} -threads {} \
-        -quality good -crf 33 -c:v libvpx-vp9 -c:a libopus \
-        -pass 2 -speed 4 -y {}".format(self.ffmpeg_path, input_video_path, self.gop, self.gop, self.num_threads * 2, output_video_path, self.ffmpeg_path, input_video_path, self.gop, self.gop, self.num_threads * 2, output_video_path)
-        os.system(cmd)
-
-    def encode_720p(self):
-        input_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}.webm".format(self.start_time, self.duration))
-        output_video_path = os.path.join(self.video_dir, "720p_s{}_d{}_encoded.{}".format(self.start_time, self.duration, self.video_fmt))
-
-        if os.path.exists(output_video_path):
-            logging.info("{} already exists".format(output_video_path))
-            return
-
-        cmd = "{} -i {} -vf scale=1280x720 -b:v 1024k \
-        -minrate 512k -maxrate 1485k -tile-columns 2  -keyint_min {} -g {} -threads {} \
-        -quality good -crf 32 -c:v libvpx-vp9 -c:a libopus \
-        -pass 1 -speed 4 {} && \
-        {} -i {} -vf scale=1280x720 -b:v 1024k \
-        -minrate 512k -maxrate 1485k -tile-columns 2  -keyint_min {} -g {} -threads {} \
-        -quality good -crf 32 -c:v libvpx-vp9 -c:a libopus \
-        -pass 2 -speed 4 -y {}".format(self.ffmpeg_path, input_video_path, self.gop, self.gop, self.num_threads * 4, output_video_path, self.ffmpeg_path, input_video_path, self.gop, self.gop, self.num_threads * 4, output_video_path)
-        os.system(cmd)
-
-    def encode_1080p(self):
-        input_video_path = os.path.join(self.video_dir, "2160p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
-        output_video_path = os.path.join(self.video_dir, "1080p_s{}_d{}_encoded.{}".format(self.start_time, self.duration, self.video_fmt))
-
-        if os.path.exists(output_video_path):
-            logging.info("{} already exists".format(output_video_path))
-            return
-
-        cmd = "{} -i {} -vf scale=1920x1080 -b:v 1800k \
-        -minrate 900k -maxrate 2610k -tile-columns 2  -keyint_min {} -g {} -threads {} \
-        -quality good -crf 31 -c:v libvpx-vp9 -c:a libopus \
-        -pass 1 -speed 4 {} && \
-        {} -i {} -vf scale=1920x1080 -b:v 1800k \
-        -minrate 900k -maxrate 2610k -tile-columns 2  -keyint_min {} -g {} -threads {} \
-        -quality good -crf 31 -c:v libvpx-vp9 -c:a libopus \
-         -pass 2 -speed 4 -y {}".format(self.ffmpeg_path, input_video_path, self.gop, self.gop, self.num_threads * 4, output_video_path, self.ffmpeg_path, input_video_path, self.gop, self.gop, self.num_threads * 4, output_video_path)
-        os.system(cmd)
-
-    def encode_1440p(self):
-        input_video_path = os.path.join(self.video_dir, "2160p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
-        output_video_path = os.path.join(self.video_dir, "1440p_s{}_d{}_encoded.{}".format(self.start_time, self.duration, self.video_fmt))
-
-        if os.path.exists(output_video_path):
-            logging.info("{} already exists".format(output_video_path))
-            return
-
-        cmd = "{} -i {} -vf scale=2560x1440 -b:v 6000k \
-        -minrate 3000k -maxrate 8700k -tile-columns 3  -keyint_min {} -g {} -threads {} \
-        -quality good -crf 24 -c:v libvpx-vp9 -c:a libopus \
-        -pass 1 -speed 4 {} && \
-        {} -i {} -vf scale=2560x1440 -b:v 6000k \
-        -minrate 3000k -maxrate 8700k -tile-columns 3  -keyint_min {} -g {} -threads {} \
-        -quality good -crf 24 -c:v libvpx-vp9 -c:a libopus \
-        -pass 2 -speed 4 -y {}".format(self.ffmpeg_path, input_video_path, self.gop, self.gop, self.num_threads * 8, output_video_path, self.ffmpeg_path, input_video_path, self.gop, self.gop, self.num_threads * 8, output_video_path)
-        os.system(cmd)
-
-    def encode_2160p(self):
-        input_video_path = os.path.join(self.video_dir, "2160p_s{}_d{}.{}".format(self.start_time, self.duration, self.video_fmt))
-        output_video_path = os.path.join(self.video_dir, "2160p_s{}_d{}_encoded.{}".format(self.start_time, self.duration, self.video_fmt))
-
-        if os.path.exists(output_video_path):
-            logging.info("{} already exists".format(output_video_path))
-            return
-
-        cmd = "{} -i {} -vf scale=3840x2160 -b:v 12000k \
-        -minrate 6000k -maxrate 17400k -tile-columns 3  -keyint_min {} -g {} -threads {} \
-        -quality good -crf 15 -c:v libvpx-vp9 -c:a libopus \
-        -pass 1 -speed 4 {} && \
-        {} -i {} -vf scale=3840x2160 -b:v 12000k \
-        -minrate 6000k -maxrate 17400k -tile-columns 3  -keyint_min {} -g {} -threads {} \
-        -quality good -crf 15 -c:v libvpx-vp9 -c:a libopus \
-        -pass 2 -speed 4 -y {}".format(self.ffmpeg_path, input_video_path, self.gop, self.gop, self.num_threads * 8, output_video_path, self.ffmpeg_path, input_video_path, self.gop, self.gop, self.num_threads * 8, output_video_path)
-        os.system(cmd)
-
-    def encode_all(self):
-        start_time = time.time()
-        #self.cut_2160p()
-        print('elaspsed_time (1/9): {}sec'.format(time.time() - start_time))
-        start_time = time.time()
-        #self.encode_1080p_lossless()
-        print('elaspsed_time (2/9): {}sec'.format(time.time() - start_time))
-        start_time = time.time()
-        #self.encode_960p_v1_lossless()
-        print('elaspsed_time (3/9): {}sec'.format(time.time() - start_time))
-        start_time = time.time()
-        #self.encode_960p_v2_lossless()
-        print('elaspsed_time (4/9): {}sec'.format(time.time() - start_time))
-        start_time = time.time()
-        self.encode_240p()
-        print('elaspsed_time (5/9): {}sec'.format(time.time() - start_time))
-        start_time = time.time()
-        self.encode_360p()
-        print('elaspsed_time (6/9): {}sec'.format(time.time() - start_time))
-        start_time = time.time()
-        self.encode_480p()
-        print('elaspsed_time (7/9): {}sec'.format(time.time() - start_time))
-        start_time = time.time()
-        self.encode_720p()
-        print('elaspsed_time (8/9): {}sec'.format(time.time() - start_time))
-        start_time = time.time()
-        self.encode_1080p()
-        print('elaspsed_time (9/9): {}sec'.format(time.time() - start_time))
-        #self.encode_1440p()
-        #print('elaspsed_time (10/11): {}sec'.format(time.time() - start_time))
-        #self.encode_2160p()
-        #print('elaspsed_time (11/11): {}sec'.format(time.time() - start_time))
-
-    def prepare_manifest(self):
-        #TODO
-        pass
 
 if __name__ == '__main__':
-    encoder = Encoder(args)
-    encoder.encode_all()
+    parser = argparse.ArgumentParser()
+
+    #path
+    parser.add_argument('--ffmpeg_path', type=str, default='/usr/bin/ffmpeg')
+    parser.add_argument('--input_video_path', type=str, required=True)
+    parser.add_argument('--output_video_dir', type=str, required=True)
+
+    #video
+    parser.add_argument('--mode', type=str, required=True)
+    parser.add_argument('--bitrate', type=int, nargs='+', default=None)
+    parser.add_argument('--input_height', type=int, default=None)
+    parser.add_argument('--output_width', type=int, nargs='+', default=None)
+    parser.add_argument('--output_height', type=int, nargs='+', default=None)
+    parser.add_argument('--gop', type=int, default=120)
+    parser.add_argument('--start', type=int, default=None)
+    parser.add_argument('--duration', type=int, default=None)
+
+    args = parser.parse_args()
+
+    if args.mode == 'cut':
+        if args.start is None and args.duration is None:
+            raise ValueError('start and duration are not given')
+        enc = LibvpxEncoder(args.output_video_dir, args.input_video_path, args.input_height, None, None, args.ffmpeg_path)
+        enc.cut(args.start, args.duration)
+    elif args.mode == 'encode':
+        if args.bitrate is None or args.output_height is None or args.output_width is None:
+            raise ValueError('bitrate or output_height or is output_width not given')
+        if len(args.bitrate) != len(args.output_height) != len(args.output_width):
+            raise ValueError('bitrate and height values are wrong')
+        enc = LibvpxEncoder(args.output_video_dir, args.input_video_path, args.input_height, args.start,
+                            args.duration, args.ffmpeg_path)
+        for width, height, bitrate in zip(args.output_width, args.output_height, args.bitrate):
+            if bitrate <= 0:
+                enc.encode_lossless(width, height)
+            else:
+                enc.encode(width, height, bitrate, args.gop)
+    else:
+        raise ValueError('Unsupported mode')
