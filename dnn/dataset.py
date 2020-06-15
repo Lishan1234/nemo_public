@@ -58,7 +58,10 @@ def image_dataset(image_dir, image_shape, image_format, num_samples=None):
         img_paths = img_paths[0:-1:skip]
     ds = tf.data.Dataset.from_tensor_slices(img_paths)
     ds = ds.map(tf.io.read_file)
-    ds = ds.map(lambda x: decode_and_resize_image(x, image_shape=image_shape), num_parallel_calls=AUTOTUNE)
+    if image_shape is None:
+        ds = ds.map(lambda x: tf.image.decode_image(x, channels=3), num_parallel_calls=AUTOTUNE)
+    else:
+        ds = ds.map(lambda x: decode_and_resize_image(x, image_shape=image_shape), num_parallel_calls=AUTOTUNE)
     return ds, len(img_paths)
 
 def single_image_dataset(image_dir, image_format='.png'):
@@ -68,7 +71,7 @@ def single_image_dataset(image_dir, image_format='.png'):
     ds = ds.prefetch(buffer_size=AUTOTUNE)
     return ds
 
-def train_image_dataset(lr_image_dir, hr_image_dir, lr_image_shape, hr_image_shape, batch_size, patch_size, load_on_memory, repeat_count=None, image_format='.png'):
+def train_video_dataset(lr_image_dir, hr_image_dir, lr_image_shape, hr_image_shape, batch_size, patch_size, load_on_memory, repeat_count=None, image_format='.png'):
     assert(hr_image_shape[0] / lr_image_shape[0] == hr_image_shape[1] / lr_image_shape[1])
     assert(hr_image_shape[0] % lr_image_shape[0] == 0)
     assert(hr_image_shape[1] % lr_image_shape[1] == 0)
@@ -88,9 +91,69 @@ def train_image_dataset(lr_image_dir, hr_image_dir, lr_image_shape, hr_image_sha
     print('number of train images: {}'.format(num_imgs))
     return ds
 
-def test_image_dataset(lr_image_dir, hr_image_dir, lr_image_shape, hr_image_shape, num_samples, load_on_memory, repeat_count=1, image_format='.png'):
+def test_video_dataset(lr_image_dir, hr_image_dir, lr_image_shape, hr_image_shape, num_samples, load_on_memory, repeat_count=1, image_format='.png'):
     lr_ds, num_imgs = image_dataset(lr_image_dir, lr_image_shape, image_format, num_samples)
     hr_ds, _ = image_dataset(hr_image_dir, hr_image_shape, image_format, num_samples)
+    ds = tf.data.Dataset.zip((lr_ds, hr_ds))
+    if load_on_memory: ds = ds.cache()
+    ds = tf.data.Dataset.zip((lr_ds, hr_ds))
+    ds = ds.batch(1)
+    ds = ds.repeat(repeat_count)
+    ds = ds.prefetch(buffer_size=AUTOTUNE)
+
+    print('number of test images: {}'.format(num_imgs))
+    return ds
+
+def train_video_dataset(lr_image_dir, hr_image_dir, lr_image_shape, hr_image_shape, batch_size, patch_size, load_on_memory, repeat_count=None, image_format='.png'):
+    assert(hr_image_shape[0] / lr_image_shape[0] == hr_image_shape[1] / lr_image_shape[1])
+    assert(hr_image_shape[0] % lr_image_shape[0] == 0)
+    assert(hr_image_shape[1] % lr_image_shape[1] == 0)
+
+    scale = hr_image_shape[0] // lr_image_shape[0]
+
+    lr_ds, num_imgs = image_dataset(lr_image_dir, lr_image_shape, image_format)
+    hr_ds, _ = image_dataset(hr_image_dir, hr_image_shape, image_format)
+    ds = tf.data.Dataset.zip((lr_ds, hr_ds))
+    if load_on_memory: ds = ds.cache()
+    ds = ds.shuffle(buffer_size=num_imgs)
+    ds = ds.map(lambda lr, hr: random_crop(lr, hr, patch_size, scale), num_parallel_calls=AUTOTUNE)
+    ds = ds.batch(batch_size)
+    ds = ds.repeat(repeat_count)
+    ds = ds.prefetch(buffer_size=AUTOTUNE)
+
+    print('number of train images: {}'.format(num_imgs))
+    return ds
+
+def test_video_dataset(lr_image_dir, hr_image_dir, lr_image_shape, hr_image_shape, num_samples, load_on_memory, repeat_count=1, image_format='.png'):
+    lr_ds, num_imgs = image_dataset(lr_image_dir, lr_image_shape, image_format, num_samples)
+    hr_ds, _ = image_dataset(hr_image_dir, hr_image_shape, image_format, num_samples)
+    ds = tf.data.Dataset.zip((lr_ds, hr_ds))
+    if load_on_memory: ds = ds.cache()
+    ds = tf.data.Dataset.zip((lr_ds, hr_ds))
+    ds = ds.batch(1)
+    ds = ds.repeat(repeat_count)
+    ds = ds.prefetch(buffer_size=AUTOTUNE)
+
+    print('number of test images: {}'.format(num_imgs))
+    return ds
+
+def train_div2k_dataset(lr_image_dir, hr_image_dir, scale, batch_size, patch_size, load_on_memory, repeat_count=None, image_format='.png'):
+    lr_ds, num_imgs = image_dataset(lr_image_dir, None, image_format)
+    hr_ds, _ = image_dataset(hr_image_dir, None, image_format)
+    ds = tf.data.Dataset.zip((lr_ds, hr_ds))
+    if load_on_memory: ds = ds.cache()
+    ds = ds.shuffle(buffer_size=num_imgs)
+    ds = ds.map(lambda lr, hr: random_crop(lr, hr, patch_size, scale), num_parallel_calls=AUTOTUNE)
+    ds = ds.batch(batch_size)
+    ds = ds.repeat(repeat_count)
+    ds = ds.prefetch(buffer_size=AUTOTUNE)
+
+    print('number of train images: {}'.format(num_imgs))
+    return ds
+
+def test_div2k_dataset(lr_image_dir, hr_image_dir, scale, num_samples, load_on_memory, repeat_count=1, image_format='.png'):
+    lr_ds, num_imgs = image_dataset(lr_image_dir, None, image_format, num_samples)
+    hr_ds, _ = image_dataset(hr_image_dir, None, image_format, num_samples)
     ds = tf.data.Dataset.zip((lr_ds, hr_ds))
     if load_on_memory: ds = ds.cache()
     ds = tf.data.Dataset.zip((lr_ds, hr_ds))

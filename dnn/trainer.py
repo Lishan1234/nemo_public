@@ -74,7 +74,7 @@ class Trainer:
                     tf.contrib.summary.scalar('PSNR_Bilinear', avg_bilinear_psnr, step=idx)
                     tf.contrib.summary.scalar('PSNR_Gain', avg_sr_psnr - avg_bilinear_psnr, step=idx)
                     tf.contrib.summary.flush(self.writer)
-                self.model.save(os.path.join(self.checkpoint_dir, self.model.name))
+                self.model.save(os.path.join(self.checkpoint_dir, '{}.h5'.format(self.model.name)), save_format='h5')
 
                 test_epoch_duration = time.perf_counter() - test_epoch_start
                 train_epoch_start = time.perf_counter()
