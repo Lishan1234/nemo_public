@@ -4,6 +4,8 @@ import json
 import os
 
 def profile_video(video_path):
+    assert(os.path.exists(video_path))
+
     cmd = "ffprobe -v quiet -print_format json -show_streams -show_entries format"
     args = shlex.split(cmd)
     args.append(video_path)
@@ -29,6 +31,7 @@ def profile_video(video_path):
 
     return result
 
+#TODO: remove
 class FFmpegOption():
     def __init__(self, filter_type, filter_fps, upsample):
         if filter_type not in ['key', 'uniform', 'none']:
@@ -66,6 +69,7 @@ class FFmpegOption():
         elif self.filter_type == 'none':
             return '-vf scale={}:{} -sws_flags {}'.format(width, height, self.upsample)
 
+#TODO: remove
 class VideoMetadata():
     def __init__(self, video_format, start_time, duration):
         self.video_format = video_format

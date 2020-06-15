@@ -1,6 +1,7 @@
 import time
 import argparse
 import os
+import sys
 
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
@@ -8,76 +9,81 @@ from tensorflow.keras.metrics import Mean
 from tensorflow.keras.losses import MeanAbsoluteError
 from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 
-from dnn.dataset import train_image_dataset, valid_image_dataset, setup_images
-from dnn.model.nemo_s import NEMO_S
-from dnn.train import SingleTrainerV1
-from tool.video import profile_video, FFmpegOption
+from nemo.dnn.dataset import train_image_dataset, test_image_dataset, sample_and_save_images
+import nemo.dnn.model
+from nemo.dnn.trainer import NEMOTrainer
+from nemo.tool.video import profile_video
 
 if __name__ == '__main__':
     tf.enable_eager_execution()
 
     parser = argparse.ArgumentParser()
 
-    #directory, path
+    #dataset
     parser.add_argument('--dataset_dir', type=str, required=True)
     parser.add_argument('--lr_video_name', type=str, required=True)
     parser.add_argument('--hr_video_name', type=str, required=True)
-    parser.add_argument('--ffmpeg_path', type=str, default='/usr/bin/ffmpeg')
+    parser.add_argument('--sample_fps', type=float, default=1.0)
 
-    #video metadata
-    parser.add_argument('--filter_type', type=str, default='uniform')
-    parser.add_argument('--filter_fps', type=float, default=1.0)
-
-    #training
+    #training & testing
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--patch_size', type=int, default=64)
+    parser.add_argument('--num_epochs', type=int, default=100)
+    parser.add_argument('--num_steps_per_epoch', type=int, default=1000)
+    parser.add_argument('--pretrained_checkpoint_dir', type=str, default=None)
     parser.add_argument('--load_on_memory', action='store_true')
-    parser.add_argument('--num_steps', type=int, default=300000)
-    parser.add_argument('--div2k_checkpoint_dir', type=str, default=None)
+    parser.add_argument('--num_samples', type=int, default=10)
 
-    #architecture
+    #dnn
+    parser.add_argument('--model_type', type=str, default='nemo_s')
     parser.add_argument('--num_filters', type=int, required=True)
     parser.add_argument('--num_blocks', type=int, required=True)
-    parser.add_argument('--upsample_type', type=str, required=True)
+    parser.add_argument('--upsample_type', type=str, default='deconv')
 
-    #log
-    parser.add_argument('--custom_tag', type=str, default=None)
+    #tool
+    parser.add_argument('--ffmpeg_path', type=str, default='/usr/bin/ffmpeg')
 
     args = parser.parse_args()
 
-    #scale
     lr_video_path = os.path.join(args.dataset_dir, 'video', args.lr_video_name)
     hr_video_path = os.path.join(args.dataset_dir, 'video', args.hr_video_name)
-    assert(os.path.exists(lr_video_path))
-    assert(os.path.exists(hr_video_path))
     lr_video_profile = profile_video(lr_video_path)
     hr_video_profile = profile_video(hr_video_path)
     scale = hr_video_profile['height'] // lr_video_profile['height']
+    lr_image_shape = [lr_video_profile['height'], lr_video_profile['width'], 3]
+    hr_image_shape = [lr_video_profile['height'] * scale, lr_video_profile['width'] * scale, 3]
 
-    #image
-    ffmpeg_option = FFmpegOption(args.filter_type, args.filter_fps, None)
-    lr_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(args.lr_video_name))
-    hr_image_dir = os.path.join(args.dataset_dir, 'image', ffmpeg_option.summary(args.hr_video_name))
-    setup_images(lr_video_path, lr_image_dir, args.ffmpeg_path, ffmpeg_option.filter())
-    setup_images(hr_video_path, hr_image_dir, args.ffmpeg_path, ffmpeg_option.filter())
+    lr_image_dir = os.path.join(args.dataset_dir, 'image', args.lr_video_name, '{}fps'.format(args.sample_fps))
+    hr_image_dir = os.path.join(args.dataset_dir, 'image', args.hr_video_name, '{}fps'.format(args.sample_fps))
+    sample_and_save_images(lr_video_path, lr_image_dir, args.sample_fps, args.ffmpeg_path)
+    sample_and_save_images(hr_video_path, hr_image_dir, args.sample_fps, args.ffmpeg_path)
 
-    #dnn
-    nemo_s = NEMO_S(args.num_blocks, args.num_filters, scale, args.upsample_type)
-    model = nemo_s.build_model()
+    train_ds = train_image_dataset(lr_image_dir, hr_image_dir, lr_image_shape, hr_image_shape, args.batch_size, args.patch_size, args.load_on_memory)
+    test_ds = test_image_dataset(lr_image_dir, hr_image_dir, lr_image_shape, hr_image_shape, args.num_samples, args.load_on_memory)
 
-    #dataset
-    train_ds = train_image_dataset(lr_image_dir, hr_image_dir, args.batch_size, args.patch_size, scale, args.load_on_memory)
-    valid_ds = valid_image_dataset(lr_image_dir, hr_image_dir)
+    """
+    check patches are generated correctly
+    for idx, imgs in enumerate(train_ds.take(3)):
+        lr_img = tf.image.encode_png(tf.cast(tf.squeeze(imgs[0]), tf.uint8))
+        hr_img = tf.image.encode_png(tf.cast(tf.squeeze(imgs[1]), tf.uint8))
+        tf.io.write_file('train_lr_{}.png'.format(idx), lr_img)
+        tf.io.write_file('train_hr_{}.png'.format(idx), hr_img)
+    for idx, imgs in enumerate(test_ds.take(3)):
+        lr_img = tf.image.encode_png(tf.cast(tf.squeeze(imgs[0]), tf.uint8))
+        hr_img = tf.image.encode_png(tf.cast(tf.squeeze(imgs[1]), tf.uint8))
+        tf.io.write_file('test_lr_{}.png'.format(idx), lr_img)
+        tf.io.write_file('test_hr_{}.png'.format(idx), hr_img)
+    """
 
-    #trainer
-    checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', ffmpeg_option.summary(args.lr_video_name), model.name)
-    #log_dir = os.path.join(args.dataset_dir, 'tensorflow', ffmpeg_option.summary(args.lr_video_name), model.name)
-    log_dir = os.path.join(os.path.basename(args.dataset_dir), ffmpeg_option.summary(args.lr_video_name), model.name)
-    #log_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '.log', ffmpeg_option.summary(args.lr_video_name), model.name)
-    os.makedirs(checkpoint_dir, exist_ok=True)
-    os.makedirs(log_dir, exist_ok=True)
-    trainer = SingleTrainerV1(model, checkpoint_dir, log_dir)
-    if args.div2k_checkpoint_dir is not None:
-        div2k_checkpoint_dir = os.path.join(args.div2k_checkpoint_dir, 'x{}'.format(scale), 'checkpoint', model.name)
-        trainer.restore(div2k_checkpoint_dir)
-    trainer.train(train_ds, valid_ds, steps=args.num_steps)
+    if args.pretrained_checkpoint_dir is None:
+        model = nemo.dnn.model.build(args.model_type, args.num_blocks, args.num_filters, scale, args.upsample_type)
+    else:
+        #TODO: validate with DIV2K models
+        model = tf.keras.models.load_model(args.pretrained_checkpoint_dir) #used for fine-tuning div2k-learned models
+
+    #TODO: validate
+    checkpoint_dir = os.path.join(args.dataset_dir, 'checkpoint', args.lr_video_name, model.name)
+    log_dir = os.path.join(args.dataset_dir, 'log', args.hr_video_name,  model.name)
+    NEMOTrainer(model, checkpoint_dir, log_dir).train(train_ds, test_ds, args.num_epochs, args.num_steps_per_epoch)
+
+    #TODO: check GPU utilization, time per epoch, quality improvement over 10 epoch

@@ -3,7 +3,9 @@
 *.yuv
 *.pyc
 __pycache__
+**/data
 temp_data/
 .log/
+**/.deprecated
 third_party/caffe
 **/ffmpeg2pass-0.log

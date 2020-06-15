@@ -88,7 +88,6 @@ function _set_num_filters(){
     fi
 }
 
-#TODO: validate input arguments
 [[ ($# -ge 1)  ]] || { echo "[ERROR] Invalid number of arguments. See -h for help."; exit 1;  }
 
 while getopts ":g:c:q:r:h" opt; do
@@ -97,7 +96,7 @@ while getopts ":g:c:q:r:h" opt; do
         g) gpu_index="$OPTARG";;
         c) contents+=("$OPTARG");;
         q) qualities+=("$OPTARG");;
-        e) resolutions+=("$OPTARG");;
+        r) resolutions+=("$OPTARG");;
         \?) exit 1;
     esac
 done
@@ -117,7 +116,6 @@ fi
 
 _set_conda
 
-#TODO: content, resolution, quality
 for content in "${contents[@]}"
 do
     for quality in "${qualities[@]}"
@@ -127,7 +125,7 @@ do
             _set_bitrate ${resolution}
             _set_num_blocks ${resolution} ${quality}
             _set_num_filters ${resolution} ${quality}
-            echo CUDA_VISIBLE_DEVICES=${gpu_index} python ${NEMO_ROOT}/dnn/train_video.py --dataset_dir ${NEMO_ROOT}/data/${content}/ --lr_video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --hr_video_name 1080p_s0_d300.webm --num_blocks ${num_blocks}--num_filters ${num_filters}
+            CUDA_VISIBLE_DEVICES=${gpu_index} python ${NEMO_ROOT}/dnn/train_video.py --dataset_dir ${NEMO_ROOT}/data/${content}/ --lr_video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --hr_video_name 1080p_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --load_on_memory --num_epochs 10
         done
     done
 done
