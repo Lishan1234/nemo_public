@@ -12,6 +12,9 @@ import tensorflow as tf
 from nemo.tool.adb import adb_pull
 from nemo.dnn.utility import raw_quality
 
+#note: SNPE runs on Python 3.4
+#note: SNPE converter works on Tensorflow <=1.14
+
 DEVICE_ROOTDIR = '/data/local/tmp/snpebm'
 BENCHMARK_CONFIG_NAME = 'benchmark.json'
 BENCHMARK_RAW_LIST = 'target_raw_list.txt'
@@ -65,10 +68,9 @@ def snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, input_sha
 def snpe_benchmark(json_file):
     check_python_version()
     setup_cmd = 'source {}/bin/envsetup.sh -t {}'.format(SNPE_ROOT, TENSORFLOW_ROOT)
-    conda_cmd = 'conda activate {}'.format(CONDA_ENV_NAME)
     snpe_cmd = 'python {}/benchmarks/snpe_bench.py -c {} -json'.format(SNPE_ROOT, json_file)
 
-    cmd = '{}; {}; {}'.format(setup_cmd, conda_cmd, snpe_cmd)
+    cmd = '{}; {}'.format(setup_cmd, snpe_cmd)
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True, executable='/bin/bash')
     proc_stdout = process.communicate()[0].strip()
     print(proc_stdout)
@@ -145,7 +147,7 @@ def snpe_convert_model(model, input_shape, checkpoint_dir):
 
     #convert to a dlc (.dlc)
     dlc_path = os.path.join(checkpoint_dir, dlc_name)
-    snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, input_shape)
+    snpe_tensorflow_to_dlc(opt_pb_path, dlc_path, input_name, output_name, input_shape)
 
     #convcert to a quantized dlc (.quantized.dlc)
     #TODO
@@ -196,7 +198,7 @@ def snpe_benchmark_config(device_id, runtime, model_name, dlc_file, log_dir, raw
 
     return json_file
 
-def snpe_benchmark_random_config(device_id, runtime, model_name, dlc_file, log_dir, total_num=20, perf='default'):
+def snpe_benchmark_random_config(device_id, runtime, model_name, dlc_path, log_dir, num_samples=10, num_runs=1, perf='default'):
     result_dir = os.path.join(log_dir, device_id, runtime)
     json_file = os.path.join(result_dir, BENCHMARK_CONFIG_NAME)
     os.makedirs(result_dir, exist_ok=True)
@@ -208,11 +210,11 @@ def snpe_benchmark_random_config(device_id, runtime, model_name, dlc_file, log_d
     benchmark['DevicePath'] = DEVICE_ROOTDIR
     benchmark['Devices'] = [device_id]
     benchmark['HostName'] = 'localhost'
-    benchmark['Runs'] = 1
+    benchmark['Runs'] = num_runs
     benchmark['Model'] = collections.OrderedDict()
     benchmark['Model']['Name'] = model_name
-    benchmark['Model']['Dlc'] = dlc_file
-    benchmark['Model']['RandomInput'] = total_num
+    benchmark['Model']['Dlc'] = dlc_path
+    benchmark['Model']['RandomInput'] = num_samples
     benchmark['Runtimes'] = [runtime]
     benchmark['Measurements'] = ['timing']
     benchmark['ProfilingLevel'] = 'detailed'

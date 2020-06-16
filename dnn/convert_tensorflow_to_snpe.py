@@ -44,7 +44,6 @@ if __name__ == '__main__':
         checkpoint_dir = os.path.join(args.data_dir, args.content, 'checkpoint', args.lr_video_name, model.name)
         log_dir = os.path.join(args.data_dir, args.content, 'log', args.lr_video_name, model.name)
     elif args.train_type == 'finetune_video':
-        model = nemo.dnn.model.build(args.model_type, args.num_blocks, args.num_filters, scale, args.upsample_type)
         checkpoint_dir = os.path.join(args.data_dir, args.content, 'checkpoint', args.lr_video_name, '{}_finetune'.format(model.name))
         log_dir = os.path.join(args.data_dir, args.content, 'log', args.lr_video_name, '{}_finetune'.format(model.name))
     else:
