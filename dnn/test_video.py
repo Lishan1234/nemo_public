@@ -12,6 +12,7 @@ from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 from nemo.dnn.dataset import train_video_dataset, test_video_dataset, sample_and_save_images
 import nemo.dnn.model
 from nemo.dnn.trainer import NEMOTrainer
+from nemo.dnn.utility import resolve_bilinear
 from nemo.tool.video import profile_video
 
 if __name__ == '__main__':
@@ -26,14 +27,9 @@ if __name__ == '__main__':
     parser.add_argument('--hr_video_name', type=str, required=True)
     parser.add_argument('--sample_fps', type=float, default=1.0)
 
-    #training & testing
-    parser.add_argument('--batch_size', type=int, default=64)
-    parser.add_argument('--patch_size', type=int, default=64)
-    parser.add_argument('--num_epochs', type=int, default=100)
-    parser.add_argument('--num_steps_per_epoch', type=int, default=1000)
+    #testing
     parser.add_argument('--load_on_memory', action='store_true')
-    parser.add_argument('--num_samples', type=int, default=10)
-    parser.add_argument('--finetune_from_div2k', action='store_true')
+    parser.add_argument('--train_type', type=str, required=True)
 
     #dnn
     parser.add_argument('--model_type', type=str, default='nemo_s')
@@ -48,7 +44,7 @@ if __name__ == '__main__':
 
     lr_video_path = os.path.join(args.data_dir, args.content, 'video', args.lr_video_name)
     hr_video_path = os.path.join(args.data_dir, args.content, 'video', args.hr_video_name)
-    print(lr_video_path)
+    print(lr_video_path, hr_video_path)
     lr_video_profile = profile_video(lr_video_path)
     hr_video_profile = profile_video(hr_video_path)
     scale = hr_video_profile['height'] // lr_video_profile['height']
@@ -60,33 +56,41 @@ if __name__ == '__main__':
     sample_and_save_images(lr_video_path, lr_image_dir, args.sample_fps, args.ffmpeg_path)
     sample_and_save_images(hr_video_path, hr_image_dir, args.sample_fps, args.ffmpeg_path)
 
-    train_ds = train_video_dataset(lr_image_dir, hr_image_dir, lr_image_shape, hr_image_shape, args.batch_size, args.patch_size, args.load_on_memory)
-    test_ds = test_video_dataset(lr_image_dir, hr_image_dir, lr_image_shape, hr_image_shape, args.num_samples, args.load_on_memory)
+    test_ds = test_video_dataset(lr_image_dir, hr_image_dir, lr_image_shape, hr_image_shape, None, args.load_on_memory)
 
-    """
-    check patches are generated correctly
-    for idx, imgs in enumerate(train_ds.take(3)):
-        lr_img = tf.image.encode_png(tf.cast(tf.squeeze(imgs[0]), tf.uint8))
-        hr_img = tf.image.encode_png(tf.cast(tf.squeeze(imgs[1]), tf.uint8))
-        tf.io.write_file('train_lr_{}.png'.format(idx), lr_img)
-        tf.io.write_file('train_hr_{}.png'.format(idx), hr_img)
-    for idx, imgs in enumerate(test_ds.take(3)):
-        lr_img = tf.image.encode_png(tf.cast(tf.squeeze(imgs[0]), tf.uint8))
-        hr_img = tf.image.encode_png(tf.cast(tf.squeeze(imgs[1]), tf.uint8))
-        tf.io.write_file('test_lr_{}.png'.format(idx), lr_img)
-        tf.io.write_file('test_hr_{}.png'.format(idx), hr_img)
-    """
-
-    if args.finetune_from_div2k is False:
-        model = nemo.dnn.model.build(args.model_type, args.num_blocks, args.num_filters, scale, args.upsample_type)
+    model = nemo.dnn.model.build(args.model_type, args.num_blocks, args.num_filters, scale, args.upsample_type)
+    if args.train_type == 'train_video':
         checkpoint_dir = os.path.join(args.data_dir, args.content, 'checkpoint', args.lr_video_name, model.name)
-        log_dir = os.path.join(args.data_dir, args.content, 'log', args.lr_video_name,  model.name)
-    else:
+        log_dir = os.path.join(args.data_dir, args.content, 'log', args.lr_video_name, model.name)
+    elif args.train_type == 'finetune_video':
         model = nemo.dnn.model.build(args.model_type, args.num_blocks, args.num_filters, scale, args.upsample_type)
-        div2k_checkpoint_path = os.path.join(args.data_dir, 'DIV2K', 'checkpoint', 'DIV2K_X{}'.format(scale), model.name, '{}.h5'.format(model.name))
-        model.load_weights(div2k_checkpoint_path) #used for fine-tuning div2k-learned models
         checkpoint_dir = os.path.join(args.data_dir, args.content, 'checkpoint', args.lr_video_name, '{}_finetune'.format(model.name))
-        log_dir = os.path.join(args.data_dir, args.content, 'log', args.lr_video_name,  '{}_finetune'.format(model.name))
+        log_dir = os.path.join(args.data_dir, args.content, 'log', args.lr_video_name, '{}_finetune'.format(model.name))
+    elif args.train_type == 'train_div2k':
+        checkpoint_dir = os.path.join(args.data_dir, 'DIV2K', 'checkpoint', 'DIV2K_X{}'.format(scale), model.name)
+        log_dir = os.path.join(args.data_dir, args.content, 'log', 'DIV2K_X{}'.format(scale), model.name)
+    else:
+        raise ValueError('Unsupported training types')
+    model.load_weights(os.path.join(checkpoint_dir, '{}.h5'.format(model.name)))
 
-    NEMOTrainer(model, checkpoint_dir, log_dir).train(train_ds, test_ds, args.num_epochs, args.num_steps_per_epoch)
+    log_path = os.path.join(log_dir, 'quality_{}fps.log'.format(args.sample_fps))
+    with open(log_path, 'w') as f:
+        progbar = tf.keras.utils.Progbar(test_ds.num_images)
+        for idx, imgs in enumerate(test_ds):
+            lr_img = imgs[0]
+            hr_img = imgs[1]
 
+            lr_img = tf.cast(lr_img, tf.float32)
+            sr_img = model(lr_img)
+            sr_img = tf.clip_by_value(sr_img, 0, 255)
+            sr_img = tf.round(sr_img)
+            sr_img = tf.cast(sr_img, tf.uint8)
+            sr_psnr = tf.image.psnr(sr_img, hr_img, max_val=255)[0]
+
+            height = tf.shape(hr_img)[1]
+            width = tf.shape(hr_img)[2]
+            bilinear_img = resolve_bilinear(lr_img, height, width)
+            bilinear_psnr = tf.image.psnr(bilinear_img, hr_img, max_val=255)[0]
+
+            f.write('{:.4f}\t{:.4f}\t{:.4f}\n'.format(sr_psnr, bilinear_psnr, sr_psnr - bilinear_psnr))
+            progbar.update(idx+1)

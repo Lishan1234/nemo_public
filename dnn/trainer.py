@@ -22,6 +22,7 @@ class Trainer:
         sr_psnrs = []
         bilinear_psnrs = []
 
+        progbar = tf.keras.utils.Progbar(dataset.num_images)
         for idx, imgs in enumerate(dataset):
             lr_img = imgs[0]
             hr_img = imgs[1]
@@ -40,6 +41,8 @@ class Trainer:
             bilinear_psnr = tf.image.psnr(bilinear_img, hr_img, max_val=255)[0]
             bilinear_psnrs.append(bilinear_psnr)
 
+            progbar.update(idx+1)
+
             """
             bilinear_img = tf.squeeze(bilinear_img)
             hr_img = tf.squeeze(hr_img)
@@ -53,33 +56,30 @@ class Trainer:
 
     def train(self, train_dataset, test_dataset, num_epochs, num_steps_per_epoch):
         loss_mean = tf.keras.metrics.Mean()
-        train_epoch_start = time.perf_counter()
 
-        for idx, imgs in enumerate(train_dataset.take(num_epochs * num_steps_per_epoch)):
-            lr_img = imgs[0]
-            hr_img = imgs[1]
-            loss = self.train_step(lr_img, hr_img)
-            loss_mean(loss)
+        for curr_epoch in range(num_epochs):
+            progbar = tf.keras.utils.Progbar(num_steps_per_epoch)
+            for curr_step, imgs in enumerate(train_dataset.take(num_steps_per_epoch)):
+                lr_img = imgs[0]
+                hr_img = imgs[1]
+                loss = self.train_step(lr_img, hr_img)
+                loss_mean(loss)
 
-            if (idx + 1) % num_steps_per_epoch == 0:
-                train_epoch_duration = time.perf_counter() - train_epoch_start
-                test_epoch_start = time.perf_counter()
+                progbar.update(curr_step+1)
 
-                loss_value = loss_mean.result()
-                loss_mean.reset_states()
-                avg_sr_psnr, avg_bilinear_psnr = self.evaluate(test_dataset)
-                with self.writer.as_default(), tf.contrib.summary.always_record_summaries():
-                    tf.contrib.summary.scalar('Loss', loss_value, step=idx)
-                    tf.contrib.summary.scalar('PSNR_SR', avg_sr_psnr, step=idx)
-                    tf.contrib.summary.scalar('PSNR_Bilinear', avg_bilinear_psnr, step=idx)
-                    tf.contrib.summary.scalar('PSNR_Gain', avg_sr_psnr - avg_bilinear_psnr, step=idx)
-                    tf.contrib.summary.flush(self.writer)
-                self.model.save(os.path.join(self.checkpoint_dir, '{}.h5'.format(self.model.name)), save_format='h5')
+                if (curr_step + 1) % num_steps_per_epoch == 0:
+                    loss_value = loss_mean.result()
+                    loss_mean.reset_states()
+                    avg_sr_psnr, avg_bilinear_psnr = self.evaluate(test_dataset)
+                    with self.writer.as_default(), tf.contrib.summary.always_record_summaries():
+                        tf.contrib.summary.scalar('Loss', loss_value, step=curr_step)
+                        tf.contrib.summary.scalar('PSNR_SR', avg_sr_psnr, step=curr_step)
+                        tf.contrib.summary.scalar('PSNR_Bilinear', avg_bilinear_psnr, step=curr_step)
+                        tf.contrib.summary.scalar('PSNR_Gain', avg_sr_psnr - avg_bilinear_psnr, step=curr_step)
+                        tf.contrib.summary.flush(self.writer)
+                    self.model.save(os.path.join(self.checkpoint_dir, '{}.h5'.format(self.model.name)), save_format='h5')
 
-                test_epoch_duration = time.perf_counter() - test_epoch_start
-                train_epoch_start = time.perf_counter()
-                curr_epoch = idx // num_steps_per_epoch
-                print('[{} epoch] train/test - {:.2f}/{:.2f}sec, PSNR (bilinear) - {:.2f}dB, PSNR (SR) - {:.2f}dB'.format(curr_epoch, train_epoch_duration, test_epoch_duration, avg_bilinear_psnr, avg_sr_psnr))
+                    print('[{} epoch] PSNR (bilinear) - {:.2f}dB, PSNR (SR) - {:.2f}dB'.format(curr_epoch + 1, avg_bilinear_psnr, avg_sr_psnr))
 
     def train_step(self, lr_img, hr_img):
         with tf.GradientTape() as tape:

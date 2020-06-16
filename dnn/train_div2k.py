@@ -28,7 +28,6 @@ if __name__ == '__main__':
     parser.add_argument('--patch_size', type=int, default=64)
     parser.add_argument('--num_epochs', type=int, default=100)
     parser.add_argument('--num_steps_per_epoch', type=int, default=1000)
-    parser.add_argument('--pretrained_checkpoint_dir', type=str, default=None)
     parser.add_argument('--load_on_memory', action='store_true')
     parser.add_argument('--num_samples', type=int, default=10)
 
@@ -63,11 +62,7 @@ if __name__ == '__main__':
         tf.io.write_file('test_hr_{}.png'.format(idx), hr_img)
     """
 
-    if args.pretrained_checkpoint_dir is None:
-        model = nemo.dnn.model.build(args.model_type, args.num_blocks, args.num_filters, args.scale, args.upsample_type)
-    else:
-        #TODO: validate with DIV2K models
-        model = tf.keras.models.load_model(args.pretrained_checkpoint_dir) #used for fine-tuning div2k-learned models
+    model = nemo.dnn.model.build(args.model_type, args.num_blocks, args.num_filters, args.scale, args.upsample_type)
 
     checkpoint_dir = os.path.join(args.data_dir, 'DIV2K', 'checkpoint', 'DIV2K_X{}'.format(args.scale), model.name)
     log_dir = os.path.join(args.data_dir, 'DIV2K', 'log', 'DIV2K_X{}'.format(args.scale),  model.name)

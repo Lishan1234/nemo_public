@@ -101,6 +101,7 @@ def test_video_dataset(lr_image_dir, hr_image_dir, lr_image_shape, hr_image_shap
     ds = ds.repeat(repeat_count)
     ds = ds.prefetch(buffer_size=AUTOTUNE)
 
+    ds.num_images= num_imgs
     print('number of test images: {}'.format(num_imgs))
     return ds
 
@@ -121,6 +122,7 @@ def train_video_dataset(lr_image_dir, hr_image_dir, lr_image_shape, hr_image_sha
     ds = ds.repeat(repeat_count)
     ds = ds.prefetch(buffer_size=AUTOTUNE)
 
+    ds.num_images = num_imgs
     print('number of train images: {}'.format(num_imgs))
     return ds
 
@@ -134,6 +136,7 @@ def test_video_dataset(lr_image_dir, hr_image_dir, lr_image_shape, hr_image_shap
     ds = ds.repeat(repeat_count)
     ds = ds.prefetch(buffer_size=AUTOTUNE)
 
+    ds.num_images = num_imgs
     print('number of test images: {}'.format(num_imgs))
     return ds
 
@@ -148,6 +151,7 @@ def train_div2k_dataset(lr_image_dir, hr_image_dir, scale, batch_size, patch_siz
     ds = ds.repeat(repeat_count)
     ds = ds.prefetch(buffer_size=AUTOTUNE)
 
+    ds.num_images = num_imgs
     print('number of train images: {}'.format(num_imgs))
     return ds
 
@@ -161,6 +165,7 @@ def test_div2k_dataset(lr_image_dir, hr_image_dir, scale, num_samples, load_on_m
     ds = ds.repeat(repeat_count)
     ds = ds.prefetch(buffer_size=AUTOTUNE)
 
+    ds.num_images = num_imgs
     print('number of test images: {}'.format(num_imgs))
     return ds
 
