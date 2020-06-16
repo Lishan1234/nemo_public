@@ -2,7 +2,7 @@ import argparse
 import os
 import subprocess
 
-#TODO: passlogfile
+from nemo.tool.video import profile_video
 
 class LibvpxEncoder():
     def __init__(self, output_video_dir, input_video_path, input_height, start, duration, ffmpeg_path):
@@ -108,7 +108,6 @@ if __name__ == '__main__':
     #video
     parser.add_argument('--mode', type=str, required=True)
     parser.add_argument('--bitrate', type=int, nargs='+', default=None)
-    parser.add_argument('--input_height', type=int, default=None)
     parser.add_argument('--output_width', type=int, nargs='+', default=None)
     parser.add_argument('--output_height', type=int, nargs='+', default=None)
     parser.add_argument('--gop', type=int, default=120)
@@ -117,17 +116,19 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    input_video_height = profile_video(args.input_video_path)['height']
+
     if args.mode == 'cut':
         if args.start is None and args.duration is None:
             raise ValueError('start and duration are not given')
-        enc = LibvpxEncoder(args.output_video_dir, args.input_video_path, args.input_height, None, None, args.ffmpeg_path)
+        enc = LibvpxEncoder(args.output_video_dir, args.input_video_path, input_video_height, None, None, args.ffmpeg_path)
         enc.cut(args.start, args.duration)
     elif args.mode == 'encode':
         if args.bitrate is None or args.output_height is None or args.output_width is None:
             raise ValueError('bitrate or output_height or is output_width not given')
         if len(args.bitrate) != len(args.output_height) != len(args.output_width):
             raise ValueError('bitrate and height values are wrong')
-        enc = LibvpxEncoder(args.output_video_dir, args.input_video_path, args.input_height, args.start,
+        enc = LibvpxEncoder(args.output_video_dir, args.input_video_path, input_video_height, args.start,
                             args.duration, args.ffmpeg_path)
         for width, height, bitrate in zip(args.output_width, args.output_height, args.bitrate):
             if bitrate <= 0:
