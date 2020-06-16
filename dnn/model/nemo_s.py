@@ -35,7 +35,7 @@ class NEMO_S():
         x = layers.Add()([x_in, x])
         return x
 
-    def build(self, output_image_shape=None, apply_clip=False):
+    def build(self, output_shape=None, apply_clip=False):
         x_in = layers.Input(shape=(None, None, 3))
 
         x = b = layers.Conv2D(self.num_filters, 3, padding='same', name=self._conv_name())(x_in)
@@ -62,8 +62,8 @@ class NEMO_S():
             else:
                 raise NotImplementedError
 
-        if output_image_shape is not None:
-            x = tf.image.resize_bilinear(x, (output_image_shape[0], output_image_shape[1]), half_pixel_centers=True)
+        if output_shape is not None:
+            x = tf.image.resize_bilinear(x, (output_shape[1], output_shape[2]), half_pixel_centers=True) # shape: [batch, height, width, channel]
 
         if apply_clip is True:
             x = tf.minimum(x, 255)

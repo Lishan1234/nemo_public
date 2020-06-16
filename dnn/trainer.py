@@ -9,14 +9,12 @@ class Trainer:
     def __init__(self, model, loss, learning_rate, checkpoint_dir, log_dir, max_to_keep=1):
         self.loss = loss
         self.learning_rate = learning_rate
-        self.model = model
+        self.checkpoint = tf.train.Checkpoint(model=model)
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+        self.checkpoint_manager = tf.train.CheckpointManager(checkpoint=self.checkpoint, directory=checkpoint_dir, max_to_keep=1)
         self.writer = tf.contrib.summary.create_file_writer(log_dir)
-        self.checkpoint_dir = checkpoint_dir
-        self.log_dir = log_dir
 
-        os.makedirs(self.checkpoint_dir, exist_ok=True)
-        os.makedirs(self.log_dir, exist_ok=True)
+        os.makedirs(log_dir, exist_ok=True)
 
     def evaluate(self, dataset):
         sr_psnrs = []
@@ -28,7 +26,7 @@ class Trainer:
             hr_img = imgs[1]
 
             lr_img = tf.cast(lr_img, tf.float32)
-            sr_img = self.model(lr_img)
+            sr_img = self.checkpoint.model(lr_img)
             sr_img = tf.clip_by_value(sr_img, 0, 255)
             sr_img = tf.round(sr_img)
             sr_img = tf.cast(sr_img, tf.uint8)
@@ -54,6 +52,10 @@ class Trainer:
 
         return tf.reduce_mean(sr_psnrs), tf.reduce_mean(bilinear_psnrs)
 
+    def restore(self, checkpoint_dir):
+        ckpt_path = tf.train.latest_checkpoint(checkpoint_dir)
+        self.checkpoint.restore(ckpt_path)
+
     def train(self, train_dataset, test_dataset, num_epochs, num_steps_per_epoch):
         loss_mean = tf.keras.metrics.Mean()
 
@@ -77,8 +79,7 @@ class Trainer:
                         tf.contrib.summary.scalar('PSNR_Bilinear', avg_bilinear_psnr, step=curr_step)
                         tf.contrib.summary.scalar('PSNR_Gain', avg_sr_psnr - avg_bilinear_psnr, step=curr_step)
                         tf.contrib.summary.flush(self.writer)
-                    self.model.save(os.path.join(self.checkpoint_dir, '{}.h5'.format(self.model.name)), save_format='h5')
-
+                    self.checkpoint_manager.save()
                     print('[{} epoch] PSNR (bilinear) - {:.2f}dB, PSNR (SR) - {:.2f}dB'.format(curr_epoch + 1, avg_bilinear_psnr, avg_sr_psnr))
 
     def train_step(self, lr_img, hr_img):
@@ -86,11 +87,11 @@ class Trainer:
             lr_img = tf.cast(lr_img, tf.float32)
             hr_img = tf.cast(hr_img, tf.float32)
 
-            sr_img = self.model(lr_img, training=True)
+            sr_img = self.checkpoint.model(lr_img, training=True)
             loss_value = self.loss(sr_img, hr_img)
 
-            gradients = tape.gradient(loss_value, self.model.trainable_variables)
-            self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
+            gradients = tape.gradient(loss_value, self.checkpoint.model.trainable_variables)
+            self.optimizer.apply_gradients(zip(gradients, self.checkpoint.model.trainable_variables))
 
         return loss_value
 

@@ -27,12 +27,6 @@ optional arguments:
 EOF
 }
 
-function _setup_mobinas()
-{
-  local SOURCEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-  export PYTHONPATH=$(readlink -f $SOURCEDIR):$(readlink -f $SOURCEDIR/dnn):$PYTHONPATH
-}
-
 function _setup_snpe()
 {
   # get directory of the bash script
@@ -196,7 +190,6 @@ function _cleanup()
 # script can only handle one framework per execution
 [[ ($# -le 2) && ($# -gt 0) ]] || { echo "[ERROR] Invalid number of arguments. See -h for help."; return 1; }
 _setup_snpe
-_setup_mobinas
 # parse arguments
 while getopts "h?c:f:o:t:" opt; do
   case $opt in

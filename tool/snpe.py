@@ -5,21 +5,21 @@ import glob
 import collections
 import json
 
-import numpy as np
 import imageio
+import numpy as np
 import tensorflow as tf
 
-from tool.adb import adb_pull
-from dnn.utility import raw_quality
+from nemo.tool.adb import adb_pull
+from nemo.dnn.utility import raw_quality
 
 DEVICE_ROOTDIR = '/data/local/tmp/snpebm'
 BENCHMARK_CONFIG_NAME = 'benchmark.json'
 BENCHMARK_RAW_LIST = 'target_raw_list.txt'
 OPT_4_INFERENCE_SCRIPT  = 'optimize_for_inference.py'
+CONDA_ENV_NAME = 'nemo_py3.4'
+TENSORFLOW_ROOT = os.path.join(os.environ['NEMO_ROOT'], 'third_party', 'tensorflow')
+SNPE_ROOT = os.path.join(os.environ['NEMO_ROOT'], 'third_party', 'snpe')
 
-#check tensorflow, snpe directory
-TENSORFLOW_ROOT = os.path.join(os.environ['MOBINAS_CODE_ROOT'], 'third_party', 'tensorflow')
-SNPE_ROOT = os.path.join(os.environ['MOBINAS_CODE_ROOT'], 'third_party', 'snpe')
 assert(os.path.exists(TENSORFLOW_ROOT))
 assert(os.path.exists(SNPE_ROOT))
 
@@ -43,7 +43,7 @@ def snpe_dlc_viewer(dlc_path, html_path):
     proc_stdout = process.communicate()[0].strip()
     print(proc_stdout)
 
-def snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, nhwc):
+def snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, input_shape):
     check_python_version()
     setup_cmd = 'source {}/bin/envsetup.sh -t {}'.format(SNPE_ROOT, TENSORFLOW_ROOT)
     snpe_cmd = 'python {}/bin/x86_64-linux-clang/snpe-tensorflow-to-dlc \
@@ -54,7 +54,7 @@ def snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, nhwc):
             --allow_unconsumed_nodes'.format(SNPE_ROOT, \
                             pb_path, \
                             input_name, \
-                            '{},{},{},{}'.format(nhwc[0], nhwc[1], nhwc[2], nhwc[3]), \
+                            '{},{},{},{}'.format(input_shape[0], input_shape[1], input_shape[2], input_shape[3]), \
                             output_name, \
                             dlc_path)
     cmd = '{}; {}'.format(setup_cmd, snpe_cmd)
@@ -65,9 +65,10 @@ def snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, nhwc):
 def snpe_benchmark(json_file):
     check_python_version()
     setup_cmd = 'source {}/bin/envsetup.sh -t {}'.format(SNPE_ROOT, TENSORFLOW_ROOT)
+    conda_cmd = 'conda activate {}'.format(CONDA_ENV_NAME)
     snpe_cmd = 'python {}/benchmarks/snpe_bench.py -c {} -json'.format(SNPE_ROOT, json_file)
 
-    cmd = '{}; {}'.format(setup_cmd, snpe_cmd)
+    cmd = '{}; {}; {}'.format(setup_cmd, conda_cmd, snpe_cmd)
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True, executable='/bin/bash')
     proc_stdout = process.communicate()[0].strip()
     print(proc_stdout)
@@ -117,41 +118,26 @@ def snpe_convert_dataset(image_dir, image_format, save_uint8=False):
         raw_list.append(raw_file)
         raw.tofile(os.path.join(image_dir, raw_file))
 
-def snpe_convert_model(model, nhwc, checkpoint_dir):
+#TODO: validate the quality of a converted model
+def snpe_convert_model(model, input_shape, checkpoint_dir):
     assert(not tf.executing_eagerly()) #note: output layer name is wrong in TF v1.3 with eager execution
 
-    #restore
-    checkpoint = tf.train.Checkpoint(model=model)
-    latest_checkpoint = tf.train.latest_checkpoint(checkpoint_dir)
-    #if not latest_checkpoint:
-    #    raise RuntimeError('checkpoint does not exist: {}'.format(checkpoint_dir))
-    #TODO: remove this
-    if latest_checkpoint is None:
-        latest_checkpoint = os.path.join(checkpoint_dir, 'ckpt-250') #TODO: remove this
-
-    checkpoint_name = os.path.basename(latest_checkpoint).split('.')[0]
-    pb_name = '{}.pb'.format(checkpoint_name)
-    opt_pb_name = '{}_opt.pb'.format(checkpoint_name)
-    dlc_name = '{}.dlc'.format(checkpoint_name)
-    qnt_dlc_name = '{}_quantized.dlc'.format(checkpoint_name)
-
-    dlc_dict = {'model_name': model.name , \
-            'input_name': model.inputs[0].name, \
-            'output_name': model.outputs[0].name, \
-            'qnt_dlc_name': qnt_dlc_name, \
-            'dlc_name': dlc_name,
-            'dlc_path': os.path.join(checkpoint_dir, dlc_name)}
+    pb_name = '{}.pb'.format(model.name)
+    opt_pb_name = '{}_opt.pb'.format(model.name)
+    dlc_name = '{}.dlc'.format(model.name)
+    qnt_dlc_name = '{}_quantized.dlc'.format(model.name)
 
     #save a frozen graph (.pb)
-    pb_path = os.path.join(checkpoint_dir, pb_name)
-    status = checkpoint.restore(latest_checkpoint)
+    ckpt = tf.train.Checkpoint(model=model)
+    ckpt_path = tf.train.latest_checkpoint(checkpoint_dir)
+    status = ckpt.restore(ckpt_path)
     sess = tf.keras.backend.get_session()
     status.initialize_or_restore(sess)
-    graph = tf.get_default_graph()
     frozen_graph = freeze_session(sess, output_names=[out.op.name for out in model.outputs])
     tf.train.write_graph(frozen_graph, checkpoint_dir, pb_name, as_text=False)
 
     #optimize a frozen graph
+    pb_path = os.path.join(checkpoint_dir, pb_name)
     opt_pb_path = os.path.join(checkpoint_dir, opt_pb_name)
     input_name = model.inputs[0].name.split(':')[0]
     output_name = model.outputs[0].name.split(':')[0]
@@ -159,8 +145,7 @@ def snpe_convert_model(model, nhwc, checkpoint_dir):
 
     #convert to a dlc (.dlc)
     dlc_path = os.path.join(checkpoint_dir, dlc_name)
-    snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, nhwc)
-    snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, nhwc)
+    snpe_tensorflow_to_dlc(pb_path, dlc_path, input_name, output_name, input_shape)
 
     #convcert to a quantized dlc (.quantized.dlc)
     #TODO
@@ -169,6 +154,12 @@ def snpe_convert_model(model, nhwc, checkpoint_dir):
     html_path = os.path.join(checkpoint_dir, '{}.html'.format(dlc_name))
     snpe_dlc_viewer(dlc_path, html_path)
 
+    dlc_dict = {'model_name': model.name , \
+            'input_name': model.inputs[0].name, \
+            'output_name': model.outputs[0].name, \
+            'qnt_dlc_name': qnt_dlc_name, \
+            'dlc_name': dlc_name,
+            'dlc_path': os.path.join(checkpoint_dir, dlc_name)}
     return dlc_dict
 
 def snpe_benchmark_config(device_id, runtime, model_name, dlc_file, log_dir, raw_dir, perf='default', exp='*.raw'):

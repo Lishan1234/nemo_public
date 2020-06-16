@@ -9,8 +9,8 @@ from tensorflow.keras.metrics import Mean
 from tensorflow.keras.losses import MeanAbsoluteError
 from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 
-from nemo.dnn.dataset import train_video_dataset, test_video_dataset, sample_and_save_images
 import nemo.dnn.model
+from nemo.dnn.dataset import train_video_dataset, test_video_dataset, sample_and_save_images
 from nemo.dnn.trainer import NEMOTrainer
 from nemo.tool.video import profile_video
 
@@ -48,7 +48,6 @@ if __name__ == '__main__':
 
     lr_video_path = os.path.join(args.data_dir, args.content, 'video', args.lr_video_name)
     hr_video_path = os.path.join(args.data_dir, args.content, 'video', args.hr_video_name)
-    print(lr_video_path)
     lr_video_profile = profile_video(lr_video_path)
     hr_video_profile = profile_video(hr_video_path)
     scale = hr_video_profile['height'] // lr_video_profile['height']
@@ -81,12 +80,13 @@ if __name__ == '__main__':
         model = nemo.dnn.model.build(args.model_type, args.num_blocks, args.num_filters, scale, args.upsample_type)
         checkpoint_dir = os.path.join(args.data_dir, args.content, 'checkpoint', args.lr_video_name, model.name)
         log_dir = os.path.join(args.data_dir, args.content, 'log', args.lr_video_name,  model.name)
+        trainer = NEMOTrainer(model, checkpoint_dir, log_dir)
+        trainer.train(train_ds, test_ds, args.num_epochs, args.num_steps_per_epoch)
     else:
         model = nemo.dnn.model.build(args.model_type, args.num_blocks, args.num_filters, scale, args.upsample_type)
-        div2k_checkpoint_path = os.path.join(args.data_dir, 'DIV2K', 'checkpoint', 'DIV2K_X{}'.format(scale), model.name, '{}.h5'.format(model.name))
-        model.load_weights(div2k_checkpoint_path) #used for fine-tuning div2k-learned models
+        div2k_checkpoint_dir = os.path.join(args.data_dir, 'DIV2K', 'checkpoint', 'DIV2K_X{}'.format(scale), model.name)
         checkpoint_dir = os.path.join(args.data_dir, args.content, 'checkpoint', args.lr_video_name, '{}_finetune'.format(model.name))
         log_dir = os.path.join(args.data_dir, args.content, 'log', args.lr_video_name,  '{}_finetune'.format(model.name))
-
-    NEMOTrainer(model, checkpoint_dir, log_dir).train(train_ds, test_ds, args.num_epochs, args.num_steps_per_epoch)
-
+        trainer = NEMOTrainer(model, checkpoint_dir, log_dir)
+        trainer.restore(div2k_checkpoint_dir)
+        trainer.train(train_ds, test_ds, args.num_epochs, args.num_steps_per_epoch)
