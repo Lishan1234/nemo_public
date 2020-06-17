@@ -51,6 +51,7 @@ if __name__ == '__main__':
     lr_image_shape = [lr_video_profile['height'], lr_video_profile['width'], 3]
     hr_image_shape = [lr_video_profile['height'] * scale, lr_video_profile['width'] * scale, 3]
 
+
     lr_image_dir = os.path.join(args.data_dir, args.content, 'image', args.lr_video_name, '{}fps'.format(args.sample_fps))
     hr_image_dir = os.path.join(args.data_dir, args.content, 'image', args.hr_video_name, '{}fps'.format(args.sample_fps))
     sample_and_save_images(lr_video_path, lr_image_dir, args.sample_fps, args.ffmpeg_path)

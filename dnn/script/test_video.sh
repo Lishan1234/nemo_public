@@ -133,7 +133,7 @@ do
                 _set_bitrate ${resolution}
                 _set_num_blocks ${resolution} ${quality}
                 _set_num_filters ${resolution} ${quality}
-                CUDA_VISIBLE_DEVICES=${gpu_index} python ${NEMO_ROOT}/dnn/test_video.py --data_dir ${NEMO_ROOT}/data --content ${content} --lr_video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --hr_video_name 1080p_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --train_type ${train_type} --load_on_memory
+                CUDA_VISIBLE_DEVICES=${gpu_index} python ${NEMO_ROOT}/dnn/test_video.py --data_dir ${NEMO_ROOT}/data --content ${content} --lr_video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --hr_video_name 2160p_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --train_type ${train_type} --load_on_memory
             done
         done
     done

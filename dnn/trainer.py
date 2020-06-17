@@ -104,5 +104,5 @@ class NEMOTrainer(Trainer):
                     learning_rate=tf.keras.optimizers.schedules.PiecewiseConstantDecay(boundaries=[200000], values=[1e-4, 5e-5])):
         super().__init__(model, loss=tf.keras.losses.MeanAbsoluteError(), learning_rate=learning_rate, checkpoint_dir=checkpoint_dir, log_dir=log_dir)
 
-    def train(self, train_dataset, test_dataset, num_epochs=300000, num_steps_per_epoch=1000):
+    def train(self, train_dataset, test_dataset, num_epochs=300, num_steps_per_epoch=1000):
         super().train(train_dataset, test_dataset, num_epochs, num_steps_per_epoch)
