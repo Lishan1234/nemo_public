@@ -26,6 +26,8 @@ if __name__ == '__main__':
     parser.add_argument('--lr_video_name', type=str, required=True)
     parser.add_argument('--hr_video_name', type=str, required=True)
     parser.add_argument('--sample_fps', type=float, default=1.0)
+    parser.add_argument('--output_width', type=int, default=1920)
+    parser.add_argument('--output_height', type=int, default=1080)
 
     #testing
     parser.add_argument('--load_on_memory', action='store_true')
@@ -44,10 +46,9 @@ if __name__ == '__main__':
 
     lr_video_path = os.path.join(args.data_dir, args.content, 'video', args.lr_video_name)
     hr_video_path = os.path.join(args.data_dir, args.content, 'video', args.hr_video_name)
-    print(lr_video_path, hr_video_path)
     lr_video_profile = profile_video(lr_video_path)
     hr_video_profile = profile_video(hr_video_path)
-    scale = hr_video_profile['height'] // lr_video_profile['height']
+    scale = args.output_height// lr_video_profile['height'] #NEMO upscales a LR image to a 1080p version
     lr_image_shape = [lr_video_profile['height'], lr_video_profile['width'], 3]
     hr_image_shape = [lr_video_profile['height'] * scale, lr_video_profile['width'] * scale, 3]
 
