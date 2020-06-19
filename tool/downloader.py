@@ -95,11 +95,11 @@ def get_video_url(content, index):
         if index == 0:
             pass
         elif index == 1:
-            url = "https://www.youtube.com/watch?v=x4yF3a3Zn4Y"
-        elif index == 2:
             url = "https://www.youtube.com/watch?v=l0DoQYGZt8M"
+        elif index == 2:
+            url = "https://www.youtube.com/watch?v=ouOUyiTCPWE"
         elif index == 3:
-            url = "https://www.youtube.com/watch?v=Eg3XPICiiE4"
+            url = "https://www.youtube.com/watch?v=87INnNz4Jzw"
     return url
 
 if __name__ == '__main__':
@@ -112,6 +112,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     url = get_video_url(args.content, args.index)
+    print(args.content, args.index)
     assert(url is not None)
     video_path= os.path.join(args.video_dir, '{}{}.webm'.format(args.content, args.index))
     cmd = "{} -f 'bestvideo[height=2160][fps=30][ext=webm]' -o {} {}".format(args.youtubedl_path, video_path, url)
