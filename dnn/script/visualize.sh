@@ -3,11 +3,12 @@
 function _usage()
 {
 cat << EOF
-_usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-g GPU_INDEX] [-c CONTENTS] [-q QUALITIES] [-r RESOLUTIONS]
+_usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-g GPU_INDEX] [-c CONTENTS] [-i INDEXES] [-q QUALITIES] [-r RESOLUTIONS]
 
 mandatory arguments:
  -g GPU_INDEX                Specifies GPU index to use
  -c CONTENT                  Specifies content (e.g., product_review0)
+ -i INDEXES                  Specifies indexes (e.g., 0)
  -q QUALITIY                 Specifies quality (e.g., low)
  -r RESOLUTION               Specifies resolution (e.g., 240)
 
@@ -88,18 +89,19 @@ function _set_num_filters(){
 
 [[ ($# -ge 1)  ]] || { echo "[ERROR] Invalid number of arguments. See -h for help."; exit 1;  }
 
-while getopts ":g:c:q:r:h" opt; do
+while getopts ":g:c:i:q:r:h" opt; do
     case $opt in
         h) _usage; exit 0;;
         g) gpu_index="$OPTARG";;
         c) content="$OPTARG";;
+        i) index="$OPTARG";;
         q) quality="$OPTARG";;
         r) resolution="$OPTARG";;
         \?) exit 1;
     esac
 done
 
-if [ -z "${gpu_index+x}" ] || [ -z "${content+x}" ] || [ -z "${resolution}" ] || [ -z "${quality}" ]; then
+if [ -z "${gpu_index+x}" ] || [ -z "${content+x}" ] || [ -z "${index+x}" ] || [ -z "${resolution}" ] || [ -z "${quality}" ]; then
     echo "[ERROR] gpu_index and content and resolution and quality must be set"
     exit 1;
 fi
@@ -110,4 +112,4 @@ _set_bitrate ${resolution}
 _set_num_blocks ${resolution} ${quality}
 _set_num_filters ${resolution} ${quality}
 
-CUDA_VISIBLE_DEVICES=${gpu_index} python ${NEMO_ROOT}/dnn/visualize.py --dataset_dir ${NEMO_ROOT}/data/${content}/ --lr_video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --hr_video_name 1080p_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters}
+CUDA_VISIBLE_DEVICES=${gpu_index} python ${NEMO_ROOT}/dnn/visualize.py --dataset_dir ${NEMO_ROOT}/data/${content}${index}/ --lr_video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --hr_video_name 1080p_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters}
