@@ -39,6 +39,11 @@ class Trainer:
             bilinear_psnr = tf.image.psnr(bilinear_img, hr_img, max_val=255)[0]
             bilinear_psnrs.append(bilinear_psnr)
 
+            if tf.math.is_inf(bilinear_psnr):
+                bilinear_psnr = 100
+            if tf.math.is_inf(sr_psnr):
+                sr_psnr = 100
+
             progbar.update(idx+1)
 
             """

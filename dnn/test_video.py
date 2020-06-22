@@ -3,6 +3,7 @@ import argparse
 import os
 import sys
 
+import numpy as np
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.metrics import Mean
@@ -73,7 +74,9 @@ if __name__ == '__main__':
         log_dir = os.path.join(args.data_dir, args.content, 'log', 'DIV2K_X{}'.format(scale), model.name)
     else:
         raise ValueError('Unsupported training types')
-    model.load_weights(os.path.join(checkpoint_dir, '{}.h5'.format(model.name)))
+    ckpt = tf.train.Checkpoint(model=model)
+    ckpt_path = tf.train.latest_checkpoint(checkpoint_dir)
+    ckpt.restore(ckpt_path)
 
     log_path = os.path.join(log_dir, 'quality_{}fps.log'.format(args.sample_fps))
     with open(log_path, 'w') as f:
@@ -83,7 +86,7 @@ if __name__ == '__main__':
             hr_img = imgs[1]
 
             lr_img = tf.cast(lr_img, tf.float32)
-            sr_img = model(lr_img)
+            sr_img = ckpt.model(lr_img)
             sr_img = tf.clip_by_value(sr_img, 0, 255)
             sr_img = tf.round(sr_img)
             sr_img = tf.cast(sr_img, tf.uint8)
@@ -96,3 +99,8 @@ if __name__ == '__main__':
 
             f.write('{:.4f}\t{:.4f}\t{:.4f}\n'.format(sr_psnr, bilinear_psnr, sr_psnr - bilinear_psnr))
             progbar.update(idx+1)
+
+            if tf.math.is_inf(bilinear_psnr):
+                bilinear_psnr = 100
+            if tf.math.is_inf(sr_psnr):
+                sr_psnr = 100
