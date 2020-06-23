@@ -53,141 +53,100 @@
 #define LOGF(...) __android_log_print(_FATAL,TAG,__VA_ARGS__)
 #define LOGS(...) __android_log_print(_SILENT,TAG,__VA_ARGS__)
 
-static void _mkdir(const char *dir) {
-    char tmp[PATH_MAX];
-    char *p = NULL;
-    size_t len;
 
-    snprintf(tmp, sizeof(tmp),"%s",dir);
-    len = strlen(tmp);
-    if(tmp[len - 1] == '/')
-        tmp[len - 1] = 0;
-    for(p = tmp + 1; *p; p++)
-        if(*p == '/') {
-            *p = 0;
-            mkdir(tmp, S_IRWXU);
-            *p = '/';
-        }
-    mkdir(tmp, S_IRWXU);
+const char *root_dir = "/storage/emulated/0/Android/data/android.example.testlibvpx/files";
+
+static const char *get_video_name(int resolution) {
+    if (resolution == 240) return "240p_512kbps_s0_d300.webm";
+    else if (resolution == 360) return "360p_1024kbps_s0_d300.webm";
+    else if (resolution == 480) return "480p_1600kbps_s0_d300.webm";
+    else if (resolution == 720) return "720p_2640kbps_s0_d300.webm";
+    else if (resolution == 1080) return "1080p_4400kbps_s0_d300.webm";
+//    else if (resolution == 1440) return "1440p_1600kbps_s0_d300.webm";
+    else if (resolution == 2160) return "2160p_s0_d300.webm";
+    else return NULL;
 }
 
-static mobinas_cfg setup(const char *content_dir, const char *input_video) {
-    mobinas_cfg_t mobinas_cfg = {0};
-
-    sprintf(mobinas_cfg.log_dir, "%s/log/%s", content_dir, input_video);
-    sprintf(mobinas_cfg.input_frame_dir, "%s/image/%s", content_dir, input_video);
-    _mkdir(mobinas_cfg.log_dir);
-    _mkdir(mobinas_cfg.input_frame_dir);
-
-    mobinas_cfg.save_frame = 1;
-    mobinas_cfg.decode_mode = DECODE;
-
-    return mobinas_cfg;
+static const char *get_dnn_name(int resolution, nemo_dnn_quality quality) {
+    if (resolution == 240) {
+        if (quality == LOW) return "NEMO_S_B8_F9_S4_deconv";
+        else if (quality == MEDIUM) return "NEMO_S_B8_F21_S4_deconv";
+        else if (quality == HIGH) return "NEMO_S_B8_F32_S4_deconv";
+    }
+    else if (resolution == 360) {
+        if (quality == LOW) return "NEMO_S_B4_F8_S3_deconv";
+        else if (quality == MEDIUM) return "NEMO_S_B4_F18_S3_deconv";
+        else if (quality == HIGH) return "NEMO_S_B4_F29_S3_deconv";
+    }
+    else if (resolution == 480) {
+        if (quality == LOW) return "NEMO_S_B4_F4_S2_deconv";
+        else if (quality == MEDIUM) return "NEMO_S_B4_F9_S2_deconv";
+        else if (quality == HIGH) return "NEMO_S_B4_F18_S2_deconv";
+    }
+    else
+        return NULL;
 }
 
-static mobinas_cfg online_sr(const char *content_dir, const char *input_video, const char *compare_video, const char *dnn_name, const char *dnn_file) {
-    mobinas_cfg_t mobinas_cfg = {0};
+static mobinas_cfg init_nemo_config(const char *content, int resolution, nemo_dnn_quality quality, mobinas_decode_mode decode_mode) {
+    mobinas_cfg_t nemo_cfg = {0};
+    const char *input_video_name = get_video_name(resolution);
+    const char *reference_video_name = get_video_name(2160);
+    const char *dnn_name = get_dnn_name(resolution, quality);
 
-    sprintf(mobinas_cfg.log_dir, "%s/log/%s/%s", content_dir, input_video, dnn_name);
-    sprintf(mobinas_cfg.input_frame_dir, "%s/image/%s", content_dir, input_video);
-    sprintf(mobinas_cfg.sr_frame_dir, "%s/image/%s/%s", content_dir, input_video, dnn_name);
-    sprintf(mobinas_cfg.sr_compare_frame_dir, "%s/image/%s", content_dir, compare_video);
-    _mkdir(mobinas_cfg.log_dir);
-    _mkdir(mobinas_cfg.input_frame_dir);
-    _mkdir(mobinas_cfg.sr_frame_dir);
-    _mkdir(mobinas_cfg.sr_compare_frame_dir);
+    if (decode_mode == DECODE) {
+        sprintf(nemo_cfg.log_dir, "%s/%s/log/%s", root_dir, content, input_video_name);
+        sprintf(nemo_cfg.input_frame_dir, "%s/%s/image/%s", root_dir, content, input_video_name);
+        sprintf(nemo_cfg.input_reference_frame_dir, "%s/%s/image/%s", root_dir, content, input_video_name);
+    }
+    else if (decode_mode == DECODE_SR || decode_mode == DECODE_CACHE) {
+        sprintf(nemo_cfg.log_dir, "%s/%s/log/%s", root_dir, content, input_video_name, dnn_name);
+        sprintf(nemo_cfg.input_frame_dir, "%s/%s/image/%s", root_dir, content, input_video_name);
+        sprintf(nemo_cfg.sr_frame_dir, "%s/%s/image/%s/%s", root_dir, content, input_video_name, dnn_name);
+        sprintf(nemo_cfg.input_reference_frame_dir, "%s/%s/image/%s", root_dir, content, input_video_name);
+        sprintf(nemo_cfg.sr_reference_frame_dir, "%s/%s/image/%s", root_dir, content, reference_video_name);
+        sprintf(nemo_cfg.sr_offline_frame_dir, "%s/%s/image/%s/%s", root_dir, content, reference_video_name, dnn_name);
+    }
 
-    mobinas_cfg.save_frame = 1;
-    mobinas_cfg.save_quality = 1;
-    mobinas_cfg.save_latency = 0;
-    mobinas_cfg.save_metadata = 0;
-
-    mobinas_cfg.decode_mode = DECODE_SR;
-    mobinas_cfg.dnn_mode = ONLINE_DNN;
-    mobinas_cfg.dnn_runtime = GPU_FLOAT16;
-
-    sprintf(mobinas_cfg.dnn_path, "%s/checkpoint/%s/%s", content_dir, dnn_name, dnn_file);
-
-    return mobinas_cfg;
-}
-
-static mobinas_cfg offline_sr(const char *content_dir, const char *input_video, const char *compare_video, const char *dnn_name, const char *dnn_file) {
-    mobinas_cfg_t mobinas_cfg = {0};
-
-    sprintf(mobinas_cfg.log_dir, "%s/log/%s/%s", content_dir, input_video, dnn_name);
-    sprintf(mobinas_cfg.input_frame_dir, "%s/image/%s", content_dir, input_video);
-    sprintf(mobinas_cfg.sr_frame_dir, "%s/image/%s", content_dir, compare_video);
-//    sprintf(mobinas_cfg.sr_frame_dir, "%s/image/%s/%s", content_dir, input_video, dnn_name);
-//    sprintf(mobinas_cfg.sr_compare_frame_dir, "%s/image/%s", content_dir, compare_video);
-    _mkdir(mobinas_cfg.log_dir);
-    _mkdir(mobinas_cfg.input_frame_dir);
-    _mkdir(mobinas_cfg.sr_frame_dir);
-    _mkdir(mobinas_cfg.sr_compare_frame_dir);
-
-    mobinas_cfg.save_frame = 1;
-    mobinas_cfg.save_quality = 0;
-    mobinas_cfg.save_latency = 0;
-    mobinas_cfg.save_metadata = 0;
-
-    mobinas_cfg.decode_mode = DECODE_SR;
-    mobinas_cfg.dnn_mode = OFFLINE_DNN;
-
-    sprintf(mobinas_cfg.dnn_path, "%s/checkpoint/%s/%s", content_dir, dnn_name, dnn_file);
-
-    return mobinas_cfg;
-}
-
-static mobinas_cfg cache(const char *content_dir, const char *input_video, const char *compare_video, const char *dnn_name, const char *dnn_file) {
-    mobinas_cfg_t mobinas_cfg = {0};
-
-    sprintf(mobinas_cfg.log_dir, "%s/log/%s/%s", content_dir, input_video, dnn_name);
-    sprintf(mobinas_cfg.input_frame_dir, "%s/image/%s", content_dir, input_video);
-    sprintf(mobinas_cfg.sr_frame_dir, "%s/image/%s/%s", content_dir, input_video, dnn_name);
-    sprintf(mobinas_cfg.sr_compare_frame_dir, "%s/image/%s", content_dir, compare_video);
-    _mkdir(mobinas_cfg.log_dir);
-    _mkdir(mobinas_cfg.input_frame_dir);
-    _mkdir(mobinas_cfg.sr_frame_dir);
-    _mkdir(mobinas_cfg.sr_compare_frame_dir);
-
-    mobinas_cfg.save_frame = 1;
-    mobinas_cfg.save_quality = 0;
-    mobinas_cfg.save_latency = 0;
-    mobinas_cfg.save_metadata = 0;
-
-    mobinas_cfg.decode_mode = DECODE_CACHE;
-    mobinas_cfg.dnn_mode = NO_DNN;
-
-    return mobinas_cfg;
+    return nemo_cfg;
 }
 
 JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxdec
         (JNIEnv *env, jclass jobj)
 {
-    const char *content_dir = "/storage/emulated/0/Android/data/android.example.testlibvpx/files";
-    const char *input_video = "240p_s0_d60_encoded.webm";
-    const char *compare_video = "960p_s0_d60.webm";
-    const char *dnn_name = "EDSR_S_B8_F64_S4";
-    const char *dnn_file = "ckpt-100.dlc";
+    /* setup NEMO configuration */
+    const char *content = "product_review0";
+    int resolution = 240;
+    nemo_dnn_quality quality = HIGH;
+    mobinas_decode_mode decode_mode = DECODE_SR;
+    mobinas_cache_mode cache_mode = KEY_FRAME_CACHE;
+    mobinas_dnn_mode dnn_mode = ONLINE_DNN;
 
+    mobinas_cfg nemo_cfg = init_nemo_config(content, resolution, quality, decode_mode);
+    nemo_cfg.cache_mode = cache_mode;
+    nemo_cfg.dnn_mode = dnn_mode;
+    nemo_cfg.save_rgbframe = 0;
+    nemo_cfg.save_yuvframe = 0;
+    nemo_cfg.save_quality = 0;
+    nemo_cfg.save_latency = 0;
+    nemo_cfg.save_metadata = 0;
+    nemo_cfg.filter_interval = 0;
+
+    /* setup vpx configuration */
     vpxdec_cfg_t vpxdec_cfg = {0};
+    vpxdec_cfg.resolution = resolution;
     vpxdec_cfg.arg_skip = 0;
     vpxdec_cfg.threads = 1;
-    vpxdec_cfg.stop_after = 12;
+    vpxdec_cfg.stop_after = 120;
     vpxdec_cfg.num_external_frame_buffers = 50;
+    sprintf(vpxdec_cfg.video_path, "%s/%s/video/%s", root_dir, content, get_video_name(resolution));
+    sprintf(vpxdec_cfg.dnn_path, "%s/%s/checkpoint/%s.dlc", root_dir, content, get_video_name(resolution), get_dnn_name(resolution, quality));
+    sprintf(vpxdec_cfg.dnn_path, "%s/%s/video/%s", root_dir, content, get_video_name(resolution)); //TODO: cache profile path
 
-    mobinas_cfg setup_mobinas_cfg;
-    mobinas_cfg cache_mobinas_cfg;
-    mobinas_cfg dnn_mobinas_cfg;
-
-//    sprintf(vpxdec_cfg.video_path, "%s/video/%s", content_dir, input_video);
-//    setup_mobinas_cfg = setup(content_dir, input_video);
-//    decode(&setup_mobinas_cfg, &vpxdec_cfg);
-
-//    sprintf(vpxdec_cfg.video_path, "%s/video/%s", content_dir, compare_video);
-//    setup_mobinas_cfg = setup(content_dir, compare_video);
-//    decode(&setup_mobinas_cfg, &vpxdec_cfg);
-
-    sprintf(vpxdec_cfg.video_path, "%s/video/%s", content_dir, input_video);
-    dnn_mobinas_cfg = online_sr(content_dir, input_video, compare_video, dnn_name, dnn_file);
-    decode(&dnn_mobinas_cfg, &vpxdec_cfg);
+//    LOGD("log_dir: %s", nemo_cfg.log_dir);
+//    LOGD("input frame_dir: %s", nemo_cfg.input_frame_dir);
+//    LOGD("sr frame_dir: %s", nemo_cfg.sr_frame_dir);
+//    LOGD("input reference frame_dir: %s", nemo_cfg.input_reference_frame_dir);
+//    LOGD("sr reference frame_dir: %s", nemo_cfg.sr_reference_frame_dir);
+//    LOGD("sr offline frame_dir: %s", nemo_cfg.sr_offline_frame_dir);
+//    decode(&nemo_cfg, &vpxdec_cfg);
 }

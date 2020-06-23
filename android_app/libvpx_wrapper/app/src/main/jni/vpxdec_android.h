@@ -12,8 +12,17 @@ typedef struct vpxdec_cfg_t{
     int threads;
     int stop_after;
     int num_external_frame_buffers;
+    int resolution;
     char video_path[PATH_MAX];
+    char dnn_path[PATH_MAX];
+    char cache_profile_path[PATH_MAX];
 } vpxdec_cfg_t;
+
+typedef enum{
+    LOW,
+    MEDIUM,
+    HIGH,
+} nemo_dnn_quality;
 
 #ifdef __cplusplus
 extern "C" {

@@ -414,15 +414,20 @@ static int img_shifted_realloc_required(const vpx_image_t *img,
 }
 #endif
 
-int decode(mobinas_cfg_t *mobinas_cfg, vpxdec_cfg_t *vpxdec_cfg) {
+//TODO: turn-on a debugging mode
+//TODO: check load_mobinas_cfg
+//TODO: check load_mobinas_dnn
+//TODO: check DECODE_SR
+//TODO: check DECODE_CACHE
+int decode(mobinas_cfg_t *nemo_cfg, vpxdec_cfg_t *vpx_cfg) {
     vpx_codec_ctx_t decoder;
     int i;
     int ret = EXIT_FAILURE;
     uint8_t *buf = NULL;
     size_t bytes_in_buffer = 0, buffer_size = 0;
     FILE *infile;
-    int arg_skip = vpxdec_cfg->arg_skip;
-    int stop_after = vpxdec_cfg->stop_after;
+    int arg_skip = vpx_cfg->arg_skip;
+    int stop_after = vpx_cfg->stop_after;
     int frame_in = 0;
     int frame_out = 0;
     int flipuv = 0;
@@ -441,7 +446,7 @@ int decode(mobinas_cfg_t *mobinas_cfg, vpxdec_cfg_t *vpxdec_cfg) {
     int opt_yv12 = 0;
     int opt_i420 = 0;
     vpx_codec_dec_cfg_t cfg = {0, 0, 0};
-    cfg.threads = vpxdec_cfg->threads;
+    cfg.threads = vpx_cfg->threads;
 #if CONFIG_VP9_HIGHBITDEPTH
     unsigned int output_bit_depth = 0;
 #endif
@@ -458,7 +463,7 @@ int decode(mobinas_cfg_t *mobinas_cfg, vpxdec_cfg_t *vpxdec_cfg) {
     vpx_image_t *img_shifted = NULL;
 #endif
     int frame_avail, got_data, flush_decoder = 0;
-    int num_external_frame_buffers = vpxdec_cfg->num_external_frame_buffers ;
+    int num_external_frame_buffers = vpx_cfg->num_external_frame_buffers ;
     struct ExternalFrameBufferList ext_fb_list = {0, NULL};
 
     const char *outfile_pattern = NULL;
@@ -479,10 +484,10 @@ int decode(mobinas_cfg_t *mobinas_cfg, vpxdec_cfg_t *vpxdec_cfg) {
 
     /*******************Hyunho************************/
     /* Open file */
-    infile = fopen(vpxdec_cfg->video_path, "rb");
+    infile = fopen(vpx_cfg->video_path, "rb");
     if (!infile)
     {
-        LOGE("Failed to open input file %s\n", vpxdec_cfg->video_path);
+        LOGE("Failed to open input file %s\n", vpx_cfg->video_path);
         exit(EXIT_FAILURE);
     }
     /*******************Hyunho************************/
@@ -521,7 +526,7 @@ int decode(mobinas_cfg_t *mobinas_cfg, vpxdec_cfg_t *vpxdec_cfg) {
         if (do_md5)
             MD5Init(&md5_ctx);
         else
-            outfile = open_outfile(outfile_name, mobinas_cfg->log_dir);
+            outfile = open_outfile(outfile_name, nemo_cfg->log_dir);
     }
 
     if (use_y4m && !noblit) {
@@ -609,19 +614,26 @@ int decode(mobinas_cfg_t *mobinas_cfg, vpxdec_cfg_t *vpxdec_cfg) {
     double cpu_time_used;
     start = clock();
 
-    /*******************Hyunho************************/
-    if (vpx_load_mobinas_cfg(&decoder, mobinas_cfg)){
+    /* NEMO: Load configuration */
+    if (vpx_load_mobinas_cfg(&decoder, nemo_cfg)){
         LOGE("Failed to load mobinas cfg: %s\n", vpx_codec_error(&decoder));
         goto fail;
     };
 
-    if (mobinas_cfg->dnn_mode == DECODE_SR || mobinas_cfg->dnn_mode == DECODE_CACHE) {
-        if(vpx_load_mobinas_dnn(&decoder, mobinas_cfg)){
-            LOGE("Failed to load mobinas dnn: %s\n", vpx_codec_error(&decoder));
+    /* NEMO: Load a DNN */
+    if (nemo_cfg->dnn_mode == ONLINE_DNN && (nemo_cfg->dnn_mode == DECODE_SR || nemo_cfg->dnn_mode == DECODE_CACHE)) {
+        if(vpx_load_mobinas_dnn(&decoder, nemo_cfg, vpx_cfg->resolution, vpx_cfg->dnn_path)){
+            warn("Failed to load a DNN: %s\n", vpx_codec_error(&decoder));
             goto fail;
         }
     }
-    /*******************Hyunho************************/
+    /* NEMO: Load a cache profile */
+    if (nemo_cfg->cache_mode == PROFILE_CACHE){
+        if(vpx_load_mobinas_cache_profile(&decoder, nemo_cfg, vpx_cfg->resolution, vpx_cfg->cache_profile_path)){
+            warn("Failed to load a cache profile: %s\n", vpx_codec_error(&decoder));
+            goto fail;
+        }
+    }
 
     while (frame_avail || got_data) {
         vpx_codec_iter_t iter = NULL;
@@ -836,7 +848,7 @@ int decode(mobinas_cfg_t *mobinas_cfg, vpxdec_cfg_t *vpxdec_cfg) {
                     MD5Final(md5_digest, &md5_ctx);
                     print_md5(md5_digest, outfile_name);
                 } else {
-                    outfile = open_outfile(outfile_name, mobinas_cfg->log_dir);
+                    outfile = open_outfile(outfile_name, nemo_cfg->log_dir);
                     write_image_file(img, planes, outfile);
                     fclose(outfile);
                 }
