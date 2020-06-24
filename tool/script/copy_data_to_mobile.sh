@@ -3,12 +3,12 @@
 function _usage()
 {
 cat << EOF
-_usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-g GPU_INDEX] [-c CONTENTS] [-i INDEXES] [-q QUALITIES] [-r RESOLUTIONS]
+_usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-c CONTENTS] [-i INDEXES] [-q QUALITIES] [-r RESOLUTIONS] [-d DEVICE] [-t TRAIN_TYPE]
 
 mandatory arguments:
--g GPU_INDEX                Specifies GPU index to use
 -c CONTENTS                 Specifies contents (e.g., product_review)
--t TRAIN_TYPES               Specifies train types (e.g., train_video)
+-d DEVICE_ID                Specifies device id
+-t TRAIN_TYPE               Specifies train_type (e.g., finetune_video)
 
 optional multiple arguments:
 -i INDEXES                  Specifies indexes (e.g., 0)
@@ -21,7 +21,7 @@ EOF
 function _set_conda(){
     source ~/anaconda3/etc/profile.d/conda.sh
     conda deactivate
-    conda activate nemo_py3.6
+    conda activate nemo_py3.4
 }
 
 function _set_bitrate(){
@@ -92,21 +92,21 @@ function _set_num_filters(){
 
 [[ ($# -ge 1)  ]] || { echo "[ERROR] Invalid number of arguments. See -h for help."; exit 1;  }
 
-while getopts ":g:c:i:q:r:t:h" opt; do
+while getopts ":c:i:q:r:d:t:h" opt; do
     case $opt in
         h) _usage; exit 0;;
-        g) gpu_index="$OPTARG";;
         c) contents+=("$OPTARG");;
         i) indexes+=("$OPTARG");;
         q) qualities+=("$OPTARG");;
         r) resolutions+=("$OPTARG");;
+        d) device_id="$OPTARG";;
         t) train_type="$OPTARG";;
         \?) exit 1;
     esac
 done
 
-if [ -z "${gpu_index+x}" ] || [ -z "${contents+x}" ] || [ -z "${train_type+x}" ]; then
-    echo "[ERROR] gpu_index and contents and train_type must be set"
+if [ -z "${contents+x}" ] || [ -z "${device_id+x}" ] || [ -z "${train_type+x}" ]; then
+    echo "[ERROR] contents and device_id and train_type must be set"
     exit 1;
 fi
 
@@ -135,7 +135,7 @@ do
                 _set_bitrate ${resolution}
                 _set_num_blocks ${resolution} ${quality}
                 _set_num_filters ${resolution} ${quality}
-                CUDA_VISIBLE_DEVICES=${gpu_index} python ${NEMO_ROOT}/dnn/test_video.py --data_dir ${NEMO_ROOT}/data --content ${content}${index} --lr_video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --hr_video_name 2160p_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --train_type ${train_type} --load_on_memory
+                python ${NEMO_ROOT}/tool/copy_data_to_mobile.py --data_dir ${NEMO_ROOT}/data --content ${content}${index} --lr_video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --hr_video_name 2160p_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --device_id=${device_id} --train_type=${train_type}
             done
         done
     done
