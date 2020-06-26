@@ -65,7 +65,7 @@ class LibvpxEncoder():
         output_video_name = '{}p{}.webm'.format(self.input_height, self._name(start, duration))
         output_video_path = os.path.join(self.output_video_dir, output_video_name)
         cmd_opt = '-ss {} -t {}'.format(start, duration)
-        cmd = '{} -i {} -c:v libvpx-vp9 -c copy {} {} {}'.format(self.ffmpeg_path,
+        cmd = '{} -i {} -y -c:v libvpx-vp9 -c copy {} {} {}'.format(self.ffmpeg_path,
             self.input_video_path, self._threads(self.input_height), cmd_opt, output_video_path)
         os.system(cmd)
 
@@ -77,7 +77,8 @@ class LibvpxEncoder():
         max_bitrate = '{}k'.format(int(bitrate * 1.45))
         passlog_name = '{}_{}'.format(self.output_video_dir.split('/')[-2], output_video_name) #assume output videos are saved as ".../[content]/video/*.webm"
 
-        base_cmd = '{} -i {} -c:v libvpx-vp9 -vf scale={}x{} -b:v {} -minrate {} -maxrate {} -g {} -quality good {} -passlogfile {} -y'.format(
+        base_cmd = '{} -i {} -c:v libvpx-vp9 -vf scale={}x{}:out_color_matrix=bt709 -colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range 1 \
+                    -b:v {} -minrate {} -maxrate {} -g {} -quality good {} -passlogfile {} -y'.format(
                         self.ffmpeg_path, self.input_video_path, width, height, target_bitrate, min_bitrate, max_bitrate, gop,
                         self._threads(height), passlog_name)
 
