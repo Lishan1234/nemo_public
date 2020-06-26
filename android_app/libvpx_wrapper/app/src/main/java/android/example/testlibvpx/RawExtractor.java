@@ -11,7 +11,7 @@ import java.util.zip.ZipInputStream;
 
 public class RawExtractor {
     private static final String LOG_TAG = RawExtractor.class.getSimpleName();
-    //public static final String MODELS_ROOT_DIR = "mobinas";
+    //public static final String MODELS_ROOT_DIR = "nemo";
     private static final int CHUNK_SIZE = 1024;
 
     private RawExtractor() {}

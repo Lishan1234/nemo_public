@@ -415,11 +415,11 @@ static int img_shifted_realloc_required(const vpx_image_t *img,
 #endif
 
 //TODO: turn-on a debugging mode
-//TODO: check load_mobinas_cfg
-//TODO: check load_mobinas_dnn
+//TODO: check load_nemo_cfg
+//TODO: check load_nemo_dnn
 //TODO: check DECODE_SR
 //TODO: check DECODE_CACHE
-int decode(mobinas_cfg_t *nemo_cfg, vpxdec_cfg_t *vpx_cfg) {
+int decode(nemo_cfg_t *nemo_cfg, vpxdec_cfg_t *vpx_cfg) {
     vpx_codec_ctx_t decoder;
     int i;
     int ret = EXIT_FAILURE;
@@ -482,15 +482,13 @@ int decode(mobinas_cfg_t *nemo_cfg, vpxdec_cfg_t *vpx_cfg) {
 #endif
     input.vpx_input_ctx = &vpx_input_ctx;
 
-    /*******************Hyunho************************/
-    /* Open file */
+    /* NEMO: Open file */
     infile = fopen(vpx_cfg->video_path, "rb");
     if (!infile)
     {
         LOGE("Failed to open input file %s\n", vpx_cfg->video_path);
         exit(EXIT_FAILURE);
     }
-    /*******************Hyunho************************/
 
 #if CONFIG_OS_SUPPORT
     /* Make sure we don't dump to the terminal, unless forced to with -o - */
@@ -615,21 +613,22 @@ int decode(mobinas_cfg_t *nemo_cfg, vpxdec_cfg_t *vpx_cfg) {
     start = clock();
 
     /* NEMO: Load configuration */
-    if (vpx_load_mobinas_cfg(&decoder, nemo_cfg)){
-        LOGE("Failed to load mobinas cfg: %s\n", vpx_codec_error(&decoder));
+    if (vpx_load_nemo_cfg(&decoder, nemo_cfg)){
+        LOGE("Failed to load nemo cfg: %s\n", vpx_codec_error(&decoder));
         goto fail;
     };
 
+
     /* NEMO: Load a DNN */
     if (nemo_cfg->dnn_mode == ONLINE_DNN && (nemo_cfg->dnn_mode == DECODE_SR || nemo_cfg->dnn_mode == DECODE_CACHE)) {
-        if(vpx_load_mobinas_dnn(&decoder, nemo_cfg, vpx_cfg->resolution, vpx_cfg->dnn_path)){
+        if(vpx_load_nemo_dnn(&decoder, vpx_cfg->scale, vpx_cfg->dnn_path)){
             warn("Failed to load a DNN: %s\n", vpx_codec_error(&decoder));
             goto fail;
         }
     }
     /* NEMO: Load a cache profile */
     if (nemo_cfg->cache_mode == PROFILE_CACHE){
-        if(vpx_load_mobinas_cache_profile(&decoder, nemo_cfg, vpx_cfg->resolution, vpx_cfg->cache_profile_path)){
+        if(vpx_load_nemo_cache_profile(&decoder, vpx_cfg->cache_profile_path)){
             warn("Failed to load a cache profile: %s\n", vpx_codec_error(&decoder));
             goto fail;
         }

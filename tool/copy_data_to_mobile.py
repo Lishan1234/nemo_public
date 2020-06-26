@@ -58,7 +58,7 @@ if __name__ == '__main__':
 
     #create directory at a device
     device_video_dir = os.path.join(args.device_rootdir, args.content, 'video')
-    device_checkpoint_dir = os.path.join(args.device_rootdir, args.content, 'checkpoint')
+    device_checkpoint_dir = os.path.join(args.device_rootdir, args.content, 'checkpoint', args.lr_video_name)
     adb_mkdir(device_video_dir, args.device_id)
     adb_mkdir(device_checkpoint_dir, args.device_id)
 

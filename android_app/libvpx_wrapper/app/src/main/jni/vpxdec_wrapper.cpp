@@ -27,11 +27,13 @@
 
 #include "android_example_testlibvpx_MainActivity.h"
 
-#include "vpx/vpx_mobinas.h"
+#include "vpx/vpx_nemo.h"
 #include <vpxdec_android.h>
 #include <map>
 #include <linux/stat.h>
 #include <sys/stat.h>
+#include <vpx_mem/vpx_mem.h>
+#include <cmath>
 
 #define TAG "libvpx_wrapper.cpp JNI"
 #define _UNKNOWN   0
@@ -87,66 +89,116 @@ static const char *get_dnn_name(int resolution, nemo_dnn_quality quality) {
         return NULL;
 }
 
-static mobinas_cfg init_nemo_config(const char *content, int resolution, nemo_dnn_quality quality, mobinas_decode_mode decode_mode) {
-    mobinas_cfg_t nemo_cfg = {0};
+static void setup_directory(nemo_cfg_t *nemo_cfg, const char *content, int resolution, nemo_dnn_quality quality, nemo_decode_mode decode_mode) {
     const char *input_video_name = get_video_name(resolution);
     const char *reference_video_name = get_video_name(2160);
     const char *dnn_name = get_dnn_name(resolution, quality);
 
     if (decode_mode == DECODE) {
-        sprintf(nemo_cfg.log_dir, "%s/%s/log/%s", root_dir, content, input_video_name);
-        sprintf(nemo_cfg.input_frame_dir, "%s/%s/image/%s", root_dir, content, input_video_name);
-        sprintf(nemo_cfg.input_reference_frame_dir, "%s/%s/image/%s", root_dir, content, input_video_name);
+        sprintf(nemo_cfg->log_dir, "%s/%s/log/%s", root_dir, content, input_video_name);
+        sprintf(nemo_cfg->input_frame_dir, "%s/%s/image/%s", root_dir, content, input_video_name);
+        sprintf(nemo_cfg->input_reference_frame_dir, "%s/%s/image/%s", root_dir, content, reference_video_name);
     }
     else if (decode_mode == DECODE_SR || decode_mode == DECODE_CACHE) {
-        sprintf(nemo_cfg.log_dir, "%s/%s/log/%s", root_dir, content, input_video_name, dnn_name);
-        sprintf(nemo_cfg.input_frame_dir, "%s/%s/image/%s", root_dir, content, input_video_name);
-        sprintf(nemo_cfg.sr_frame_dir, "%s/%s/image/%s/%s", root_dir, content, input_video_name, dnn_name);
-        sprintf(nemo_cfg.input_reference_frame_dir, "%s/%s/image/%s", root_dir, content, input_video_name);
-        sprintf(nemo_cfg.sr_reference_frame_dir, "%s/%s/image/%s", root_dir, content, reference_video_name);
-        sprintf(nemo_cfg.sr_offline_frame_dir, "%s/%s/image/%s/%s", root_dir, content, reference_video_name, dnn_name);
+        sprintf(nemo_cfg->log_dir, "%s/%s/log/%s", root_dir, content, input_video_name, dnn_name);
+        sprintf(nemo_cfg->input_frame_dir, "%s/%s/image/%s", root_dir, content, input_video_name);
+        sprintf(nemo_cfg->sr_frame_dir, "%s/%s/image/%s/%s", root_dir, content, input_video_name, dnn_name);
+        sprintf(nemo_cfg->input_reference_frame_dir, "%s/%s/image/%s", root_dir, content, input_video_name);
+        sprintf(nemo_cfg->sr_reference_frame_dir, "%s/%s/image/%s", root_dir, content, reference_video_name);
+        sprintf(nemo_cfg->sr_offline_frame_dir, "%s/%s/image/%s/%s", root_dir, content, reference_video_name, dnn_name);
     }
+}
 
-    return nemo_cfg;
+static void setup_mode_and_log(nemo_cfg_t *nemo_cfg, vpxdec_cfg_t *vpxdec_cfg, test_mode mode, int input_resolution, int reference_resolution, int target_width, int target_height) {
+    nemo_cfg->target_width = target_width;
+    nemo_cfg->target_height = target_height;
+    nemo_cfg->filter_interval = 0;
+    nemo_cfg->save_metadata = 1;
+
+    switch (mode) {
+        case SAVE_REFERENCE_FRAMES:
+            nemo_cfg->decode_mode = DECODE;
+            nemo_cfg->save_rgbframe = 1;
+            vpxdec_cfg->resolution = reference_resolution;
+            break;
+        case MEASURE_DECODE_LATENCY:
+            nemo_cfg->decode_mode = DECODE;
+            nemo_cfg->save_latency = 1;
+            vpxdec_cfg->resolution = input_resolution;
+            break;
+        case MEASURE_DECODE_QUALITY:
+            nemo_cfg->decode_mode = DECODE;
+            nemo_cfg->save_quality = 1;
+            vpxdec_cfg->resolution = input_resolution;
+            break;
+        case SAVE_DECODE_FRAMES:
+            nemo_cfg->decode_mode = DECODE;
+            nemo_cfg->save_rgbframe = 1;
+            vpxdec_cfg->resolution = input_resolution;
+            break;
+        case MEASURE_SR_LATENCY:
+            nemo_cfg->decode_mode = DECODE_SR;
+            nemo_cfg->dnn_mode = ONLINE_DNN;
+            nemo_cfg->dnn_runtime = GPU_FLOAT16;
+            nemo_cfg->save_latency = 1;
+            vpxdec_cfg->resolution = input_resolution;
+            break;
+        case MEASURE_SR_QUALITY:
+            nemo_cfg->decode_mode = DECODE_SR;
+            nemo_cfg->dnn_mode = ONLINE_DNN;
+            nemo_cfg->dnn_runtime = GPU_FLOAT16;
+            nemo_cfg->save_quality = 1;
+            vpxdec_cfg->resolution = input_resolution;
+            break;
+        case SAVE_SR_FRAMES:
+            nemo_cfg->decode_mode = DECODE_SR;
+            nemo_cfg->dnn_mode = ONLINE_DNN;
+            nemo_cfg->dnn_runtime = GPU_FLOAT16;
+            nemo_cfg->save_rgbframe = 1;
+            vpxdec_cfg->resolution = input_resolution;
+            break;
+    }
 }
 
 JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxdec
         (JNIEnv *env, jclass jobj)
 {
-    /* setup NEMO configuration */
-    const char *content = "product_review0";
-    int resolution = 240;
+    /* setup a test target */
+    const char *content = "product_review1";
     nemo_dnn_quality quality = HIGH;
-    mobinas_decode_mode decode_mode = DECODE_SR;
-    mobinas_cache_mode cache_mode = KEY_FRAME_CACHE;
-    mobinas_dnn_mode dnn_mode = ONLINE_DNN;
+    int input_resolution = 240;
+    int reference_resolution = 2160;
+    int target_height = 1080;
+    int target_width = 1920;
+//    test_mode mode = SAVE_REFERENCE_FRAMES;
+//    test_mode mode = MEASURE_DECODE_QUALITY;
+    test_mode mode = SAVE_DECODE_FRAMES;
+//    test_mode mode = MEASURE_SR_QUALITY;
+//    test_mode mode = SAVE_SR_FRAMES;
 
-    mobinas_cfg nemo_cfg = init_nemo_config(content, resolution, quality, decode_mode);
-    nemo_cfg.cache_mode = cache_mode;
-    nemo_cfg.dnn_mode = dnn_mode;
-    nemo_cfg.save_rgbframe = 0;
-    nemo_cfg.save_yuvframe = 0;
-    nemo_cfg.save_quality = 0;
-    nemo_cfg.save_latency = 0;
-    nemo_cfg.save_metadata = 0;
-    nemo_cfg.filter_interval = 0;
-
-    /* setup vpx configuration */
+    /* setup nemo_cfg, vpxdec_cdf */
+    nemo_cfg_t *nemo_cfg = init_nemo_cfg();
     vpxdec_cfg_t vpxdec_cfg = {0};
-    vpxdec_cfg.resolution = resolution;
+    setup_mode_and_log(nemo_cfg, &vpxdec_cfg, mode, input_resolution, reference_resolution, target_width, target_height);
+    setup_directory(nemo_cfg, content, vpxdec_cfg.resolution, quality, nemo_cfg->decode_mode);
     vpxdec_cfg.arg_skip = 0;
     vpxdec_cfg.threads = 1;
-    vpxdec_cfg.stop_after = 120;
+    vpxdec_cfg.stop_after = 10;
     vpxdec_cfg.num_external_frame_buffers = 50;
-    sprintf(vpxdec_cfg.video_path, "%s/%s/video/%s", root_dir, content, get_video_name(resolution));
-    sprintf(vpxdec_cfg.dnn_path, "%s/%s/checkpoint/%s.dlc", root_dir, content, get_video_name(resolution), get_dnn_name(resolution, quality));
-    sprintf(vpxdec_cfg.dnn_path, "%s/%s/video/%s", root_dir, content, get_video_name(resolution)); //TODO: cache profile path
+    vpxdec_cfg.scale = (int) floor (nemo_cfg->target_height / vpxdec_cfg.resolution);
+//    sprintf(vpxdec_cfg.video_path, "%s/%s/video/%s", root_dir, content, get_video_name(vpxdec_cfg.resolution));
+    sprintf(vpxdec_cfg.video_path, "%s/240p_ver2.webm", root_dir);
+    sprintf(vpxdec_cfg.dnn_path, "%s/%s/checkpoint/%s/%s.dlc", root_dir, content, get_video_name(vpxdec_cfg.resolution), get_dnn_name(vpxdec_cfg.resolution, quality));
+//    sprintf(vpxdec_cfg.dnn_path, "%s/%s/video/%s", root_dir, content, get_video_name(resolution)); //TODO: cache profile path
 
-//    LOGD("log_dir: %s", nemo_cfg.log_dir);
-//    LOGD("input frame_dir: %s", nemo_cfg.input_frame_dir);
-//    LOGD("sr frame_dir: %s", nemo_cfg.sr_frame_dir);
-//    LOGD("input reference frame_dir: %s", nemo_cfg.input_reference_frame_dir);
-//    LOGD("sr reference frame_dir: %s", nemo_cfg.sr_reference_frame_dir);
-//    LOGD("sr offline frame_dir: %s", nemo_cfg.sr_offline_frame_dir);
-//    decode(&nemo_cfg, &vpxdec_cfg);
+    /* debug */
+//    LOGD("log_dir: %s", nemo_cfg->log_dir);
+//    LOGD("input frame_dir: %s", nemo_cfg->input_frame_dir);
+//    LOGD("sr frame_dir: %s", nemo_cfg->sr_frame_dir);
+//    LOGD("input reference frame_dir: %s", nemo_cfg->input_reference_frame_dir);
+//    LOGD("sr reference frame_dir: %s", nemo_cfg->sr_reference_frame_dir);
+//    LOGD("sr offline frame_dir: %s", nemo_cfg->sr_offline_frame_dir);
+
+    decode(nemo_cfg, &vpxdec_cfg);
+    remove_nemo_cfg(nemo_cfg);
 }
