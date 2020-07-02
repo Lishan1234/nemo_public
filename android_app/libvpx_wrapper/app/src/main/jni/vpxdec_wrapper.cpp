@@ -157,6 +157,30 @@ static void setup_mode_and_log(nemo_cfg_t *nemo_cfg, vpxdec_cfg_t *vpxdec_cfg, t
             nemo_cfg->save_rgbframe = 1;
             vpxdec_cfg->resolution = input_resolution;
             break;
+        case MEASURE_CACHE_LATENCY:
+            nemo_cfg->decode_mode = DECODE_CACHE;
+            nemo_cfg->dnn_mode = ONLINE_DNN;
+            nemo_cfg->dnn_runtime = GPU_FLOAT16;
+            nemo_cfg->cache_mode = KEY_FRAME_CACHE;
+            nemo_cfg->save_latency = 1;
+            vpxdec_cfg->resolution = input_resolution;
+            break;
+        case MEASURE_CACHE_QUALITY:
+            nemo_cfg->decode_mode = DECODE_CACHE;
+            nemo_cfg->dnn_mode = ONLINE_DNN;
+            nemo_cfg->dnn_runtime = GPU_FLOAT16;
+            nemo_cfg->cache_mode = KEY_FRAME_CACHE;
+            nemo_cfg->save_quality = 1;
+            vpxdec_cfg->resolution = input_resolution;
+            break;
+        case SAVE_CACHE_FRAMES:
+            nemo_cfg->decode_mode = DECODE_CACHE;
+            nemo_cfg->dnn_mode = ONLINE_DNN;
+            nemo_cfg->dnn_runtime = GPU_FLOAT16;
+            nemo_cfg->cache_mode = KEY_FRAME_CACHE;
+            nemo_cfg->save_rgbframe = 1;
+            vpxdec_cfg->resolution = input_resolution;
+            break;
     }
 }
 
@@ -172,9 +196,14 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxdec
     int target_width = 1920;
 //    test_mode mode = SAVE_REFERENCE_FRAMES;
 //    test_mode mode = MEASURE_DECODE_QUALITY;
-    test_mode mode = SAVE_DECODE_FRAMES;
+//    test_mode mode = MEASURE_DECODE_LATENCY;
+//    test_mode mode = SAVE_DECODE_FRAMES;
 //    test_mode mode = MEASURE_SR_QUALITY;
+//    test_mode mode = MEASURE_SR_LATENCY;
 //    test_mode mode = SAVE_SR_FRAMES;
+//    test_mode mode = MEASURE_CACHE_QUALITY;
+    test_mode mode = MEASURE_CACHE_LATENCY;
+//    test_mode mode = SAVE_CACHE_FRAMES;
 
     /* setup nemo_cfg, vpxdec_cdf */
     nemo_cfg_t *nemo_cfg = init_nemo_cfg();
@@ -183,11 +212,11 @@ JNIEXPORT void JNICALL Java_android_example_testlibvpx_MainActivity_vpxdec
     setup_directory(nemo_cfg, content, vpxdec_cfg.resolution, quality, nemo_cfg->decode_mode);
     vpxdec_cfg.arg_skip = 0;
     vpxdec_cfg.threads = 1;
-    vpxdec_cfg.stop_after = 10;
+    vpxdec_cfg.stop_after = 120;
     vpxdec_cfg.num_external_frame_buffers = 50;
     vpxdec_cfg.scale = (int) floor (nemo_cfg->target_height / vpxdec_cfg.resolution);
-//    sprintf(vpxdec_cfg.video_path, "%s/%s/video/%s", root_dir, content, get_video_name(vpxdec_cfg.resolution));
-    sprintf(vpxdec_cfg.video_path, "%s/240p_ver2.webm", root_dir);
+    sprintf(vpxdec_cfg.video_path, "%s/%s/video/%s", root_dir, content, get_video_name(vpxdec_cfg.resolution));
+//    sprintf(vpxdec_cfg.video_path, "%s/240p_ver2.webm", root_dir);
     sprintf(vpxdec_cfg.dnn_path, "%s/%s/checkpoint/%s/%s.dlc", root_dir, content, get_video_name(vpxdec_cfg.resolution), get_dnn_name(vpxdec_cfg.resolution, quality));
 //    sprintf(vpxdec_cfg.dnn_path, "%s/%s/video/%s", root_dir, content, get_video_name(resolution)); //TODO: cache profile path
 
