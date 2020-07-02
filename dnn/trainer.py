@@ -31,18 +31,17 @@ class Trainer:
             sr_img = tf.round(sr_img)
             sr_img = tf.cast(sr_img, tf.uint8)
             sr_psnr = tf.image.psnr(sr_img, hr_img, max_val=255)[0]
+            if tf.math.is_inf(sr_psnr):
+                sr_psnr = 100
             sr_psnrs.append(sr_psnr)
 
             height = tf.shape(hr_img)[1]
             width = tf.shape(hr_img)[2]
             bilinear_img = resolve_bilinear(lr_img, height, width)
             bilinear_psnr = tf.image.psnr(bilinear_img, hr_img, max_val=255)[0]
-            bilinear_psnrs.append(bilinear_psnr)
-
             if tf.math.is_inf(bilinear_psnr):
                 bilinear_psnr = 100
-            if tf.math.is_inf(sr_psnr):
-                sr_psnr = 100
+            bilinear_psnrs.append(bilinear_psnr)
 
             progbar.update(idx+1)
 

@@ -104,3 +104,13 @@ if __name__ == '__main__':
                 bilinear_psnr = 100
             if tf.math.is_inf(sr_psnr):
                 sr_psnr = 100
+
+            sr_img = tf.squeeze(sr_img)
+            sr_img = tf.image.encode_png(tf.cast(sr_img, tf.uint8))
+            bilinear_img = tf.squeeze(bilinear_img)
+            bilinear_img = tf.image.encode_png(tf.cast(bilinear_img, tf.uint8))
+            image_dir = os.path.join(args.data_dir, args.content, 'image', args.lr_video_name, model.name)
+            os.makedirs(image_dir, exist_ok=True)
+            tf.io.write_file(os.path.join(image_dir, 'sr_{:04d}.png'.format(idx)), sr_img)
+            tf.io.write_file(os.path.join(image_dir, 'bilinear_{:04d}.png'.format(idx)), bilinear_img)
+            print(sr_psnr, bilinear_psnr)
