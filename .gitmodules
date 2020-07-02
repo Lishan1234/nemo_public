@@ -6,4 +6,4 @@
 	url = https://github.com/kaist-ina/tensorflow.git
 [submodule "third_party/snpe"]
 	path = third_party/snpe
-	url = https://143.248.53.100:11111/root/snpe.git
+	url = https://github.com/kaist-ina/snpe.git
