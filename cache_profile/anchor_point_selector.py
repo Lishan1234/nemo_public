@@ -81,17 +81,16 @@ class AnchorPointSelector():
                                                     num_skipped_frames, num_decoded_frames, postfix)
         quality_dnn = libvpx_offline_dnn_quality(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.hr_video_name, self.model.name, \
                                                  self.output_width, self.output_height, num_skipped_frames, num_decoded_frames, postfix)
+
         end_time = time.time()
         print('{} video chunk: (Step1-profile bilinear, dnn quality) {}sec'.format(chunk_idx, end_time - start_time))
-
-        sys.exit()
 
         #create multiple processes for parallel quality measurements
         start_time = time.time()
         q0 = mp.Queue()
         q1 = mp.Queue()
         decoders = [mp.Process(target=libvpx_offline_cache_quality_mt, args=(q0, q1, self.vpxdec_path, self.dataset_dir, \
-                                    self.lr_video_name, self.hr_video_name, self.model.name, lr_video_profile['height'])) for i in range(self.num_decoders)]
+                                    self.lr_video_name, self.hr_video_name, self.model.name, self.output_width, self.output_height)) for i in range(self.num_decoders)]
         for decoder in decoders:
             decoder.start()
 
@@ -99,7 +98,7 @@ class AnchorPointSelector():
         single_anchor_point_sets = []
         frames = libvpx_load_frame_index(self.dataset_dir, self.lr_video_name, postfix)
         for idx, frame in enumerate(frames):
-            anchor_point_set = CacheProfile.fromframes(frames, profile_dir, '{}.profile'.format(frame.name))
+            anchor_point_set = AnchorPointSet.create(frames, profile_dir, '{}.profile'.format(frame.name))
             anchor_point_set.add_anchor_point(frame)
             anchor_point_set.save_cache_profile()
             q0.put((anchor_point_set.path, num_skipped_frames, num_decoded_frames, postfix, idx))
@@ -132,10 +131,10 @@ class AnchorPointSelector():
             anchor_point_idx, estimated_quality = self._select_anchor_point(anchor_point_set, single_anchor_point_sets)
             selected_anchor_point = single_anchor_point_sets.pop(anchor_point_idx)
             if len(multile_anchor_point_sets) == 0:
-                anchor_point_set = CacheProfile.fromcacheprofile(selected_anchor_point, profile_dir, '{}_{}_{}.profile'.format(algorithm_type, len(selected_anchor_point.anchor_points)))
+                anchor_point_set = AnchorPointSet.load(selected_anchor_point, profile_dir, '{}_{}.profile'.format(algorithm_type, len(selected_anchor_point.anchor_points)))
                 anchor_point_set.set_estimated_quality(selected_anchor_point.measured_quality)
             else:
-                anchor_point_set = CacheProfile.fromcacheprofile(multile_anchor_point_sets[-1], profile_dir, '{}_{}_{}.profile'.format(algorithm_type, len(multile_anchor_point_sets[-1].anchor_points) + 1))
+                anchor_point_set = AnchorPointSet.load(multile_anchor_point_sets[-1], profile_dir, '{}_{}.profile'.format(algorithm_type, len(multile_anchor_point_sets[-1].anchor_points) + 1))
                 anchor_point_set.add_anchor_point(selected_anchor_point.anchor_points[0])
                 anchor_point_set.set_estimated_quality(estimated_quality)
             multile_anchor_point_sets.append(anchor_point_set)
@@ -150,7 +149,8 @@ class AnchorPointSelector():
                 #log quality
                 anchor_point_set.save_cache_profile()
                 quality_cache = libvpx_offline_cache_quality(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
-                                                    self.model.name, anchor_point_set.path, lr_video_profile['height'], num_skipped_frames, num_decoded_frames, postfix)
+                                                    self.model.name, anchor_point_set.get_cache_profile_name(), self.output_width, self.output_height, \
+                                                    num_skipped_frames, num_decoded_frames, postfix)
                 anchor_point_set.remove_cache_profile()
                 quality_diff = np.asarray(quality_dnn) - np.asarray(quality_cache)
                 quality_log = '{}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\n'.format(len(anchor_point_set.anchor_points), np.average(quality_cache), np.average(quality_dnn), np.average(quality_bilinear), np.average(anchor_point_set.estimated_quality))
@@ -161,11 +161,12 @@ class AnchorPointSelector():
                                         np.average(quality_bilinear)))
 
                 #terminate
-                if np.average(quality_diff) <= self.quality_margin or len(anchor_point_set.anchor_pionts == self.max_num_anchor_points):
+                if np.average(quality_diff) <= self.quality_margin or anchor_point_set.num_anchor_points() == self.max_num_anchor_points:
                     anchor_point_set.set_cache_profile_name('{}.profile'.format(algorithm_type))
                     anchor_point_set.save_cache_profile()
                     libvpx_offline_cache_quality(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
-                                        self.model.name, anchor_point_set.path, lr_video_profile['height'], num_skipped_frames, num_decoded_frames, postfix)
+                                            self.model.name, anchor_point_set.get_cache_profile_name(), self.output_width, self.output_height, \
+                                            num_skipped_frames, num_decoded_frames, postfix)
                     break
 
         end_time = time.time()
