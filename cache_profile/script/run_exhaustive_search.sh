@@ -3,18 +3,15 @@
 function _usage()
 {
 cat << EOF
-_usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-g GPU_INDEX] [-c CONTENTS] [-i INDEXES] [-q QUALITIES] [-r RESOLUTIONS] [-a ALGORITHM]
+_usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-g GPU_INDEX] [-c CONTENT] [-i CHUNK INDEX] [-q QUALITY] [-r RESOLUTION]
 
 mandatory arguments:
--g GPU_INDEX                Specifies GPU index to use
--c CONTENTS                 Specifies contents (e.g., product_review)
--t TRAIN_TYPES              Specifies train types (e.g., train_video)
--a ALGORITHM                Specifies algorithm (e.g., nemo)
-
-optional multiple arguments:
--i INDEXES                  Specifies indexes (e.g., 0)
--q QUALITIES                Specifies qualities (e.g., low)
--r RESOLUTIONS              Specifies resolutions (e.g., 240)
+-g GPU_INDEX              Specifies a GPU index to use
+-c CONTENT                Specifies a content (e.g., product_review0)
+-t TRAIN_TYPE             Specifies a train type (e.g., train_video)
+-i CHUNK INDEX            Specifies a chunk index (e.g., 0)
+-q QUALITY                Specifies a quality (e.g., low)
+-r RESOLUTION             Specifies a resolution (e.g., 240)
 
 EOF
 }
@@ -93,52 +90,52 @@ function _set_num_filters(){
 
 [[ ($# -ge 1)  ]] || { echo "[ERROR] Invalid number of arguments. See -h for help."; exit 1;  }
 
-while getopts ":g:c:i:q:r:t:a:h" opt; do
+while getopts ":g:c:i:q:r:t:h" opt; do
     case $opt in
         h) _usage; exit 0;;
-        a) algorithm="$OPTARG";;
         g) gpu_index="$OPTARG";;
-        c) contents+=("$OPTARG");;
-        i) indexes+=("$OPTARG");;
-        q) qualities+=("$OPTARG");;
-        r) resolutions+=("$OPTARG");;
+        c) content=("$OPTARG");;
+        i) chunk_index=("$OPTARG");;
+        q) quality=("$OPTARG");;
+        r) resolution=("$OPTARG");;
         t) train_type="$OPTARG";;
         \?) exit 1;
     esac
 done
 
-if [ -z "${gpu_index+x}" ] || [ -z "${contents+x}" ] || [ -z "${train_type+x}" ] || [ -z "${algorithm+x}" ]; then
-    echo "[ERROR] gpu_index and contents and train_type must be set"
+if [ -z "${gpu_index+x}" ] ; then
+    echo "[ERROR] gpu_index is not set"
     exit 1;
 fi
 
-if [ -z "${qualities+x}" ]; then
-    qualities=("low" "medium" "high")
+if [ -z "${content+x}" ] ; then
+    echo "[ERROR] content is not set"
+    exit 1;
 fi
 
-if [ -z "${resolutions+x}" ]; then
-    resolutions=("240" "360" "480")
+if [ -z "${chunk_index+x}" ] ; then
+    echo "[ERROR] chunk_index is not set"
+    exit 1;
 fi
 
-if [ -z "${indexes+x}" ]; then
-    indexes=("1" "2" "3")
+if [ -z "${quality+x}" ] ; then
+    echo "[ERROR] quality is not set"
+    exit 1;
 fi
+
+if [ -z "${resolution+x}" ] ; then
+    echo "[ERROR] resolution is not set"
+    exit 1;
+fi
+
+if [ -z "${train_type+x}" ] ; then
+    echo "[ERROR] train_type is not set"
+    exit 1;
+fi
+
 
 _set_conda
-
-for content in "${contents[@]}"
-do
-    for index in "${indexes[@]}"
-    do
-        for quality in "${qualities[@]}"
-        do
-            for resolution in "${resolutions[@]}";
-            do
-                _set_bitrate ${resolution}
-                _set_num_blocks ${resolution} ${quality}
-                _set_num_filters ${resolution} ${quality}
-                CUDA_VISIBLE_DEVICES=${gpu_index} python ${NEMO_ROOT}/cache_profile/anchor_point_selector.py --data_dir ${NEMO_ROOT}/data --content ${content}${index} --lr_video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --hr_video_name 2160p_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --train_type ${train_type} --algorithm=${algorithm}
-            done
-        done
-    done
-done
+_set_bitrate ${resolution}
+_set_num_blocks ${resolution} ${quality}
+_set_num_filters ${resolution} ${quality}
+CUDA_VISIBLE_DEVICES=${gpu_index} python ${NEMO_ROOT}/cache_profile/anchor_point_selector.py --data_dir ${NEMO_ROOT}/data --content ${content}${index} --lr_video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --hr_video_name 2160p_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --train_type ${train_type} --task run_exhaustive_search

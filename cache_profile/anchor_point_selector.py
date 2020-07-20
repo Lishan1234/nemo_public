@@ -18,8 +18,6 @@ from nemo.tool.mac import count_mac_for_dnn, count_mac_for_cache
 import nemo.dnn.model
 
 class AnchorPointSelector():
-    NAME1 = "NEMO_BOUND"
-
     def __init__(self, model, vpxdec_path, dataset_dir, lr_video_name, hr_video_name, gop, output_width, output_height, \
                  quality_margin, num_decoders):
         self.model = model
@@ -33,6 +31,7 @@ class AnchorPointSelector():
         self.quality_margin = quality_margin
         self.num_decoders = num_decoders
 
+    #select an anchor point that maiximizes the quality gain
     def _select_anchor_point(self, current_anchor_points, anchor_point_candidates):
         max_estimated_quality = None
         max_avg_estimated_quality = None
@@ -48,22 +47,24 @@ class AnchorPointSelector():
 
         return idx, max_estimated_quality
 
+    #estimate the quality of an anchor point set
     def _estimate_quality(self, currnet_anchor_points, new_anchor_point):
         if currnet_anchor_points is not None:
             return np.maximum(currnet_anchor_points.estimated_quality, new_anchor_point.measured_quality)
         else:
             return new_anchor_point.measured_quality
 
+    #select an anchor point set using the NEMO algorithm
     def _select_anchor_point_set_nemo(self, chunk_idx, max_num_anchor_points):
         postfix = 'chunk{:04d}'.format(chunk_idx)
-        profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, self.model.name, postfix)
+        cache_profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, self.model.name, postfix)
         log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name, postfix)
         os.makedirs(log_dir, exist_ok=True)
-        os.makedirs(profile_dir, exist_ok=True)
+        os.makedirs(cache_profile_dir, exist_ok=True)
         if max_num_anchor_points is not None:
-            algorithm_type = 'nemo_{}'.format(max_num_anchor_points)
+            algorithm_type = 'nemo_{}_{}'.format(max_num_anchor_points, self.quality_margin)
         else:
-            algorithm_type = 'nemo'
+            algorithm_type = 'nemo_{}'.format(self.quality_margin)
 
         ###########step 1: analyze anchor points##########
         #calculate num_skipped_frames and num_decoded frames
@@ -104,7 +105,7 @@ class AnchorPointSelector():
         single_anchor_point_sets = []
         frames = libvpx_load_frame_index(self.dataset_dir, self.lr_video_name, postfix)
         for idx, frame in enumerate(frames):
-            anchor_point_set = AnchorPointSet.create(frames, profile_dir, '{}.profile'.format(frame.name))
+            anchor_point_set = AnchorPointSet.create(frames, cache_profile_dir, '{}.profile'.format(frame.name))
             anchor_point_set.add_anchor_point(frame)
             anchor_point_set.save_cache_profile()
             q0.put((anchor_point_set.get_cache_profile_name(), num_skipped_frames, num_decoded_frames, postfix, idx))
@@ -133,10 +134,10 @@ class AnchorPointSelector():
             anchor_point_idx, estimated_quality = self._select_anchor_point(anchor_point_set, single_anchor_point_sets)
             selected_anchor_point = single_anchor_point_sets.pop(anchor_point_idx)
             if len(multile_anchor_point_sets) == 0:
-                anchor_point_set = AnchorPointSet.load(selected_anchor_point, profile_dir, '{}_{}.profile'.format(algorithm_type, len(selected_anchor_point.anchor_points)))
+                anchor_point_set = AnchorPointSet.load(selected_anchor_point, cache_profile_dir, '{}_{}.profile'.format(algorithm_type, len(selected_anchor_point.anchor_points)))
                 anchor_point_set.set_estimated_quality(selected_anchor_point.measured_quality)
             else:
-                anchor_point_set = AnchorPointSet.load(multile_anchor_point_sets[-1], profile_dir, '{}_{}.profile'.format(algorithm_type, len(multile_anchor_point_sets[-1].anchor_points) + 1))
+                anchor_point_set = AnchorPointSet.load(multile_anchor_point_sets[-1], cache_profile_dir, '{}_{}.profile'.format(algorithm_type, len(multile_anchor_point_sets[-1].anchor_points) + 1))
                 anchor_point_set.add_anchor_point(selected_anchor_point.anchor_points[0])
                 anchor_point_set.set_estimated_quality(estimated_quality)
             multile_anchor_point_sets.append(anchor_point_set)
@@ -182,13 +183,14 @@ class AnchorPointSelector():
         shutil.rmtree(hr_image_dir, ignore_errors=True)
         shutil.rmtree(sr_image_dir, ignore_errors=True)
 
+    #select an anchor point set whose anchor points are uniformly located
     def _select_anchor_point_set_uniform(self, chunk_idx=None):
         postfix = 'chunk{:04d}'.format(chunk_idx)
-        profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, self.model.name, postfix)
+        cache_profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, self.model.name, postfix)
         log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name, postfix)
         os.makedirs(log_dir, exist_ok=True)
-        os.makedirs(profile_dir, exist_ok=True)
-        algorithm_type = 'uniform'
+        os.makedirs(cache_profile_dir, exist_ok=True)
+        algorithm_type = 'uniform_{}'.format(self.quality_margin)
 
         ###########step 1: measure bilinear, dnn quality##########
         #calculate num_skipped_frames and num_decoded frames
@@ -223,7 +225,7 @@ class AnchorPointSelector():
             for i in range(len(frames)):
                 #select anchor point uniformly
                 num_anchor_points = i + 1
-                anchor_point_set = AnchorPointSet.create(frames, profile_dir, '{}_{}.profile'.format(algorithm_type, num_anchor_points))
+                anchor_point_set = AnchorPointSet.create(frames, cache_profile_dir, '{}_{}.profile'.format(algorithm_type, num_anchor_points))
                 for j in range(num_anchor_points):
                     idx = j * math.floor(len(frames) / num_anchor_points)
                     anchor_point_set.add_anchor_point(frames[idx])
@@ -260,13 +262,14 @@ class AnchorPointSelector():
         shutil.rmtree(hr_image_dir, ignore_errors=True)
         shutil.rmtree(sr_image_dir, ignore_errors=True)
 
+    #select an anchor point set whose anchor points are randomly located
     def _select_anchor_point_set_random(self, chunk_idx=None):
         postfix = 'chunk{:04d}'.format(chunk_idx)
-        profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, self.model.name, postfix)
+        cache_profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, self.model.name, postfix)
         log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name, postfix)
         os.makedirs(log_dir, exist_ok=True)
-        os.makedirs(profile_dir, exist_ok=True)
-        algorithm_type = 'random'
+        os.makedirs(cache_profile_dir, exist_ok=True)
+        algorithm_type = 'random_{}'.format(self.quality_margin)
 
         ###########step 1: measure bilinear, dnn quality##########
         #calculate num_skipped_frames and num_decoded frames
@@ -301,7 +304,7 @@ class AnchorPointSelector():
             for i in range(len(frames)):
                 #select anchor point uniformly
                 num_anchor_points = i + 1
-                anchor_point_set = AnchorPointSet.create(frames, profile_dir, '{}_{}.profile'.format(algorithm_type, num_anchor_points))
+                anchor_point_set = AnchorPointSet.create(frames, cache_profile_dir, '{}_{}.profile'.format(algorithm_type, num_anchor_points))
                 random_frames = random.sample(frames, num_anchor_points)
                 for frame in random_frames:
                     anchor_point_set.add_anchor_point(frame)
@@ -338,13 +341,13 @@ class AnchorPointSelector():
         shutil.rmtree(hr_image_dir, ignore_errors=True)
         shutil.rmtree(sr_image_dir, ignore_errors=True)
 
-
-    def _select_anchor_point_set_exhaustive(self, num_anchor_points, chunk_idx=None, num_iters=None):
+    #profile all possible anchor point sets
+    def _run_exhaustive_search(self, num_anchor_points, chunk_idx=None, num_iters=None):
         postfix = 'chunk{:04d}'.format(chunk_idx)
-        profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, self.model.name, postfix)
+        cache_profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, self.model.name, postfix)
         log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name, postfix)
         os.makedirs(log_dir, exist_ok=True)
-        os.makedirs(profile_dir, exist_ok=True)
+        os.makedirs(cache_profile_dir, exist_ok=True)
         algorithm_type = 'exhaustive_{}_{}'.format(num_anchor_points, num_iters)
 
         ###########step 1: measure bilinear, dnn quality##########
@@ -393,7 +396,7 @@ class AnchorPointSelector():
 
         #run the SR-integrated codec and measure the quality
         for i in range(total_iteration):
-            anchor_point_set = AnchorPointSet.create(frames, profile_dir, '{}_{}.profile'.format(algorithm_type, i))
+            anchor_point_set = AnchorPointSet.create(frames, cache_profile_dir, '{}_{}.profile'.format(algorithm_type, i))
             for frame in anchor_point_sets[i]:
                 anchor_point_set.add_anchor_point(frame)
             q0.put((anchor_point_set, num_skipped_frames, num_decoded_frames, postfix))
@@ -434,10 +437,10 @@ class AnchorPointSelector():
         total_end_time = time.time()
         print('{} number of iterations is finished in {}sec: {}iteration/sec'.format(total_iteration, total_end_time - total_start_time, total_iteration / (total_end_time - total_start_time)))
 
-    def select_anchor_point_set(self, algorithm_type, chunk_idx=None, max_nemo_num_anchor_points=None, exhaustive_num_anchor_points=None, exhaustive_num_iters=None):
+    def select_anchor_point_set(self, algorithm_type, chunk_idx=None, max_nemo_num_anchor_points=None):
         if chunk_idx is not None:
             if algorithm_type == 'nemo':
-                self._select_anchor_point_set_nemo(chunk_idx, max_nemo_nemo_num_anchor_points)
+                self._select_anchor_point_set_nemo(chunk_idx, max_nemo_num_anchor_points)
             elif algorithm_type == 'uniform':
                 self._select_anchor_point_set_uniform(chunk_idx)
             elif algorithm_type == 'random':
@@ -445,12 +448,12 @@ class AnchorPointSelector():
             elif algorithm_type == 'exhaustive':
                 self._select_anchor_point_set_exhaustive(exhaustive_num_anchor_points, chunk_idx, exhaustive_num_iters)
         else:
-            lr_video_path = os.path.join(self.dataset_dir, 'video', args.lr_video_name)
+            lr_video_path = os.path.join(self.dataset_dir, 'video', self.lr_video_name)
             lr_video_profile = profile_video(lr_video_path)
             num_chunks = int(math.ceil(lr_video_profile['duration'] / (args.gop / lr_video_profile['frame_rate'])))
             for i in range(num_chunks):
                 if algorithm_type == 'nemo':
-                    self._select_anchor_point_set_nemo(chunk_idx, max_nemo_nemo_num_anchor_points)
+                    self._select_anchor_point_set_nemo(chunk_idx, max_nemo_num_anchor_points)
                 elif algorithm_type == 'uniform':
                     self._select_anchor_point_set_uniform(chunk_idx)
                 elif algorithm_type == 'random':
@@ -458,31 +461,50 @@ class AnchorPointSelector():
                 elif algorithm_type == 'exhaustive':
                     self._select_anchor_point_set_exhaustive(exhaustive_num_anchor_points, chunk_idx, exhaustive_num_iters)
 
-    def summary(self, start_idx, end_idx):
-        log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name, '{}_{}_{}'.format(self.NAME1, max_num_anchor_points, self.quality_margin))
-        profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, self.model.name)
+    def run_exhaustive_search(self, exhaustive_num_anchor_points, chunk_idx=None, exhaustive_num_iters=None):
+        if chunk_idx is not None:
+            self._run_exhaustive_search(exhaustive_num_anchor_points, chunk_idx, exhaustive_num_iters)
+        else:
+            lr_video_path = os.path.join(self.dataset_dir, 'video', args.lr_video_name)
+            lr_video_profile = profile_video(lr_video_path)
+            num_chunks = int(math.ceil(lr_video_profile['duration'] / (args.gop / lr_video_profile['frame_rate'])))
+            for i in range(num_chunks):
+                self._run_exhaustive_search(exhaustive_num_anchor_points, chunk_idx, exhaustive_num_iters)
+
+    def aggregate_per_chunk_results(self, algorithm_type, max_num_anchor_points=None):
+        lr_video_path = os.path.join(self.dataset_dir, 'video', self.lr_video_name)
+        lr_video_profile = profile_video(lr_video_path)
+        num_chunks = int(math.ceil(lr_video_profile['duration'] / (args.gop / lr_video_profile['frame_rate'])))
+        start_idx = 0
+        end_idx = num_chunks - 1
+
+        log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name)
+        cache_profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, self.model.name)
+        if algorithm_type == 'nemo' and max_num_anchor_points is not None:
+            log_name = os.path.join('quality_{}_{}_{}.txt'.format(algorithm_type, max_num_anchor_points, self.quality_margin))
+            cache_profile_name = os.path.join('{}_{}_{}.profile'.format(algorithm_type, max_num_anchor_points, self.quality_margin))
+        else:
+            log_name = os.path.join('quality_{}_{}.txt'.format(algorithm_type, self.quality_margin))
+            cache_profile_name = os.path.join('{}_{}.profile'.format(algorithm_type, self.quality_margin))
 
         #log
-        quality_summary_file = os.path.join(log_dir, 'quality.txt')
-        with open(quality_summary_file, 'w') as f0:
+        log_path = os.path.join(log_dir, log_name)
+        with open(log_path, 'w') as f0:
             #iterate over chunks
             for chunk_idx in range(start_idx, end_idx + 1):
                 chunk_log_dir = os.path.join(log_dir, 'chunk{:04d}'.format(chunk_idx))
-                if not os.path.exists(chunk_log_dir):
-                    break
-                else:
-                    quality_log_path = os.path.join(chunk_log_dir, 'quality.txt')
-                    with open(quality_log_path, 'r') as f1:
-                        q_lines = f1.readlines()
-                        f0.write('{}\t{}\n'.format(chunk_idx, q_lines[-1].strip()))
+                chunk_log_path= os.path.join(chunk_log_dir, log_name)
+                with open(chunk_log_path, 'r') as f1:
+                    q_lines = f1.readlines()
+                    f0.write('{}\t{}\n'.format(chunk_idx, q_lines[-1].strip()))
 
         #cache profile
-        cache_profile = os.path.join(profile_dir, '{}_{}_{}.profile'.format(self.NAME1, max_num_anchor_points, self.quality_margin))
+        cache_profile_path = os.path.join(cache_profile_dir, cache_profile_name)
         cache_data = b''
-        with open(cache_profile, 'wb') as f0:
+        with open(cache_profile_path, 'wb') as f0:
             for chunk_idx in range(start_idx, end_idx):
-                chunk_cache_profile = os.path.join(profile_dir, 'chunk{:04d}'.format(chunk_idx), '{}_{}_{}.profile'.format(self.NAME1, max_num_anchor_points, self.quality_margin))
-                with open(chunk_cache_profile, 'rb') as f1:
+                chunk_cache_profile_path = os.path.join(cache_profile_dir, 'chunk{:04d}'.format(chunk_idx), cache_profile_name)
+                with open(chunk_cache_profile_path, 'rb') as f1:
                     f0.write(f1.read())
 
 if __name__ == '__main__':
@@ -512,19 +534,21 @@ if __name__ == '__main__':
     #anchor point selector
     parser.add_argument('--quality_margin', type=float, default=0.5)
     parser.add_argument('--gop', type=int, default=120)
-    parser.add_argument('--chunk_idx', type=str, default=None) #None: profile/summary all chunks, [start index],[end index]: profile/sumamry partial chunks
+    parser.add_argument('--chunk_idx', type=str, default=None)
     parser.add_argument('--num_decoders', default=8, type=int)
-    parser.add_argument('--task', choices=['profile','summary', 'all'], default='all')
-    parser.add_argument('--algorithm', choices=['nemo','uniform', 'random', 'exhaustive'], required=True)
+    parser.add_argument('--task', choices=['select_anchor_points', 'run_exhaustive_search'], default='all')
+    parser.add_argument('--algorithm', choices=['nemo','uniform', 'random', 'exhaustive'])
     parser.add_argument('--nemo_max_num_anchor_points', type=int, default=24)
     parser.add_argument('--exhaustive_num_anchor_points', type=int, default=3)
-    parser.add_argument('--exhaustive_num_iters', type=int, default=100) #TODO: remove this
+    parser.add_argument('--exhaustive_num_iters', type=int, default=None)
 
     args = parser.parse_args()
 
     if args.vpxdec_path is None:
         args.vpxdec_path = os.path.join(os.environ['NEMO_ROOT'], 'third_party', 'libvpx', 'vpxdec_nemo_ver2')
         assert(os.path.exists(args.vpxdec_path))
+    if args.task == 'select_anchor_points':
+        assert(args.algorithm is not None)
 
     #profile videos
     dataset_dir = os.path.join(args.data_dir, args.content)
@@ -546,21 +570,20 @@ if __name__ == '__main__':
     else:
         raise ValueError('Unsupported training types')
     ckpt = tf.train.Checkpoint(model=model)
-    ckpt_path = tf.train.latest_checkpoint(checkpoint_dir)
-    ckpt.restore(ckpt_path)
 
     #run aps
     aps = AnchorPointSelector(ckpt.model, args.vpxdec_path, dataset_dir, args.lr_video_name, args.hr_video_name, args.gop, \
                               args.output_width, args.output_height, args.quality_margin, args.num_decoders)
-
-    if args.task == 'profile':
-        #aps.select_anchor_point_set(args.algorithm, args.chunk_idx)
-        pass
-    elif args.task == 'summary':
-        pass
-    elif args.task == 'all':
-        #aps.select_anchor_point_set(args.algorithm, args.chunk_idx, args.nemo_max_num_anchor_points, args.exhaustive_num_anchor_points, args.exhaustive_num_iters)
-        aps.select_anchor_point_set(args.algorithm, 0, args.nemo_max_num_anchor_points, args.exhaustive_num_anchor_points, args.exhaustive_num_iters)
+    if args.task == 'select_anchor_points':
+        ckpt_path = tf.train.latest_checkpoint(checkpoint_dir)
+        ckpt.restore(ckpt_path)
+        aps.select_anchor_point_set(args.algorithm, args.chunk_idx, args.nemo_max_num_anchor_points)
+        if args.chunk_idx is None:
+            aps.aggregate_per_chunk_results(args.algorithm, args.nemo_max_num_anchor_points)
+    elif args.task == 'run_exhaustive_search':
+        ckpt_path = tf.train.latest_checkpoint(checkpoint_dir)
+        ckpt.restore(ckpt_path)
+        aps.run_exhaustive_search(args.exhaustive_num_anchor_points, args.chunk_idx, args.exhaustive_num_iters)
         pass
     else:
         raise NotImplementedError
