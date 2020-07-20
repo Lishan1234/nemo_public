@@ -72,8 +72,8 @@ class AnchorPointSelector():
         num_decoded_frames = self.gop if num_left_frames >= self.gop else num_left_frames
 
         #save low-resolution, super-resoluted, high-resolution frames to local storage
-        libvpx_save_frame(self.vpxdec_path, self.dataset_dir, self.lr_video_name, skip=num_skipped_frames, limit=num_decoded_frames, postfix=postfix)
-        libvpx_save_frame(self.vpxdec_path, self.dataset_dir, self.hr_video_name, self.output_width, self.output_height, num_skipped_frames, num_decoded_frames, postfix)
+        libvpx_save_rgb_frame(self.vpxdec_path, self.dataset_dir, self.lr_video_name, skip=num_skipped_frames, limit=num_decoded_frames, postfix=postfix)
+        libvpx_save_yuv_frame(self.vpxdec_path, self.dataset_dir, self.hr_video_name, self.output_width, self.output_height, num_skipped_frames, num_decoded_frames, postfix)
         libvpx_setup_sr_frame(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.model, postfix)
 
         #measure bilinear, per-frame super-resolution quality
@@ -84,6 +84,7 @@ class AnchorPointSelector():
 
         end_time = time.time()
         print('{} video chunk: (Step1-profile bilinear, dnn quality) {}sec'.format(chunk_idx, end_time - start_time))
+
 
         #create multiple processes for parallel quality measurements
         start_time = time.time()
@@ -101,7 +102,7 @@ class AnchorPointSelector():
             anchor_point_set = AnchorPointSet.create(frames, profile_dir, '{}.profile'.format(frame.name))
             anchor_point_set.add_anchor_point(frame)
             anchor_point_set.save_cache_profile()
-            q0.put((anchor_point_set.path, num_skipped_frames, num_decoded_frames, postfix, idx))
+            q0.put((anchor_point_set.get_cache_profile_name(), num_skipped_frames, num_decoded_frames, postfix, idx))
             single_anchor_point_sets.append(anchor_point_set)
         for frame in frames:
             item = q1.get()
