@@ -344,7 +344,11 @@ def libvpx_offline_cache_quality(vpxdec_path, dataset_dir, input_video_name, ref
 
     return quality
 
-def libvpx_offline_cache_quality_mt_v1(q0, q1, vpxdec_path, dataset_dir, input_video_name, reference_video_name, model_name, resolution):
+def libvpx_offline_cache_quality_mt_v1(q0, q1, vpxdec_path, dataset_dir, input_video_name, reference_video_name, model_name, output_width, output_height):
+    input_video_path = os.path.join(dataset_dir, 'video', input_video_name)
+    input_resolution = profile_video(input_video_path)['height']
+    scale = output_height // input_resolution
+
     while True:
         item = q0.get()
         if item == 'end':
@@ -357,17 +361,17 @@ def libvpx_offline_cache_quality_mt_v1(q0, q1, vpxdec_path, dataset_dir, input_v
             postfix = item[3]
 
             #log file
-            log_dir = os.path.join(dataset_dir, 'log', input_video_name, model_name, os.path.basename(anchor_point_set.path))
             if postfix is not None:
-                log_dir = os.path.join(log_dir, postfix)
-            log_path = os.path.join(log_dir, 'quality.txt')
+                log_path = os.path.join(dataset_dir, 'log', input_video_name, model_name, postfix, os.path.basename(anchor_point_set.get_cache_profile_name()), 'quality.txt')
+            else:
+                log_path = os.path.join(dataset_dir, 'log', input_video_name, model_name, os.path.basename(anchor_point_set.get_cache_profile_name()), 'quality.txt')
 
             #run sr-integrated decoder
-            anchor_point_set.save()
-            command = '{} --codec=vp9 --noblit --frame-buffers=50 --dataset-dir={} \
-            --input-video-name={} --reference-video-name={} --decode-mode=decode_cache --dnn-mode=offline_dnn --cache-mode=profile_cache \
-            --save-quality --save-metadata --dnn-name={} --cache-profile-name={} --resolution={}'.format(vpxdec_path, dataset_dir, input_video_name, \
-                                                            reference_video_name, model_name, anchor_point_set.path, resolution)
+            anchor_point_set.save_cache_profile()
+            command = '{} --codec=vp9 --noblit --frame-buffers=50 --dataset-dir={} --input-video-name={} --reference-video-name={} --decode-mode=decode_cache \
+            --dnn-mode=offline_dnn --cache-mode=profile_cache --output-width={} --output-height={} --save-quality --save-metadata --dnn-name={} --dnn-scale={} \
+            --cache-profile-name={} --threads={}'.format(vpxdec_path, dataset_dir, input_video_name, reference_video_name, output_width, output_height, \
+                                                         model_name, scale, anchor_point_set.get_cache_profile_name(), get_num_threads(input_resolution))
             if skip is not None:
                 command += ' --skip={}'.format(skip)
             if limit is not None:
@@ -375,7 +379,9 @@ def libvpx_offline_cache_quality_mt_v1(q0, q1, vpxdec_path, dataset_dir, input_v
             if postfix is not None:
                 command += ' --postfix={}'.format(postfix)
             subprocess.check_call(shlex.split(command),stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-            anchor_point_set.remove()
+            #result = subprocess.check_output(shlex.split(command)).decode('utf-8')
+            #result = result.split('\n')
+            anchor_point_set.remove_cache_profile()
 
             #load quality from a log file
             quality = []

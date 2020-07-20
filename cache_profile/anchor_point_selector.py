@@ -6,6 +6,8 @@ import math
 import time
 import multiprocessing as mp
 import shutil
+import random
+import itertools
 
 import numpy as np
 import tensorflow as tf
@@ -19,7 +21,7 @@ class AnchorPointSelector():
     NAME1 = "NEMO_BOUND"
 
     def __init__(self, model, vpxdec_path, dataset_dir, lr_video_name, hr_video_name, gop, output_width, output_height, \
-                 quality_margin, num_decoders, max_num_anchor_points):
+                 quality_margin, num_decoders):
         self.model = model
         self.vpxdec_path = vpxdec_path
         self.dataset_dir = dataset_dir
@@ -30,7 +32,6 @@ class AnchorPointSelector():
         self.output_height = output_height
         self.quality_margin = quality_margin
         self.num_decoders = num_decoders
-        self.max_num_anchor_points = max_num_anchor_points
 
     def _select_anchor_point(self, current_anchor_points, anchor_point_candidates):
         max_estimated_quality = None
@@ -53,14 +54,14 @@ class AnchorPointSelector():
         else:
             return new_anchor_point.measured_quality
 
-    def _select_anchor_point_set_nemo(self, chunk_idx):
+    def _select_anchor_point_set_nemo(self, chunk_idx, max_num_anchor_points):
         postfix = 'chunk{:04d}'.format(chunk_idx)
         profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, self.model.name, postfix)
         log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name, postfix)
         os.makedirs(log_dir, exist_ok=True)
         os.makedirs(profile_dir, exist_ok=True)
-        if self.max_num_anchor_points is not None:
-            algorithm_type = 'nemo_{}'.format(self.max_num_anchor_points)
+        if max_num_anchor_points is not None:
+            algorithm_type = 'nemo_{}'.format(max_num_anchor_points)
         else:
             algorithm_type = 'nemo'
 
@@ -162,7 +163,7 @@ class AnchorPointSelector():
                                         np.average(quality_bilinear)))
 
                 #terminate
-                if np.average(quality_diff) <= self.quality_margin or anchor_point_set.num_anchor_points() == self.max_num_anchor_points:
+                if np.average(quality_diff) <= self.quality_margin or anchor_point_set.num_anchor_points() == max_num_anchor_points:
                     anchor_point_set.set_cache_profile_name('{}.profile'.format(algorithm_type))
                     anchor_point_set.save_cache_profile()
                     libvpx_offline_cache_quality(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
@@ -260,37 +261,205 @@ class AnchorPointSelector():
         shutil.rmtree(sr_image_dir, ignore_errors=True)
 
     def _select_anchor_point_set_random(self, chunk_idx=None):
-        pass
+        postfix = 'chunk{:04d}'.format(chunk_idx)
+        profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, self.model.name, postfix)
+        log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name, postfix)
+        os.makedirs(log_dir, exist_ok=True)
+        os.makedirs(profile_dir, exist_ok=True)
+        algorithm_type = 'random'
 
-    def _select_anchor_point_set_exhaustive(self, chunk_idx=None):
-        pass
+        ###########step 1: measure bilinear, dnn quality##########
+        #calculate num_skipped_frames and num_decoded frames
+        start_time = time.time()
+        lr_video_path = os.path.join(self.dataset_dir, 'video', self.lr_video_name)
+        lr_video_profile = profile_video(lr_video_path)
+        num_total_frames = int(round(lr_video_profile['frame_rate'], 3) * round(lr_video_profile['duration']))
+        num_left_frames = num_total_frames - chunk_idx * self.gop
+        assert(num_total_frames == math.floor(num_total_frames))
+        num_skipped_frames = chunk_idx * self.gop
+        num_decoded_frames = self.gop if num_left_frames >= self.gop else num_left_frames
 
-    def select_anchor_point_set(self, algorithm_type, chunk_idx=None):
+        #save low-resolution, super-resoluted, high-resolution frames to local storage
+        libvpx_save_rgb_frame(self.vpxdec_path, self.dataset_dir, self.lr_video_name, skip=num_skipped_frames, limit=num_decoded_frames, postfix=postfix)
+        libvpx_save_yuv_frame(self.vpxdec_path, self.dataset_dir, self.hr_video_name, self.output_width, self.output_height, num_skipped_frames, num_decoded_frames, postfix)
+        libvpx_setup_sr_frame(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.model, postfix)
+
+        #measure bilinear, per-frame super-resolution quality
+        quality_bilinear = libvpx_bilinear_quality(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.hr_video_name, self.output_width, self.output_height,
+                                                    num_skipped_frames, num_decoded_frames, postfix)
+        quality_dnn = libvpx_offline_dnn_quality(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.hr_video_name, self.model.name, \
+                                                 self.output_width, self.output_height, num_skipped_frames, num_decoded_frames, postfix)
+
+        end_time = time.time()
+        print('{} video chunk: (Step1-profile bilinear, dnn quality) {}sec'.format(chunk_idx, end_time - start_time))
+
+        ###########step 2: select anchor points##########
+        start_time = time.time()
+        frames = libvpx_load_frame_index(self.dataset_dir, self.lr_video_name, postfix)
+        log_path = os.path.join(log_dir, 'quality_{}.txt'.format(algorithm_type))
+        with open(log_path, 'w') as f:
+            for i in range(len(frames)):
+                #select anchor point uniformly
+                num_anchor_points = i + 1
+                anchor_point_set = AnchorPointSet.create(frames, profile_dir, '{}_{}.profile'.format(algorithm_type, num_anchor_points))
+                random_frames = random.sample(frames, num_anchor_points)
+                for frame in random_frames:
+                    anchor_point_set.add_anchor_point(frame)
+
+                #measure the quality
+                anchor_point_set.save_cache_profile()
+                quality_cache = libvpx_offline_cache_quality(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
+                                        self.model.name, anchor_point_set.get_cache_profile_name(), self.output_width, self.output_height, \
+                                        num_skipped_frames, num_decoded_frames, postfix)
+                anchor_point_set.remove_cache_profile()
+                quality_diff = np.asarray(quality_dnn) - np.asarray(quality_cache)
+                quality_log = '{}\t{:.4f}\t{:.4f}\t{:.4f}\n'.format(len(anchor_point_set.anchor_points), np.average(quality_cache), np.average(quality_dnn), np.average(quality_bilinear))
+                f.write(quality_log)
+                print('{} video chunk, {} anchor points: PSNR(Cache)={:.4f}, PSNR(SR)={:.4f}, PSNR(Bilinear)={:.4f}'.format( \
+                                        chunk_idx, len(anchor_point_set.anchor_points), np.average(quality_cache), np.average(quality_dnn), \
+                                        np.average(quality_bilinear)))
+                #terminate
+                if np.average(quality_diff) <= self.quality_margin:
+                    anchor_point_set.set_cache_profile_name('{}.profile'.format(algorithm_type))
+                    anchor_point_set.save_cache_profile()
+                    libvpx_offline_cache_quality(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
+                                            self.model.name, anchor_point_set.get_cache_profile_name(), self.output_width, self.output_height, \
+                                            num_skipped_frames, num_decoded_frames, postfix)
+                    break
+
+        end_time = time.time()
+        print('{} video chunk: (Step2) {}sec'.format(chunk_idx, end_time - start_time))
+
+        #remove images
+        lr_image_dir = os.path.join(self.dataset_dir, 'image', self.lr_video_name, postfix)
+        hr_image_dir = os.path.join(self.dataset_dir, 'image', self.hr_video_name, postfix)
+        sr_image_dir = os.path.join(self.dataset_dir, 'image', self.lr_video_name, self.model.name, postfix)
+        shutil.rmtree(lr_image_dir, ignore_errors=True)
+        shutil.rmtree(hr_image_dir, ignore_errors=True)
+        shutil.rmtree(sr_image_dir, ignore_errors=True)
+
+
+    def _select_anchor_point_set_exhaustive(self, num_anchor_points, chunk_idx=None, num_iters=None):
+        postfix = 'chunk{:04d}'.format(chunk_idx)
+        profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, self.model.name, postfix)
+        log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name, postfix)
+        os.makedirs(log_dir, exist_ok=True)
+        os.makedirs(profile_dir, exist_ok=True)
+        algorithm_type = 'exhaustive_{}_{}'.format(num_anchor_points, num_iters)
+
+        ###########step 1: measure bilinear, dnn quality##########
+        #calculate num_skipped_frames and num_decoded frames
+        start_time = time.time()
+        lr_video_path = os.path.join(self.dataset_dir, 'video', self.lr_video_name)
+        lr_video_profile = profile_video(lr_video_path)
+        num_total_frames = int(round(lr_video_profile['frame_rate'], 3) * round(lr_video_profile['duration']))
+        num_left_frames = num_total_frames - chunk_idx * self.gop
+        assert(num_total_frames == math.floor(num_total_frames))
+        num_skipped_frames = chunk_idx * self.gop
+        num_decoded_frames = self.gop if num_left_frames >= self.gop else num_left_frames
+
+        #save low-resolution, super-resoluted, high-resolution frames to local storage
+        libvpx_save_rgb_frame(self.vpxdec_path, self.dataset_dir, self.lr_video_name, skip=num_skipped_frames, limit=num_decoded_frames, postfix=postfix)
+        libvpx_save_yuv_frame(self.vpxdec_path, self.dataset_dir, self.hr_video_name, self.output_width, self.output_height, num_skipped_frames, num_decoded_frames, postfix)
+        libvpx_setup_sr_frame(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.model, postfix)
+
+        #measure bilinear, per-frame super-resolution quality
+        quality_bilinear = libvpx_bilinear_quality(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.hr_video_name, self.output_width, self.output_height,
+                                                    num_skipped_frames, num_decoded_frames, postfix)
+        quality_dnn = libvpx_offline_dnn_quality(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.hr_video_name, self.model.name, \
+                                                 self.output_width, self.output_height, num_skipped_frames, num_decoded_frames, postfix)
+
+        end_time = time.time()
+        print('{} video chunk: (Step1-profile bilinear, dnn quality) {}sec'.format(chunk_idx, end_time - start_time))
+
+        ###########step 2: select anchor points##########
+        total_start_time = time.time()
+        frames = libvpx_load_frame_index(self.dataset_dir, self.lr_video_name, postfix)
+        anchor_point_sets = list(itertools.combinations(frames, num_anchor_points))
+        random.shuffle(anchor_point_sets)
+
+        if num_iters is None:
+            total_iteration = len(anchor_point_sets)
+        else:
+            total_iteration = num_iters
+
+        #create multiple processes for quality measurements
+        q0 = mp.Queue()
+        q1 = mp.Queue()
+        decoders = [mp.Process(target=libvpx_offline_cache_quality_mt_v1, args=(q0, q1, self.vpxdec_path, self.dataset_dir, \
+                                    self.lr_video_name, self.hr_video_name, self.model.name, self.output_width, self.output_height)) for i in range(self.num_decoders)]
+        for decoder in decoders:
+            decoder.start()
+
+        #run the SR-integrated codec and measure the quality
+        for i in range(total_iteration):
+            anchor_point_set = AnchorPointSet.create(frames, profile_dir, '{}_{}.profile'.format(algorithm_type, i))
+            for frame in anchor_point_sets[i]:
+                anchor_point_set.add_anchor_point(frame)
+            q0.put((anchor_point_set, num_skipped_frames, num_decoded_frames, postfix))
+
+        #summarize the results
+        count = 0
+        min_quality_diff = None
+        log_path_0 = os.path.join(log_dir, 'quality_{}.txt'.format(algorithm_type))
+        log_path_1 = os.path.join(log_dir, 'result_{}.txt'.format(algorithm_type))
+        with open(log_path_0, 'w') as f0, open(log_path_1, 'w') as f1:
+            for i in range(total_iteration):
+                start_time = time.time()
+                item = q1.get()
+                quality_cache = item
+
+                quality_log = '{:.2f}\t{:.2f}\t{:.2f}\n'.format(np.average(quality_cache), np.average(quality_dnn), np.average(quality_bilinear))
+                f0.write(quality_log)
+
+                quality_diff = np.average(np.asarray(quality_dnn) - np.asarray(quality_cache))
+                if quality_diff < self.quality_margin:
+                    count += 1
+                if min_quality_diff is None or quality_diff < min_quality_diff:
+                    min_quality_diff = quality_diff
+
+                end_time = time.time()
+                print('Iteration {} ({}sec): Percentage {}%, Quality difference {:.2f}dB'.format(i, end_time - start_time, count/(i+1) * 100, quality_diff))
+
+            f1.write('Percentage of anchor point sets whose quality margin is smaller than {}dB: {}%\n'.format(self.quality_margin, count/total_iteration * 100))
+            f1.write('Percentage of anchor point sets whose quality margin is bigger than {}dB: {}%\n'.format(self.quality_margin, (total_iteration - count)/total_iteration * 100))
+            f1.write('Minimum quality margin: {}dB\n'.format(min_quality_diff))
+
+        #remove the multiple processes
+        for decoder in decoders:
+            q0.put('end')
+        for decoder in decoders:
+            decoder.join()
+
+        total_end_time = time.time()
+        print('{} number of iterations is finished in {}sec: {}iteration/sec'.format(total_iteration, total_end_time - total_start_time, total_iteration / (total_end_time - total_start_time)))
+
+    def select_anchor_point_set(self, algorithm_type, chunk_idx=None, max_nemo_num_anchor_points=None, exhaustive_num_anchor_points=None, exhaustive_num_iters=None):
         if chunk_idx is not None:
             if algorithm_type == 'nemo':
-                self._select_anchor_point_set_nemo(chunk_idx)
+                self._select_anchor_point_set_nemo(chunk_idx, max_nemo_nemo_num_anchor_points)
             elif algorithm_type == 'uniform':
                 self._select_anchor_point_set_uniform(chunk_idx)
             elif algorithm_type == 'random':
                 self._select_anchor_point_set_random(chunk_idx)
             elif algorithm_type == 'exhaustive':
-                self._select_anchor_point_set_exhaustive(chunk_idx)
+                self._select_anchor_point_set_exhaustive(exhaustive_num_anchor_points, chunk_idx, exhaustive_num_iters)
         else:
             lr_video_path = os.path.join(self.dataset_dir, 'video', args.lr_video_name)
             lr_video_profile = profile_video(lr_video_path)
             num_chunks = int(math.ceil(lr_video_profile['duration'] / (args.gop / lr_video_profile['frame_rate'])))
             for i in range(num_chunks):
                 if algorithm_type == 'nemo':
-                    self._select_anchor_point_set_nemo(chunk_idx)
+                    self._select_anchor_point_set_nemo(chunk_idx, max_nemo_nemo_num_anchor_points)
                 elif algorithm_type == 'uniform':
                     self._select_anchor_point_set_uniform(chunk_idx)
                 elif algorithm_type == 'random':
                     self._select_anchor_point_set_random(chunk_idx)
                 elif algorithm_type == 'exhaustive':
-                    self._select_anchor_point_set_exhaustive(chunk_idx)
+                    self._select_anchor_point_set_exhaustive(exhaustive_num_anchor_points, chunk_idx, exhaustive_num_iters)
 
     def summary(self, start_idx, end_idx):
-        log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name, '{}_{}_{}'.format(self.NAME1, self.max_num_anchor_points, self.quality_margin))
+        log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name, '{}_{}_{}'.format(self.NAME1, max_num_anchor_points, self.quality_margin))
         profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, self.model.name)
 
         #log
@@ -308,11 +477,11 @@ class AnchorPointSelector():
                         f0.write('{}\t{}\n'.format(chunk_idx, q_lines[-1].strip()))
 
         #cache profile
-        cache_profile = os.path.join(profile_dir, '{}_{}_{}.profile'.format(self.NAME1, self.max_num_anchor_points, self.quality_margin))
+        cache_profile = os.path.join(profile_dir, '{}_{}_{}.profile'.format(self.NAME1, max_num_anchor_points, self.quality_margin))
         cache_data = b''
         with open(cache_profile, 'wb') as f0:
             for chunk_idx in range(start_idx, end_idx):
-                chunk_cache_profile = os.path.join(profile_dir, 'chunk{:04d}'.format(chunk_idx), '{}_{}_{}.profile'.format(self.NAME1, self.max_num_anchor_points, self.quality_margin))
+                chunk_cache_profile = os.path.join(profile_dir, 'chunk{:04d}'.format(chunk_idx), '{}_{}_{}.profile'.format(self.NAME1, max_num_anchor_points, self.quality_margin))
                 with open(chunk_cache_profile, 'rb') as f1:
                     f0.write(f1.read())
 
@@ -343,11 +512,13 @@ if __name__ == '__main__':
     #anchor point selector
     parser.add_argument('--quality_margin', type=float, default=0.5)
     parser.add_argument('--gop', type=int, default=120)
-    parser.add_argument('--max_num_anchor_points', type=int, default=24)
     parser.add_argument('--chunk_idx', type=str, default=None) #None: profile/summary all chunks, [start index],[end index]: profile/sumamry partial chunks
     parser.add_argument('--num_decoders', default=8, type=int)
     parser.add_argument('--task', choices=['profile','summary', 'all'], default='all')
     parser.add_argument('--algorithm', choices=['nemo','uniform', 'random', 'exhaustive'], required=True)
+    parser.add_argument('--nemo_max_num_anchor_points', type=int, default=24)
+    parser.add_argument('--exhaustive_num_anchor_points', type=int, default=3)
+    parser.add_argument('--exhaustive_num_iters', type=int, default=100) #TODO: remove this
 
     args = parser.parse_args()
 
@@ -380,7 +551,7 @@ if __name__ == '__main__':
 
     #run aps
     aps = AnchorPointSelector(ckpt.model, args.vpxdec_path, dataset_dir, args.lr_video_name, args.hr_video_name, args.gop, \
-                              args.output_width, args.output_height, args.quality_margin, args.num_decoders, args.max_num_anchor_points)
+                              args.output_width, args.output_height, args.quality_margin, args.num_decoders)
 
     if args.task == 'profile':
         #aps.select_anchor_point_set(args.algorithm, args.chunk_idx)
@@ -388,8 +559,8 @@ if __name__ == '__main__':
     elif args.task == 'summary':
         pass
     elif args.task == 'all':
-        #aps.select_anchor_point_set(args.algorithm, args.chunk_idx)
-        aps.select_anchor_point_set(args.algorithm, 0)
+        #aps.select_anchor_point_set(args.algorithm, args.chunk_idx, args.nemo_max_num_anchor_points, args.exhaustive_num_anchor_points, args.exhaustive_num_iters)
+        aps.select_anchor_point_set(args.algorithm, 0, args.nemo_max_num_anchor_points, args.exhaustive_num_anchor_points, args.exhaustive_num_iters)
         pass
     else:
         raise NotImplementedError
