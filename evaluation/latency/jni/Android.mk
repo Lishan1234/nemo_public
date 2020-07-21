@@ -44,7 +44,7 @@ include $(LOCAL_PATH)/libvpx/third_party/libwebm/Android.mk
 include $(CLEAR_VARS)
 LOCAL_PATH := $(WORKING_DIR)
 
-VPXDEC_SRCS := libvpx/vpxdec.c \
+VPXDEC_SRCS := libvpx/vpxdec_nemo_ver2.c \
 			   libvpx/md5_utils.c \
 			   libvpx/args.c \
 			   libvpx/ivfdec.c \
@@ -77,7 +77,7 @@ LIBYUV_SRCS :=  libvpx/third_party/libyuv/source/convert_argb.cc \
                 libvpx/third_party/libyuv/source/scale_win.cc \
                 libvpx/third_party/libyuv/source/video_common.cc
 
-LOCAL_MODULE := vpxdec 
+LOCAL_MODULE := vpxdec_nemo_ver2
 LOCAL_ARM_MODE := arm
 LOCAL_CPP_EXTENSION := .cc .cpp
 CONFIG_DIR := $(LOCAL_PATH)/libvpx_android_configs/$(TARGET_ARCH_ABI)

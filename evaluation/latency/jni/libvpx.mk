@@ -84,7 +84,8 @@ LOCAL_LDLIBS := -llog -lz -lm -landroid
 #include SNPE as shared library
 ifeq ($(CONFIG_SNPE), yes)
 	LOCAL_CPP_FEATURES += exceptions
-	LOCAL_SHARED_LIBRARIES := libSNPE libSYMPHONYCPU
+LOCAL_CFLAGS := -DENABLE_GL_BUFFER
+	LOCAL_SHARED_LIBRARIES := libSNPE 
 	LOCAL_LDLIBS += -lGLESv2 -lEGL
 	LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../../third_party/snpe/include/zdl
 endif
@@ -96,10 +97,5 @@ ifeq ($(CONFIG_SNPE), yes)
 	LOCAL_MODULE := libSNPE
 	LOCAL_SRC_FILES := ../$(SNPE_LIB_DIR)/libSNPE.so
 	LOCAL_EXPORT_C_INCLUDES += $(LOCAL_PATH)/../../../third_party/snpe/include/zdl
-	include $(PREBUILT_SHARED_LIBRARY)
-
-	include $(CLEAR_VARS)
-	LOCAL_MODULE := libSYMPHONYCPU
-	LOCAL_SRC_FILES := ../$(SNPE_LIB_DIR)/libsymphony-cpu.so
 	include $(PREBUILT_SHARED_LIBRARY)
 endif

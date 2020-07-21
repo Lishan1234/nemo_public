@@ -29,8 +29,8 @@ assert(os.path.exists(SNPE_ROOT))
 def check_python_version():
     #check python version
     python_version = sys.version_info
-    if not (python_version[0] == 3 and python_version[1] == 4):
-        raise RuntimeError('Unsupported Python version: {}'.format(python_version))
+    #if not (python_version[0] == 3 and python_version[1] == 4):
+    #    raise RuntimeError('Unsupported Python version: {}'.format(python_version))
 
 def snpe_dlc_viewer(dlc_path, html_path):
     check_python_version()
@@ -153,8 +153,8 @@ def snpe_convert_model(model, input_shape, checkpoint_dir):
     #TODO
 
     #visualize a dlc
-    html_path = os.path.join(checkpoint_dir, '{}.html'.format(dlc_name))
-    snpe_dlc_viewer(dlc_path, html_path)
+    #html_path = os.path.join(checkpoint_dir, '{}.html'.format(dlc_name))
+    #snpe_dlc_viewer(dlc_path, html_path)
 
     dlc_dict = {'model_name': model.name , \
             'input_name': model.inputs[0].name, \
