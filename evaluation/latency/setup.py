@@ -33,7 +33,7 @@ if __name__ == '__main__':
     #codec
     parser.add_argument('--output_width', type=int, default=1920)
     parser.add_argument('--output_height', type=int, default=1080)
-    parser.add_argument('--limit', type=int, default=100) #TODO: change to 300
+    parser.add_argument('--limit', type=int, default=10) #TODO: change to 100
 
     args = parser.parse_args()
 
@@ -70,10 +70,8 @@ if __name__ == '__main__':
     model = nemo.dnn.model.build(args.model_type, args.num_blocks, args.num_filters, scale, args.upsample_type, apply_clip=True)
     if args.train_type == 'train_video':
         checkpoint_dir = os.path.join(args.data_dir, args.content, 'checkpoint', args.video_name, model.name)
-        log_dir = os.path.join(args.data_dir, args.content, 'log', args.video_name, model.name)
     elif args.train_type == 'finetune_video':
         checkpoint_dir = os.path.join(args.data_dir, args.content, 'checkpoint', args.video_name, '{}_finetune'.format(model.name))
-        log_dir = os.path.join(args.data_dir, args.content, 'log', args.video_name, '{}_finetune'.format(model.name))
     else:
         raise ValueError('Unsupported training types')
     snpe_convert_model(model, input_shape, checkpoint_dir)
@@ -90,7 +88,7 @@ if __name__ == '__main__':
     #adb_push(device_cache_profile_dir, cache_profile_path, args.device_id)
 
     #setup scripts (setup.sh, offline_dnn.sh, online_dnn.sh)
-    script_dir = '.script'
+    script_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '.script')
     os.makedirs(script_dir, exist_ok=True)
     input_height = video_profile['height']
 
@@ -130,8 +128,8 @@ if __name__ == '__main__':
     #case 3: NEMO
     """
     cache_profile_name = '{}.profile'.format(args.algorithm_type)
-    device_script_dir = os.path.join(device_root_dir, 'script', args.video_name, model.name, cache_profile_name)
-    device_cache_profile_file = os.path.join(device_cache_profile_dir, cache_profile_name)
+    device_script_dir = os.path.join(device_root_dir, 'script', args.video_name, model.name, args.algorithm_type)
+    device_cache_profile_file = os.path.join(device_cache_profile_dir, args.algorithm_type)
     adb_mkdir(device_script_dir, args.device_id)
 
     cmds = ['#!/system/bin/sh',

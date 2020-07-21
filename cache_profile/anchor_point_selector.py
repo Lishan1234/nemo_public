@@ -528,7 +528,6 @@ if __name__ == '__main__':
     parser.add_argument('--num_filters', type=int)
     parser.add_argument('--num_blocks', type=int)
     parser.add_argument('--upsample_type', type=str, default='deconv')
-    parser.add_argument('--scale', type=int, default=None)
     parser.add_argument('--train_type', type=str, required=True)
 
     #anchor point selector

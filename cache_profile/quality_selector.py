@@ -7,17 +7,120 @@ import json
 
 import tensorflow as tf
 
-from tool.video import profile_video, FFmpegOption
-from cache_profile.anchor_point_selector_uniform import APS_Uniform
-from cache_profile.anchor_point_selector_random import APS_Random
-from cache_profile.anchor_point_selector_nemo import APS_NEMO
-from cache_profile.anchor_point_selector_nemo_bound import APS_NEMO_Bound
-from cache_profile.anchor_point_selector_uniform_eval import APS_Uniform_Eval
-from cache_profile.anchor_point_selector_random_eval import APS_Random_Eval
-from dnn.model.nemo_s import NEMO_S
+from tool.video import profile_video
 
 content_order = {'product_review': 0, 'how_to': 1, 'vlogs': 2, 'game_play_1': 3, 'skit': 4,
                 'haul': 5, 'challenge':6, 'favorite': 7, 'education': 8, 'unboxing': 9}
+
+#TODO: test each (devices, dnns, content) and save a log at {content}/log/processor_to_quality.json
+#TODO: save processor names
+#TODO: test with 0th chunk
+
+class QualitySelector():
+    def __init__():
+        self.dataset_dir = dataset_dir
+        self.video_name = video_name
+        self.gop = gop
+        self.models = models
+        self.processors = processors
+        self.algorithms = algorithms
+        self.fallback_algorithm_type = fallback_algorithm_type
+
+    def measure_sample_video_latency():
+        #reference video
+        latency_dict = {}
+        for device_id in args.device_id:
+            latency_dict[device_id] = {}
+
+            for model in models:
+                anchor_point = []
+                non_anchor_frame = []
+
+                video_file = os.path.abspath(glob.glob(os.path.join(args.dataset_rootdir, args.reference_content,  'video', '{}p*'.format(args.lr_resolution)))[0])
+                video_name = os.path.basename(video_file)
+                if aps_class == APS_NEMO_Bound:
+                    latency_log = os.path.join(args.dataset_rootdir, args.reference_content, 'log', video_name, model.name, '{}_{}_{}.profile'.format(aps_class.NAME1, args.bound, args.threshold), device_id, 'latency.txt')
+                    metadata_log = os.path.join(args.dataset_rootdir, args.reference_content, 'log', video_name, model.name, '{}_{}_{}.profile'.format(aps_class.NAME1, args.bound, args.threshold), device_id, 'metadata.txt')
+                else:
+                    latency_log = os.path.join(args.dataset_rootdir, args.reference_content, 'log', video_name, model.name, '{}_{}.profile'.format(aps_class.NAME1, args.threshold), device_id, 'latency.txt')
+                    metadata_log = os.path.join(args.dataset_rootdir, args.reference_content, 'log', video_name, model.name, '{}_{}.profile'.format(aps_class.NAME1, args.threshold), device_id, 'metadata.txt')
+
+                with open(latency_log, 'r') as f0, open(metadata_log, 'r') as f1:
+                    latency_lines = f0.readlines()
+                    metadata_lines = f1.readlines()
+
+                    for latency_line, metadata_line in zip(latency_lines, metadata_lines):
+                        latency_result = latency_line.strip().split('\t')
+                        metadata_result = metadata_line.strip().split('\t')
+
+                        #anchor point
+                        if int(metadata_result[2]) == 1:
+                            anchor_point.append(float(latency_result[2]))
+                        #non-anchor frame
+                        elif int(metadata_result[2]) == 0:
+                            non_anchor_frame.append(float(latency_result[2]))
+                        else:
+                            raise RuntimeError
+
+                    latency_dict[device_id][model.name] = {}
+                    latency_dict[device_id][model.name]['anchor_point'] = np.average(anchor_point)
+                    latency_dict[device_id][model.name]['non_anchor_frame'] = np.average(non_anchor_frame)
+
+    #TODO: sort a model by multiple attributes (num_blocks, num_filters)
+    #TODO: sort a algorithm type by {maximum_num_anchor_points} (margin, max_num_anchor_points)
+    #TODO: support multiple algorithm types
+
+    def _algorithm_key(self):
+        pass
+
+    def _model_key(self):
+        pass
+
+    def select_quality():
+        processor_to_quality = {}
+        for processor in self.processors:
+            video_path = os.path.join(self.dataset_dir, 'video', self.video_name)
+            fps = profile_video(video_path)['frame_rate']
+
+            selected_model = None
+            for algorithm in sorted(self.algorithms, key=lambda x: self._algorith_key(x))
+                for model in sorted(self.models, key=lambda x: self._model_key(x)):
+                    is_real_time = True
+                    log_path = os.path.join(self.dataset_dir, 'log', video_name, model.name, 'quality_{}.txt'.format(self.algorithm_type))
+                    with open(log, 'r') as f:
+                        lines = f.readlines()
+                        for line in lines:
+                            line = line.strip().split('\t')
+                            num_anchor_points = int(line[1])
+                            num_frames = int(line[2]) #TODO: log num_frames
+                            latency = num_anchor_points * latency_dict[processor][model.name]['anchor_point'] + (num_frames - num_anchor_points) * latency_dict[processor][model.name]['non_anchor_frame']
+                            if latency > (self.gop / fps) * 1000:
+                                is_real_time = False
+                                break
+                        if is_real_time is True:
+                            selected_model = model
+
+            if selected_model is None:
+                processor_to_quality[processor] = {}
+                processor_to_quality[processor]['num_blocks'] = selected_model.num_blocks
+                processor_to_quality[processor]['num_filters'] = selected_model.num_filters
+                processor_to_quality[processor]['scale'] = selected_model.scale
+                processor_to_quality[processor]['algorithm_type'] = self.algorithm_type
+            else:
+                raise RuntimeError('No model is selected')
+
+        json_path = os.path.join(self.dataset_dir, 'log', video_name, 'processor_to_quality.json')
+        with open(json_path, 'w') as f:
+            json.dump(processor_to_quality, f)
+
+        log_path = os.path.join(self.dataset_dir, 'evaluation', 'device_to_dnn_{}p.txt'.format(args.lr_resolution))
+        with open(log_path, 'w') as f:
+            f.write('Content\t{}\n'.format('\t'.join(args.device_id)))
+            for content in args.content:
+                f.write(content)
+                for device_id in args.device_id:
+                    f.write('\t{}'.format(processor_to_quality[content][device_id]['num_filters']))
+                f.write('\n')
 
 if __name__ == '__main__':
     tf.enable_eager_execution()
@@ -78,106 +181,3 @@ if __name__ == '__main__':
         aps_class = APS_NEMO_Bound
     else:
         raise NotImplementedError
-
-    #reference video
-    latency_dict = {}
-    for device_id in args.device_id:
-        latency_dict[device_id] = {}
-
-        for model in models:
-            anchor_point = []
-            non_anchor_frame = []
-
-            video_file = os.path.abspath(glob.glob(os.path.join(args.dataset_rootdir, args.reference_content,  'video', '{}p*'.format(args.lr_resolution)))[0])
-            video_name = os.path.basename(video_file)
-            if aps_class == APS_NEMO_Bound:
-                latency_log = os.path.join(args.dataset_rootdir, args.reference_content, 'log', video_name, model.name, '{}_{}_{}.profile'.format(aps_class.NAME1, args.bound, args.threshold), device_id, 'latency.txt')
-                metadata_log = os.path.join(args.dataset_rootdir, args.reference_content, 'log', video_name, model.name, '{}_{}_{}.profile'.format(aps_class.NAME1, args.bound, args.threshold), device_id, 'metadata.txt')
-            else:
-                latency_log = os.path.join(args.dataset_rootdir, args.reference_content, 'log', video_name, model.name, '{}_{}.profile'.format(aps_class.NAME1, args.threshold), device_id, 'latency.txt')
-                metadata_log = os.path.join(args.dataset_rootdir, args.reference_content, 'log', video_name, model.name, '{}_{}.profile'.format(aps_class.NAME1, args.threshold), device_id, 'metadata.txt')
-
-            with open(latency_log, 'r') as f0, open(metadata_log, 'r') as f1:
-                latency_lines = f0.readlines()
-                metadata_lines = f1.readlines()
-
-                for latency_line, metadata_line in zip(latency_lines, metadata_lines):
-                    latency_result = latency_line.strip().split('\t')
-                    metadata_result = metadata_line.strip().split('\t')
-
-                    #anchor point
-                    if int(metadata_result[2]) == 1:
-                        anchor_point.append(float(latency_result[2]))
-                    #non-anchor frame
-                    elif int(metadata_result[2]) == 0:
-                        non_anchor_frame.append(float(latency_result[2]))
-                    else:
-                        raise RuntimeError
-
-                latency_dict[device_id][model.name] = {}
-                latency_dict[device_id][model.name]['anchor_point'] = np.average(anchor_point)
-                latency_dict[device_id][model.name]['non_anchor_frame'] = np.average(non_anchor_frame)
-
-    selected_model = {}
-    for device_id in args.device_id:
-        for content in args.content:
-            if content not in selected_model.keys():
-                selected_model[content] = {}
-            video_file = os.path.abspath(glob.glob(os.path.join(args.dataset_rootdir, content,  'video', '{}p*'.format(args.lr_resolution)))[0])
-            video_name = os.path.basename(video_file)
-            fps = profile_video(video_file)['frame_rate']
-
-            real_time_model = None
-            for model in models:
-                is_real_time = True
-                if aps_class == APS_NEMO_Bound:
-                    log = os.path.join(args.dataset_rootdir, content, 'log', video_name, model.name, '{}_{}_{}'.format(aps_class.NAME1, args.bound, args.threshold), 'quality.txt')
-                else:
-                    log = os.path.join(args.dataset_rootdir, content, 'log', video_name, model.name, '{}_{}'.format(aps_class.NAME1, args.threshold), 'quality.txt')
-                with open(log, 'r') as f:
-                    lines = f.readlines()
-                    for line in lines:
-                        line = line.strip().split('\t')
-                        num_anchor_points = int(line[1])
-                        max_latency = 0
-                        latency = num_anchor_points * latency_dict[device_id][model.name]['anchor_point'] + (args.gop - num_anchor_points) * latency_dict[device_id][model.name]['non_anchor_frame']
-                        if latency > (args.gop / fps) * 1000:
-                            is_real_time = False
-                            break
-
-                    if is_real_time is True:
-                        real_time_model = model
-
-            if real_time_model is None:
-                selected_model[content][device_id] = {}
-                selected_model[content][device_id]['num_blocks'] = models[0].num_blocks
-                selected_model[content][device_id]['num_filters'] = models[0].num_filters
-                selected_model[content][device_id]['scale'] = models[0].scale
-                selected_model[content][device_id]['aps_class'] = args.aps_class
-                selected_model[content][device_id]['bound'] = 12
-                selected_model[content][device_id]['threshold'] = args.threshold
-            else:
-                selected_model[content][device_id] = {}
-                selected_model[content][device_id]['num_blocks'] = real_time_model.num_blocks
-                selected_model[content][device_id]['num_filters'] = real_time_model.num_filters
-                selected_model[content][device_id]['scale'] = real_time_model.scale
-                selected_model[content][device_id]['aps_class'] = args.aps_class
-                selected_model[content][device_id]['bound'] = args.bound
-                selected_model[content][device_id]['threshold'] = args.threshold
-
-    for content in args.content:
-        video_file = os.path.abspath(glob.glob(os.path.join(args.dataset_rootdir, content,  'video', '{}p*'.format(args.lr_resolution)))[0])
-        video_name = os.path.basename(video_file)
-        json_file = os.path.join(args.dataset_rootdir, content, 'log', video_name, 'device_to_dnn.json')
-
-        with open(json_file, 'w') as f:
-            json.dump(selected_model[content], f)
-
-    log_file = os.path.join(args.dataset_rootdir, 'evaluation', 'device_to_dnn_{}p.txt'.format(args.lr_resolution))
-    with open(log_file, 'w') as f:
-        f.write('Content\t{}\n'.format('\t'.join(args.device_id)))
-        for content in args.content:
-            f.write(content)
-            for device_id in args.device_id:
-                f.write('\t{}'.format(selected_model[content][device_id]['num_filters']))
-            f.write('\n')
