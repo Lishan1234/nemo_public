@@ -71,7 +71,7 @@ class AnchorPointSet():
         self.anchor_points.append(frame)
         self.quality = quality
 
-    def num_anchor_points(self):
+    def get_num_anchor_points(self):
         return len(self.anchor_points)
 
     def get_cache_profile_name(self):

@@ -3,13 +3,13 @@
 function _usage()
 {
 cat << EOF
-_usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-g GPU_INDEX] [-c CONTENT] [-i CHUNK INDEX] [-q QUALITY] [-r RESOLUTION]
+_usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-g GPU_INDEX] [-c CONTENT] [-i INDEX] [-q QUALITY] [-r RESOLUTION] [-v CHUNK_INDEX]
 
 mandatory arguments:
 -g GPU_INDEX              Specifies a GPU index to use
 -c CONTENT                Specifies a content (e.g., product_review0)
--t TRAIN_TYPE             Specifies a train type (e.g., train_video)
--i CHUNK INDEX            Specifies a chunk index (e.g., 0)
+-i INDEX                  Specifies a index (e.g., 0)
+-v CHUNK_INDEX            Specifies a index (e.g., 0)
 -q QUALITY                Specifies a quality (e.g., low)
 -r RESOLUTION             Specifies a resolution (e.g., 240)
 
@@ -90,15 +90,15 @@ function _set_num_filters(){
 
 [[ ($# -ge 1)  ]] || { echo "[ERROR] Invalid number of arguments. See -h for help."; exit 1;  }
 
-while getopts ":g:c:i:q:r:t:h" opt; do
+while getopts ":g:c:i:q:r:v:h" opt; do
     case $opt in
         h) _usage; exit 0;;
         g) gpu_index="$OPTARG";;
         c) content=("$OPTARG");;
-        i) chunk_index=("$OPTARG");;
+        i) index=("$OPTARG");;
+        v) chunk_index=("$OPTARG");;
         q) quality=("$OPTARG");;
         r) resolution=("$OPTARG");;
-        t) train_type="$OPTARG";;
         \?) exit 1;
     esac
 done
@@ -110,6 +110,11 @@ fi
 
 if [ -z "${content+x}" ] ; then
     echo "[ERROR] content is not set"
+    exit 1;
+fi
+
+if [ -z "${index+x}" ] ; then
+    echo "[ERROR] index is not set"
     exit 1;
 fi
 
@@ -128,14 +133,8 @@ if [ -z "${resolution+x}" ] ; then
     exit 1;
 fi
 
-if [ -z "${train_type+x}" ] ; then
-    echo "[ERROR] train_type is not set"
-    exit 1;
-fi
-
-
 _set_conda
 _set_bitrate ${resolution}
 _set_num_blocks ${resolution} ${quality}
 _set_num_filters ${resolution} ${quality}
-CUDA_VISIBLE_DEVICES=${gpu_index} python ${NEMO_ROOT}/cache_profile/anchor_point_selector.py --data_dir ${NEMO_ROOT}/data --content ${content}${index} --lr_video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --hr_video_name 2160p_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --train_type ${train_type} --task run_exhaustive_search
+CUDA_VISIBLE_DEVICES=${gpu_index} python ${NEMO_ROOT}/cache_profile/run_exhaustive_search.py --data_dir ${NEMO_ROOT}/data --content ${content}${index} --lr_video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --hr_video_name 2160p_12000kbps_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --chunk_idx ${chunk_index}
