@@ -32,13 +32,13 @@ class AnchorPointSelector():
         self.num_decoders = num_decoders
 
     #select an anchor point that maiximizes the quality gain
-    def _select_anchor_point(self, current_anchor_points, anchor_point_candidates):
+    def _select_anchor_point(self, current_anchor_point_set, anchor_point_candidates):
         max_estimated_quality = None
         max_avg_estimated_quality = None
         idx = None
 
         for i, new_anchor_point in enumerate(anchor_point_candidates):
-            estimated_quality = self._estimate_quality(current_anchor_points, new_anchor_point)
+            estimated_quality = self._estimate_quality(current_anchor_point_set, new_anchor_point)
             avg_estimated_quality = np.average(estimated_quality)
             if max_avg_estimated_quality is None or avg_estimated_quality > max_avg_estimated_quality:
                 max_avg_estimated_quality = avg_estimated_quality
@@ -48,9 +48,9 @@ class AnchorPointSelector():
         return idx, max_estimated_quality
 
     #estimate the quality of an anchor point set
-    def _estimate_quality(self, currnet_anchor_points, new_anchor_point):
-        if currnet_anchor_points is not None:
-            return np.maximum(currnet_anchor_points.estimated_quality, new_anchor_point.measured_quality)
+    def _estimate_quality(self, current_anchor_point_set, new_anchor_point):
+        if current_anchor_point_set is not None:
+            return np.maximum(current_anchor_point_set.estimated_quality, new_anchor_point.measured_quality)
         else:
             return new_anchor_point.measured_quality
 
