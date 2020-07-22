@@ -103,8 +103,13 @@ while getopts ":g:c:i:q:r:h" opt; do
     esac
 done
 
-if [ -z "${gpu_index+x}" ] || [ -z "${contents+x}" ]; then
-    echo "[ERROR] gpu_index and contents must be set"
+if [ -z "${gpu_index+x}" ]; then
+    echo "[ERROR] gpu_index is not set"
+    exit 1;
+fi
+
+if [ -z "${contents+x}" ]; then
+    echo "[ERROR] contents is not set"
     exit 1;
 fi
 
@@ -133,7 +138,7 @@ do
                 _set_bitrate ${resolution}
                 _set_num_blocks ${resolution} ${quality}
                 _set_num_filters ${resolution} ${quality}
-                CUDA_VISIBLE_DEVICES=${gpu_index} python ${NEMO_ROOT}/dnn/train_video.py --data_dir ${NEMO_ROOT}/data --content ${content}${index} --lr_video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --hr_video_name 2160p_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --load_on_memory --finetune_from_div2k --num_epochs 50
+                CUDA_VISIBLE_DEVICES=${gpu_index} python ${NEMO_ROOT}/dnn/train_video.py --data_dir ${NEMO_ROOT}/data --content ${content}${index} --lr_video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --hr_video_name 2160p_12000kbps_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --load_on_memory --finetune_from_div2k --num_epochs 50
             done
         done
     done

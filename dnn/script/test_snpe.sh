@@ -3,11 +3,12 @@
 function _usage()
 {
 cat << EOF
-_usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-c CONTENTS] [-i INDEXES] [-d DEVICE_ID] [-q QUALITIES] [-r RESOLUTIONS] [-t TRAIN_TYPES]
+_usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-c CONTENTS] [-i INDEXES] [-d DEVICE_ID] [-q QUALITIES] [-r RESOLUTIONS] [-t TRAIN_TYPES] [-s SCALE]
 
 mandatory arguments:
 -c CONTENTS                 Specifies contents (e.g., product_review)
 -d DEVICE_ID                Specifies device id (e.g., 7b7f59d1)
+-s SCALE                    Specifies dnn scale (e.g., 4)
 
 optional multiple arguments:
 -i INDEXES                  Specifies indexes (e.g., 0)
@@ -92,7 +93,7 @@ function _set_num_filters(){
 
 [[ ($# -ge 1)  ]] || { echo "[ERROR] Invalid number of arguments. See -h for help."; exit 1;  }
 
-while getopts ":c:i:q:r:t:d:h" opt; do
+while getopts ":c:i:q:r:t:d:s:h" opt; do
     case $opt in
         h) _usage; exit 0;;
         c) contents+=("$OPTARG");;
@@ -101,12 +102,23 @@ while getopts ":c:i:q:r:t:d:h" opt; do
         r) resolutions+=("$OPTARG");;
         t) train_types+=("$OPTARG");;
         d) device_id=("$OPTARG");;
+        s) scale=("$OPTARG");;
         \?) exit 1;
     esac
 done
 
-if [ -z "${contents+x}" ] || [ -z "${device_id+x}" ]; then
-    echo "[ERROR] contents and device id must be set"
+if [ -z "${contents+x}" ]; then
+    echo "[ERROR] contents is not set"
+    exit 1;
+fi
+
+if [ -z "${device_id+x}" ]; then
+    echo "[ERROR] device_id is not set"
+    exit 1;
+fi
+
+if [ -z "${scale+x}" ]; then
+    echo "[ERROR] scale is not set"
     exit 1;
 fi
 
@@ -141,7 +153,7 @@ do
                     _set_bitrate ${resolution}
                     _set_num_blocks ${resolution} ${quality}
                     _set_num_filters ${resolution} ${quality}
-                   CUDA_VISIBLE_DEVICES=0 python ${NEMO_ROOT}/dnn/test_snpe.py --data_dir ${NEMO_ROOT}/data --content ${content}${index} --lr_video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --hr_video_name 1080p_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --train_type ${train_type} --device_id ${device_id}
+                   CUDA_VISIBLE_DEVICES=0 python ${NEMO_ROOT}/dnn/test_snpe.py --data_dir ${NEMO_ROOT}/data --content ${content}${index} --video_name ${resolution}p_${bitrate}kbps_s0_d300.webm  --num_blocks ${num_blocks} --num_filters ${num_filters} --train_type ${train_type} --device_id ${device_id} --scale ${scale}
                 done
             done
         done

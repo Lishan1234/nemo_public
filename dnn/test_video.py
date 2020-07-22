@@ -78,6 +78,7 @@ if __name__ == '__main__':
     ckpt_path = tf.train.latest_checkpoint(checkpoint_dir)
     ckpt.restore(ckpt_path)
 
+    os.makedirs(log_dir, exist_ok=True)
     log_path = os.path.join(log_dir, 'quality_{}fps.log'.format(args.sample_fps))
     with open(log_path, 'w') as f:
         progbar = tf.keras.utils.Progbar(test_ds.num_images)
@@ -97,14 +98,15 @@ if __name__ == '__main__':
             bilinear_img = resolve_bilinear(lr_img, height, width)
             bilinear_psnr = tf.image.psnr(bilinear_img, hr_img, max_val=255)[0]
 
-            f.write('{:.4f}\t{:.4f}\t{:.4f}\n'.format(sr_psnr, bilinear_psnr, sr_psnr - bilinear_psnr))
-            progbar.update(idx+1)
-
             if tf.math.is_inf(bilinear_psnr):
                 bilinear_psnr = 100
             if tf.math.is_inf(sr_psnr):
                 sr_psnr = 100
 
+            f.write('{:.4f}\t{:.4f}\t{:.4f}\n'.format(sr_psnr, bilinear_psnr, sr_psnr - bilinear_psnr))
+            progbar.update(idx+1)
+
+            """
             sr_img = tf.squeeze(sr_img)
             sr_img = tf.image.encode_png(tf.cast(sr_img, tf.uint8))
             bilinear_img = tf.squeeze(bilinear_img)
@@ -114,3 +116,4 @@ if __name__ == '__main__':
             tf.io.write_file(os.path.join(image_dir, 'sr_{:04d}.png'.format(idx)), sr_img)
             tf.io.write_file(os.path.join(image_dir, 'bilinear_{:04d}.png'.format(idx)), bilinear_img)
             print(sr_psnr, bilinear_psnr)
+            """

@@ -104,7 +104,7 @@ while getopts ":c:i:q:r:t:h" opt; do
 done
 
 if [ -z "${contents+x}" ]; then
-    echo "[ERROR] contents must be set"
+    echo "[ERROR] contents is not set"
     exit 1;
 fi
 
@@ -139,7 +139,7 @@ do
                     _set_bitrate ${resolution}
                     _set_num_blocks ${resolution} ${quality}
                     _set_num_filters ${resolution} ${quality}
-                   CUDA_VISIBLE_DEVICES=0 python ${NEMO_ROOT}/dnn/convert_tensorflow_to_snpe.py --data_dir ${NEMO_ROOT}/data --content ${content}${index} --lr_video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --hr_video_name 1080p_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --train_type ${train_type}
+                   CUDA_VISIBLE_DEVICES=0 python ${NEMO_ROOT}/dnn/convert_tensorflow_to_snpe.py --data_dir ${NEMO_ROOT}/data --content ${content}${index} --lr_video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --train_type ${train_type}
                 done
             done
         done
