@@ -105,8 +105,18 @@ while getopts ":g:c:i:q:r:t:h" opt; do
     esac
 done
 
-if [ -z "${gpu_index+x}" ] || [ -z "${contents+x}" ] || [ -z "${train_type+x}" ]; then
-    echo "[ERROR] gpu_index and contents and train_type must be set"
+if [ -z "${gpu_index+x}" ]; then
+    echo "[ERROR] gpu_index is not set"
+    exit 1;
+fi
+
+if [ -z "${contents+x}" ]; then
+    echo "[ERROR] contents is not set"
+    exit 1;
+fi
+
+if [ -z "${train_type+x}" ]; then
+    echo "[ERROR] train_type is not set"
     exit 1;
 fi
 

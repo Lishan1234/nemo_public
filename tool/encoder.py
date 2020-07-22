@@ -61,16 +61,37 @@ class LibvpxEncoder():
             name += '_d{}'.format(duration)
         return name
 
-    def cut(self, start, duration, gop):
-        output_video_name = '{}p{}.webm'.format(self.input_height, self._name(start, duration))
-        output_video_path = os.path.join(self.output_video_dir, output_video_name)
-        cmd_opt = '-ss {} -t {}'.format(start, duration)
-        cmd = '{} -i {} -y -c:v libvpx-vp9 -c copy -g {} {} {} {}'.format(self.ffmpeg_path,
-            self.input_video_path, gop, self._threads(self.input_height), cmd_opt, output_video_path)
-        #os.system(cmd)
+    def cut_and_resize_and_encode(self, width, height, bitrate, gop):
+        int_video_name = '{}p{}.webm'.format(self.input_height, self._name(self.start, self.duration))
+        int_video_path = os.path.join(os.path.dirname(self.input_video_path), int_video_name)
+        cut_opt = '-ss {} -t {}'.format(self.start, self.duration)
+        cmd = '{} -i {} -y -c:v libvpx-vp9 -c copy {} {} {}'.format(self.ffmpeg_path,
+            self.input_video_path, self._threads(self.input_height), cut_opt, int_video_path)
         print(cmd)
+        os.system(cmd)
 
-    def encode(self, width, height, bitrate, gop):
+        height = profile_video(int_video_path)['height']
+        output_video_name = '{}p_{}kbps{}.webm'.format(height, bitrate, self._name(self.start, self.duration))
+        output_video_path = os.path.join(self.output_video_dir, output_video_name)
+        target_bitrate = '{}k'.format(bitrate)
+        min_bitrate = '{}k'.format(int(bitrate * 0.5))
+        max_bitrate = '{}k'.format(int(bitrate * 1.45))
+        passlog_name = '{}_{}'.format(self.output_video_dir.split('/')[-2], output_video_name) #assume output videos are saved as ".../[content]/video/*.webm"
+
+        base_cmd = '{} -i {} -c:v libvpx-vp9 -vf scale={}x{}:out_color_matrix=bt709 -colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range 1 \
+                    -b:v {} -minrate {} -maxrate {} -g {} -quality good {} -passlogfile {} -y'.format(
+                        self.ffmpeg_path, int_video_path, width, height, target_bitrate, min_bitrate, max_bitrate, gop,
+                        self._threads(height), passlog_name)
+
+        cmd = '{} -pass 1 {} {} && {} -pass 2 {} {}'.format(base_cmd, self._speed(height, 1),
+                            output_video_path, base_cmd, self._speed(height, 2), output_video_path)
+        print(cmd)
+        os.system(cmd)
+
+        passlog_path = os.path.join('./', '{}-0.log'.format(passlog_name))
+        os.remove(passlog_path)
+
+    def resize_and_encode(self, width, height, bitrate, gop):
         output_video_name = '{}p_{}kbps{}.webm'.format(height, bitrate, self._name(self.start, self.duration))
         output_video_path = os.path.join(self.output_video_dir, output_video_name)
         target_bitrate = '{}k'.format(bitrate)
@@ -112,15 +133,14 @@ if __name__ == '__main__':
     print(args.input_video_path)
     input_video_height = profile_video(args.input_video_path)['height']
 
-    if args.mode == 'cut':
+    if args.mode == 'cut_and_resize_and_encode':
         assert(args.start is not None and args.duration is not None)
-        enc = LibvpxEncoder(args.output_video_dir, args.input_video_path, input_video_height, None, None, args.ffmpeg_path)
-        enc.cut(args.start, args.duration, args.gop)
-    elif args.mode == 'encode':
+        enc = LibvpxEncoder(args.output_video_dir, args.input_video_path, input_video_height, args.start, args.duration, args.ffmpeg_path)
+        enc.cut_and_resize_and_encode(args.output_width, args.output_height, args.bitrate, args.gop)
+    elif args.mode == 'resize_and_encode':
         assert(args.bitrate is not None and args.output_height is not None and args.output_width is not None)
         enc = LibvpxEncoder(args.output_video_dir, args.input_video_path, input_video_height, args.start,
                             args.duration, args.ffmpeg_path)
-        for width, height, bitrate in zip(args.output_width, args.output_height, args.bitrate):
-            enc.encode(width, height, bitrate, args.gop)
+        enc.resize_and_encode(args.output_width, args.output_height, args.bitrate, args.gop)
     else:
         raise ValueError('Unsupported mode')
