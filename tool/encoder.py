@@ -63,7 +63,7 @@ class LibvpxEncoder():
 
     def cut_and_resize_and_encode(self, width, height, bitrate, gop):
         int_video_name = '{}p{}.webm'.format(self.input_height, self._name(self.start, self.duration))
-        int_video_path = os.path.join(os.path.dirname(self.input_video_path), int_video_name)
+        int_video_path = os.path.join(os.path.dirname(self.output_video_dir), int_video_name)
         cut_opt = '-ss {} -t {}'.format(self.start, self.duration)
         cmd = '{} -i {} -y -c:v libvpx-vp9 -c copy {} {} {}'.format(self.ffmpeg_path,
             self.input_video_path, self._threads(self.input_height), cut_opt, int_video_path)
@@ -90,6 +90,7 @@ class LibvpxEncoder():
 
         passlog_path = os.path.join('./', '{}-0.log'.format(passlog_name))
         os.remove(passlog_path)
+        os.remove(int_video_path)
 
     def resize_and_encode(self, width, height, bitrate, gop):
         output_video_name = '{}p_{}kbps{}.webm'.format(height, bitrate, self._name(self.start, self.duration))
