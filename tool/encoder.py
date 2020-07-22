@@ -61,13 +61,14 @@ class LibvpxEncoder():
             name += '_d{}'.format(duration)
         return name
 
-    def cut(self, start, duration):
+    def cut(self, start, duration, gop):
         output_video_name = '{}p{}.webm'.format(self.input_height, self._name(start, duration))
         output_video_path = os.path.join(self.output_video_dir, output_video_name)
         cmd_opt = '-ss {} -t {}'.format(start, duration)
-        cmd = '{} -i {} -y -c:v libvpx-vp9 -c copy {} {} {}'.format(self.ffmpeg_path,
-            self.input_video_path, self._threads(self.input_height), cmd_opt, output_video_path)
-        os.system(cmd)
+        cmd = '{} -i {} -y -c:v libvpx-vp9 -c copy -g {} {} {} {}'.format(self.ffmpeg_path,
+            self.input_video_path, gop, self._threads(self.input_height), cmd_opt, output_video_path)
+        #os.system(cmd)
+        print(cmd)
 
     def encode(self, width, height, bitrate, gop):
         output_video_name = '{}p_{}kbps{}.webm'.format(height, bitrate, self._name(self.start, self.duration))
@@ -89,15 +90,6 @@ class LibvpxEncoder():
         passlog_path = os.path.join('./', '{}-0.log'.format(passlog_name))
         os.remove(passlog_path)
 
-    def encode_lossless(self, width, height):
-        output_video_name = '{}p{}.webm'.format(height, self._name(self.start, self.duration))
-        output_video_path = os.path.join(self.output_video_dir, output_video_name)
-
-        cmd = '{} -i {} -c:v libvpx-vp9 -vf scale={}x{} -lossless 1 {} {}'.format(
-                        self.ffmpeg_path, self.input_video_path, width, height,
-                        self._threads(height), output_video_path)
-        os.system(cmd)
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
@@ -108,33 +100,27 @@ if __name__ == '__main__':
 
     #video
     parser.add_argument('--mode', type=str, required=True)
-    parser.add_argument('--bitrate', type=int, nargs='+', default=None)
-    parser.add_argument('--output_width', type=int, nargs='+', default=None)
-    parser.add_argument('--output_height', type=int, nargs='+', default=None)
+    parser.add_argument('--bitrate', type=int, default=None)
+    parser.add_argument('--output_width', type=int, default=None)
+    parser.add_argument('--output_height', type=int, default=None)
     parser.add_argument('--gop', type=int, default=120)
     parser.add_argument('--start', type=int, default=None)
     parser.add_argument('--duration', type=int, default=None)
 
     args = parser.parse_args()
 
+    print(args.input_video_path)
     input_video_height = profile_video(args.input_video_path)['height']
 
     if args.mode == 'cut':
-        if args.start is None and args.duration is None:
-            raise ValueError('start and duration are not given')
+        assert(args.start is not None and args.duration is not None)
         enc = LibvpxEncoder(args.output_video_dir, args.input_video_path, input_video_height, None, None, args.ffmpeg_path)
-        enc.cut(args.start, args.duration)
+        enc.cut(args.start, args.duration, args.gop)
     elif args.mode == 'encode':
-        if args.bitrate is None or args.output_height is None or args.output_width is None:
-            raise ValueError('bitrate or output_height or is output_width not given')
-        if len(args.bitrate) != len(args.output_height) != len(args.output_width):
-            raise ValueError('bitrate and height values are wrong')
+        assert(args.bitrate is not None and args.output_height is not None and args.output_width is not None)
         enc = LibvpxEncoder(args.output_video_dir, args.input_video_path, input_video_height, args.start,
                             args.duration, args.ffmpeg_path)
         for width, height, bitrate in zip(args.output_width, args.output_height, args.bitrate):
-            if bitrate <= 0:
-                enc.encode_lossless(width, height)
-            else:
-                enc.encode(width, height, bitrate, args.gop)
+            enc.encode(width, height, bitrate, args.gop)
     else:
         raise ValueError('Unsupported mode')

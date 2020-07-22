@@ -14,8 +14,9 @@ EOF
 
 function _transcode_1080p()
 {
-    #cut & lossless encode (1080p)
+    #cut
     python $NEMO_ROOT/tool/encoder.py --output_video_dir $NEMO_ROOT/data/$1$2/video --input_video_path $NEMO_ROOT/data/video/$1$2.webm --start 0 --duration 300 --mode cut
+    return
 
     #encode (240p)
     python $NEMO_ROOT/tool/encoder.py --output_video_dir $NEMO_ROOT/data/$1$2/video --input_video_path $NEMO_ROOT/data/$1$2/video/2160p_s0_d300.webm --bitrate 512 --output_width 426 --output_height 240 --start 0 --duration 300 --mode encode
