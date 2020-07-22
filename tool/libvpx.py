@@ -93,7 +93,7 @@ class AnchorPointSet():
         self.measured_quality = quality
 
     def save_cache_profile(self):
-        path = os.path.join(self.save_dir, self.name)
+        path = os.path.join(self.save_dir, '{}.profile'.format(self.name))
 
         num_remained_bits = 8 - (len(self.frames) % 8)
         num_remained_bits = num_remained_bits % 8
@@ -114,7 +114,7 @@ class AnchorPointSet():
                 f.write(struct.pack("=B", byte_value))
 
     def remove_cache_profile(self):
-        cache_profile_path = os.path.join(self.save_dir, self.name)
+        cache_profile_path = os.path.join(self.save_dir, '{}.profile'.format(self.name))
         if os.path.exists(cache_profile_path):
             os.remove(cache_profile_path)
 

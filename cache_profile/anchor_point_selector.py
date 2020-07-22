@@ -105,7 +105,7 @@ class AnchorPointSelector():
         single_anchor_point_sets = []
         frames = libvpx_load_frame_index(self.dataset_dir, self.lr_video_name, postfix)
         for idx, frame in enumerate(frames):
-            anchor_point_set = AnchorPointSet.create(frames, cache_profile_dir, '{}.profile'.format(frame.name))
+            anchor_point_set = AnchorPointSet.create(frames, cache_profile_dir, frame.name)
             anchor_point_set.add_anchor_point(frame)
             anchor_point_set.save_cache_profile()
             q0.put((anchor_point_set.get_cache_profile_name(), num_skipped_frames, num_decoded_frames, postfix, idx))
@@ -134,10 +134,10 @@ class AnchorPointSelector():
             anchor_point_idx, estimated_quality = self._select_anchor_point(anchor_point_set, single_anchor_point_sets)
             selected_anchor_point = single_anchor_point_sets.pop(anchor_point_idx)
             if len(multile_anchor_point_sets) == 0:
-                anchor_point_set = AnchorPointSet.load(selected_anchor_point, cache_profile_dir, '{}_{}.profile'.format(algorithm_type, len(selected_anchor_point.anchor_points)))
+                anchor_point_set = AnchorPointSet.load(selected_anchor_point, cache_profile_dir, '{}_{}'.format(algorithm_type, len(selected_anchor_point.anchor_points)))
                 anchor_point_set.set_estimated_quality(selected_anchor_point.measured_quality)
             else:
-                anchor_point_set = AnchorPointSet.load(multile_anchor_point_sets[-1], cache_profile_dir, '{}_{}.profile'.format(algorithm_type, len(multile_anchor_point_sets[-1].anchor_points) + 1))
+                anchor_point_set = AnchorPointSet.load(multile_anchor_point_sets[-1], cache_profile_dir, '{}_{}'.format(algorithm_type, len(multile_anchor_point_sets[-1].anchor_points) + 1))
                 anchor_point_set.add_anchor_point(selected_anchor_point.anchor_points[0])
                 anchor_point_set.set_estimated_quality(estimated_quality)
             multile_anchor_point_sets.append(anchor_point_set)
@@ -165,7 +165,7 @@ class AnchorPointSelector():
 
                 #terminate
                 if np.average(quality_diff) <= self.quality_margin or anchor_point_set.num_anchor_points() == max_num_anchor_points:
-                    anchor_point_set.set_cache_profile_name('{}.profile'.format(algorithm_type))
+                    anchor_point_set.set_cache_profile_name('{}'.format(algorithm_type))
                     anchor_point_set.save_cache_profile()
                     libvpx_offline_cache_quality(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
                                             self.model.name, anchor_point_set.get_cache_profile_name(), self.output_width, self.output_height, \
@@ -225,7 +225,7 @@ class AnchorPointSelector():
             for i in range(len(frames)):
                 #select anchor point uniformly
                 num_anchor_points = i + 1
-                anchor_point_set = AnchorPointSet.create(frames, cache_profile_dir, '{}_{}.profile'.format(algorithm_type, num_anchor_points))
+                anchor_point_set = AnchorPointSet.create(frames, cache_profile_dir, '{}_{}'.format(algorithm_type, num_anchor_points))
                 for j in range(num_anchor_points):
                     idx = j * math.floor(len(frames) / num_anchor_points)
                     anchor_point_set.add_anchor_point(frames[idx])
@@ -244,7 +244,7 @@ class AnchorPointSelector():
                                         np.average(quality_bilinear)))
                 #terminate
                 if np.average(quality_diff) <= self.quality_margin:
-                    anchor_point_set.set_cache_profile_name('{}.profile'.format(algorithm_type))
+                    anchor_point_set.set_cache_profile_name('{}'.format(algorithm_type))
                     anchor_point_set.save_cache_profile()
                     libvpx_offline_cache_quality(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
                                             self.model.name, anchor_point_set.get_cache_profile_name(), self.output_width, self.output_height, \
@@ -304,7 +304,7 @@ class AnchorPointSelector():
             for i in range(len(frames)):
                 #select anchor point uniformly
                 num_anchor_points = i + 1
-                anchor_point_set = AnchorPointSet.create(frames, cache_profile_dir, '{}_{}.profile'.format(algorithm_type, num_anchor_points))
+                anchor_point_set = AnchorPointSet.create(frames, cache_profile_dir, '{}_{}'.format(algorithm_type, num_anchor_points))
                 random_frames = random.sample(frames, num_anchor_points)
                 for frame in random_frames:
                     anchor_point_set.add_anchor_point(frame)
@@ -323,7 +323,7 @@ class AnchorPointSelector():
                                         np.average(quality_bilinear)))
                 #terminate
                 if np.average(quality_diff) <= self.quality_margin:
-                    anchor_point_set.set_cache_profile_name('{}.profile'.format(algorithm_type))
+                    anchor_point_set.set_cache_profile_name('{}'.format(algorithm_type))
                     anchor_point_set.save_cache_profile()
                     libvpx_offline_cache_quality(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
                                             self.model.name, anchor_point_set.get_cache_profile_name(), self.output_width, self.output_height, \
@@ -396,7 +396,7 @@ class AnchorPointSelector():
 
         #run the SR-integrated codec and measure the quality
         for i in range(total_iteration):
-            anchor_point_set = AnchorPointSet.create(frames, cache_profile_dir, '{}_{}.profile'.format(algorithm_type, i))
+            anchor_point_set = AnchorPointSet.create(frames, cache_profile_dir, '{}_{}'.format(algorithm_type, i))
             for frame in anchor_point_sets[i]:
                 anchor_point_set.add_anchor_point(frame)
             q0.put((anchor_point_set, num_skipped_frames, num_decoded_frames, postfix))
@@ -453,13 +453,13 @@ class AnchorPointSelector():
             num_chunks = int(math.ceil(lr_video_profile['duration'] / (args.gop / lr_video_profile['frame_rate'])))
             for i in range(num_chunks):
                 if algorithm_type == 'nemo':
-                    self._select_anchor_point_set_nemo(chunk_idx, max_nemo_num_anchor_points)
+                    self._select_anchor_point_set_nemo(i, max_nemo_num_anchor_points)
                 elif algorithm_type == 'uniform':
-                    self._select_anchor_point_set_uniform(chunk_idx)
+                    self._select_anchor_point_set_uniform(i)
                 elif algorithm_type == 'random':
-                    self._select_anchor_point_set_random(chunk_idx)
+                    self._select_anchor_point_set_random(i)
                 elif algorithm_type == 'exhaustive':
-                    self._select_anchor_point_set_exhaustive(exhaustive_num_anchor_points, chunk_idx, exhaustive_num_iters)
+                    self._select_anchor_point_set_exhaustive(exhaustive_num_anchor_points, i, exhaustive_num_iters)
 
     def run_exhaustive_search(self, exhaustive_num_anchor_points, chunk_idx=None, exhaustive_num_iters=None):
         if chunk_idx is not None:
@@ -482,10 +482,10 @@ class AnchorPointSelector():
         cache_profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, self.model.name)
         if algorithm_type == 'nemo' and max_num_anchor_points is not None:
             log_name = os.path.join('quality_{}_{}_{}.txt'.format(algorithm_type, max_num_anchor_points, self.quality_margin))
-            cache_profile_name = os.path.join('{}_{}_{}.profile'.format(algorithm_type, max_num_anchor_points, self.quality_margin))
+            cache_profile_name = os.path.join('{}_{}_{}'.format(algorithm_type, max_num_anchor_points, self.quality_margin))
         else:
             log_name = os.path.join('quality_{}_{}.txt'.format(algorithm_type, self.quality_margin))
-            cache_profile_name = os.path.join('{}_{}.profile'.format(algorithm_type, self.quality_margin))
+            cache_profile_name = os.path.join('{}_{}'.format(algorithm_type, self.quality_margin))
 
         #log
         log_path = os.path.join(log_dir, log_name)
@@ -528,7 +528,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_filters', type=int)
     parser.add_argument('--num_blocks', type=int)
     parser.add_argument('--upsample_type', type=str, default='deconv')
-    parser.add_argument('--train_type', type=str, required=True)
+    parser.add_argument('--train_type', type=str, default='finetune_video')
 
     #anchor point selector
     parser.add_argument('--quality_margin', type=float, default=0.5)
@@ -544,7 +544,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.vpxdec_path is None:
-        args.vpxdec_path = os.path.join(os.environ['NEMO_ROOT'], 'third_party', 'libvpx', 'vpxdec_nemo_ver2')
+        args.vpxdec_path = os.path.join(os.environ['NEMO_ROOT'], 'third_party', 'libvpx', 'bin', 'vpxdec_nemo_ver2_x86')
         assert(os.path.exists(args.vpxdec_path))
     if args.task == 'select_anchor_points':
         assert(args.algorithm is not None)
