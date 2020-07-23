@@ -88,7 +88,6 @@ class AnchorPointSelector():
         end_time = time.time()
         print('{} video chunk: (Step1-profile bilinear, dnn quality) {}sec'.format(chunk_idx, end_time - start_time))
 
-
         #create multiple processes for parallel quality measurements
         start_time = time.time()
         q0 = mp.Queue()
@@ -273,7 +272,8 @@ class AnchorPointSelector():
                                         num_skipped_frames, num_decoded_frames, postfix)
                 anchor_point_set.remove_cache_profile()
                 quality_diff = np.asarray(quality_dnn) - np.asarray(quality_cache)
-                quality_log = '{}\t{:.4f}\t{:.4f}\t{:.4f}\n'.format(anchor_point_set.get_num_anchor_points(), np.average(quality_cache), np.average(quality_dnn), np.average(quality_bilinear))
+                quality_log = '{}\t{}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\n'.format(anchor_point_set.get_num_anchor_points(), len(frames), \
+                                         np.average(quality_cache), np.average(quality_dnn), np.average(quality_bilinear), np.average(anchor_point_set.estimated_quality))
                 f.write(quality_log)
 
                 #terminate
@@ -350,7 +350,8 @@ class AnchorPointSelector():
                                         num_skipped_frames, num_decoded_frames, postfix)
                 anchor_point_set.remove_cache_profile()
                 quality_diff = np.asarray(quality_dnn) - np.asarray(quality_cache)
-                quality_log = '{}\t{:.4f}\t{:.4f}\t{:.4f}\n'.format(anchor_point_set.get_num_anchor_points(), np.average(quality_cache), np.average(quality_dnn), np.average(quality_bilinear))
+                quality_log = '{}\t{}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\n'.format(anchor_point_set.get_num_anchor_points(), len(frames), \
+                                         np.average(quality_cache), np.average(quality_dnn), np.average(quality_bilinear), np.average(anchor_point_set.estimated_quality))
                 f.write(quality_log)
 
                 #terminate
@@ -402,8 +403,8 @@ class AnchorPointSelector():
 
         log_dir = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name)
         cache_profile_dir = os.path.join(self.dataset_dir, 'profile', self.lr_video_name, self.model.name)
-        log_name = os.path.join('quality_{}_{}.txt'.format(algorithm_type, self.quality_margin))
-        cache_profile_name = os.path.join('{}_{}'.format(algorithm_type, self.quality_margin))
+        log_name = os.path.join('quality_{}.txt'.format(algorithm_type))
+        cache_profile_name = os.path.join('{}.profile'.format(algorithm_type))
 
         #log
         log_path = os.path.join(log_dir, log_name)
@@ -491,6 +492,7 @@ if __name__ == '__main__':
         raise ValueError('Unsupported training types')
     ckpt = tf.train.Checkpoint(model=model)
     ckpt_path = tf.train.latest_checkpoint(checkpoint_dir)
+    assert(os.path.exists(ckpt_path))
     ckpt.restore(ckpt_path)
 
     #run aps

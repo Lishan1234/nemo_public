@@ -27,7 +27,7 @@ def get_video_url(content, index):
             url = "https://www.youtube.com/watch?v=pFeQnVvS-yI"
         elif index == 2:
             #url = "https://www.youtube.com/watch?v=Tq-o_296vz4"
-            url = "https://www.youtube.com/watch?v=UlKkQ9qnmzY"
+            url = "https://www.youtube.com/watch?v=aqMZfQODJZo"
         elif index == 3:
             url = "https://www.youtube.com/watch?v=pFeQnVvS-yI"
     elif content == 'vlogs':
