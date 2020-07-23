@@ -23,18 +23,22 @@ def get_video_url(content, index):
         if index == 0:
             pass
         elif index == 1:
-            url = "https://www.youtube.com/watch?v=mJD30Y4PwV0"
+            #url = "https://www.youtube.com/watch?v=mJD30Y4PwV0"
+            url = "https://www.youtube.com/watch?v=pFeQnVvS-yI"
         elif index == 2:
-            url = "https://www.youtube.com/watch?v=Tq-o_296vz4"
+            #url = "https://www.youtube.com/watch?v=Tq-o_296vz4"
+            url = "https://www.youtube.com/watch?v=UlKkQ9qnmzY"
         elif index == 3:
             url = "https://www.youtube.com/watch?v=pFeQnVvS-yI"
-    elif content == 'vlogs': #keyword: educational
+    elif content == 'vlogs':
         if index == 0:
             pass
         elif index == 1:
-            url = "https://www.youtube.com/watch?v=AoGXdUePwro"
+            #url = "https://www.youtube.com/watch?v=AoGXdUePwro"
+            url = "https://www.youtube.com/watch?v=07XFuFlRvj8"
         elif index == 2:
-            url = "https://www.youtube.com/watch?v=rQKyds1j5C0"
+            #url = "https://www.youtube.com/watch?v=rQKyds1j5C0"
+            url = "https://www.youtube.com/watch?v=ibGJXBCTgr4"
         elif index == 3:
             url = "https://www.youtube.com/watch?v=07XFuFlRvj8"
     elif content == 'skit':

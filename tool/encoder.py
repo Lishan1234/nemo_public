@@ -79,8 +79,8 @@ class LibvpxEncoder():
         passlog_name = '{}_{}'.format(self.output_video_dir.split('/')[-2], output_video_name) #assume output videos are saved as ".../[content]/video/*.webm"
 
         base_cmd = '{} -i {} -c:v libvpx-vp9 -vf scale={}x{}:out_color_matrix=bt709 -colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range 1 \
-                    -b:v {} -minrate {} -maxrate {} -g {} -quality good {} -passlogfile {} -y'.format(
-                        self.ffmpeg_path, int_video_path, width, height, target_bitrate, min_bitrate, max_bitrate, gop,
+                    -b:v {} -minrate {} -maxrate {} -keyint_min {} -g {} -quality good {} -passlogfile {} -y'.format(
+                        self.ffmpeg_path, int_video_path, width, height, target_bitrate, min_bitrate, max_bitrate, gop, gop,
                         self._threads(height), passlog_name)
 
         cmd = '{} -pass 1 {} {} && {} -pass 2 {} {}'.format(base_cmd, self._speed(height, 1),
@@ -101,8 +101,8 @@ class LibvpxEncoder():
         passlog_name = '{}_{}'.format(self.output_video_dir.split('/')[-2], output_video_name) #assume output videos are saved as ".../[content]/video/*.webm"
 
         base_cmd = '{} -i {} -c:v libvpx-vp9 -vf scale={}x{}:out_color_matrix=bt709 -colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range 1 \
-                    -b:v {} -minrate {} -maxrate {} -g {} -quality good {} -passlogfile {} -y'.format(
-                        self.ffmpeg_path, self.input_video_path, width, height, target_bitrate, min_bitrate, max_bitrate, gop,
+                    -b:v {} -minrate {} -maxrate {} -keyint_min {} -g {} -quality good {} -passlogfile {} -y'.format(
+                        self.ffmpeg_path, self.input_video_path, width, height, target_bitrate, min_bitrate, max_bitrate, gop, gop,
                         self._threads(height), passlog_name)
 
         cmd = '{} -pass 1 {} {} && {} -pass 2 {} {}'.format(base_cmd, self._speed(height, 1),
