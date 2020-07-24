@@ -159,7 +159,7 @@ public class LibvpxVideoRenderer extends BaseRenderer {
 
   protected DecoderCounters decoderCounters;
 
-  /***chanju***/
+  /***NEMO***/
   public String contentPath;
   public int decodeMode;
   public String modelType;
@@ -198,7 +198,7 @@ public class LibvpxVideoRenderer extends BaseRenderer {
         /* useSurfaceYuvOutput= */ false);
   }
 
-  /***chanju***/
+  /***NEMO***/
   public LibvpxVideoRenderer(boolean scaleToFit, long allowedJoiningTimeMs,
                              Handler eventHandler, VideoRendererEventListener eventListener,
                              int maxDroppedFramesToNotify, String contentPath, String modelType, int decodeMode) {
@@ -216,7 +216,7 @@ public class LibvpxVideoRenderer extends BaseRenderer {
     this.decodeMode = decodeMode;
     this.modelType = modelType;
   }
-  /*** chanju***/
+  /*** NEMO***/
 
   /**
    * @param scaleToFit Whether video frames should be scaled to fit when rendering.
@@ -285,7 +285,7 @@ public class LibvpxVideoRenderer extends BaseRenderer {
   @Override
   public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
 
-    Log.e("exo_queue","render");
+//    Log.e("exo_queue","render");
     if (outputStreamEnded) {
       return;
     }
@@ -316,9 +316,9 @@ public class LibvpxVideoRenderer extends BaseRenderer {
       try {
         // Rendering loop.
         TraceUtil.beginSection("drainAndFeed");
-        Log.e("exo_queue","before drain: " + decoder.queuedOutputBuffers.size()+"");
+//        Log.e("exo_queue","before drain: " + decoder.queuedOutputBuffers.size()+"");
         while (drainOutputBuffer(positionUs, elapsedRealtimeUs)) {}
-        Log.e("exo_queue","after drain: " + decoder.queuedOutputBuffers.size()+"");
+//        Log.e("exo_queue","after drain: " + decoder.queuedOutputBuffers.size()+"");
 
         while (feedInputBuffer()) {}
         TraceUtil.endSection();

@@ -507,16 +507,14 @@ DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
   const char * contentPath = env->GetStringUTFChars(content_path, NULL);
   const char * modelType = env->GetStringUTFChars(model_type,NULL);
   const char * content_dir = contentPath;
-  const char * input_video_name = "240p_s0_d300_encoded.webm";
-  const char * compare_video_name = "1080p_s0_d300.webm";
+  const char * input_video_name = "240p_512kbps_s0_d300.webm";
   char dnn_name[MAX_INPUT];
-  sprintf(dnn_name, "NEMO_S_B8_F%s_S4_deconv",modelType);
-  const char * checkpoint_name = "ckpt-100.dlc";
+  sprintf(dnn_name, "NEMO_S_B8_F%s_S4_deconv.dlc",modelType);
   char dnn_file[MAX_INPUT];
-  sprintf(dnn_file, "%s/checkpoint/%s/%s/%s",content_dir,input_video_name,dnn_name,checkpoint_name);
-  char cache_profile[MAX_INPUT];
+  sprintf(dnn_file, "%s/checkpoint/%s/%s",content_dir,input_video_name, dnn_name);
+  char cache_profile_file[MAX_INPUT];
   const char * cache_profile_name = "NEMO_0.5.profile";
-  sprintf(cache_profile, "%s/profile/%s/%s/%s", content_dir, input_video_name, dnn_name, cache_profile_name);
+  sprintf(cache_profile_file, "%s/profile/%s/%s/%s", content_dir, input_video_name, dnn_name, cache_profile_name);
 
   //setup log directories
   switch(nemo_cfg->decode_mode){
@@ -547,11 +545,12 @@ DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
   if(nemo_cfg->dnn_mode == DECODE_SR || nemo_cfg->dnn_mode == DECODE_CACHE){
     if(vpx_load_nemo_dnn(context->decoder, 4, dnn_file)){
       LOGE("fail2");
+      LOGE("nemo_dnn: %s", dnn_file);
     }
   }
 
   if(nemo_cfg->cache_mode == PROFILE_CACHE){
-    if(vpx_load_nemo_cache_profile(context->decoder, 4, cache_profile)){
+    if(vpx_load_nemo_cache_profile(context->decoder, 4, cache_profile_file)){
       LOGE("fail3");
     }
   }
