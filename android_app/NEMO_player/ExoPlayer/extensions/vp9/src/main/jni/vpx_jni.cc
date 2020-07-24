@@ -443,7 +443,6 @@ int vpx_release_frame_buffer(void* priv, vpx_codec_frame_buffer_t* fb) {
   return buffer_manager->release(*(int*)fb->priv);
 }
 
-/*** chanju - copied from vpxdec_wrapper.cpp ***/
 static void _mkdir(const char *dir) {
   char tmp[PATH_MAX];
   char *p = NULL;
@@ -462,55 +461,8 @@ static void _mkdir(const char *dir) {
   mkdir(tmp, S_IRWXU);
 }
 
-mobinas_cfg_t * setup(const char *content_dir, const char *input_video) {
-  mobinas_cfg_t * mobinas_cfg = (mobinas_cfg_t *) calloc(1, sizeof(mobinas_cfg_t));
-
-  sprintf(mobinas_cfg->log_dir, "%s/log/%s", content_dir, input_video);
-  sprintf(mobinas_cfg->input_frame_dir, "%s/image/%s", content_dir, input_video);
-  _mkdir(mobinas_cfg->log_dir);
-  _mkdir(mobinas_cfg->input_frame_dir);
-
-  mobinas_cfg->save_frame = 0;
-
-  mobinas_cfg->save_latency = 0;
-  mobinas_cfg->save_metadata = 0;
-  mobinas_cfg->save_metadata = 0;
-
-  mobinas_cfg->decode_mode = DECODE_CACHE;
-  mobinas_cfg->dnn_mode = NO_DNN;
-  mobinas_cfg->cache_policy = NO_CACHE;
-
-  return mobinas_cfg;
-}
-
-
-mobinas_cfg_t * online_sr(const char * content_dir, const char * input_video, const char * compare_video, const char * dnn_name, const char * dnn_file){
-  mobinas_cfg_t * mobinas_cfg = (mobinas_cfg_t *) calloc(1, sizeof(mobinas_cfg_t));
-  if(mobinas_cfg == NULL){
-    __android_log_print(6,"CHECK","CHECK:OOM\n");
-  }
-
-  sprintf(mobinas_cfg->log_dir, "%s/log/%s/%s", content_dir, input_video, dnn_name);
-  sprintf(mobinas_cfg->input_frame_dir, "%s/image/%s", content_dir, input_video);
-  sprintf(mobinas_cfg->sr_frame_dir, "%s/image/%s/%s", content_dir, input_video, dnn_name);
-  sprintf(mobinas_cfg->sr_compare_frame_dir, "%s/image/%s", content_dir, compare_video);
-  _mkdir(mobinas_cfg->log_dir);
-  _mkdir(mobinas_cfg->input_frame_dir);
-  _mkdir(mobinas_cfg->sr_frame_dir);
-  _mkdir(mobinas_cfg->sr_compare_frame_dir);
-
-  mobinas_cfg->save_frame = 0;
-  mobinas_cfg->save_quality = 0;
-  mobinas_cfg->save_latency = 0;
-  mobinas_cfg->save_metadata = 0;
-
-  mobinas_cfg->decode_mode = DECODE_SR;
-  mobinas_cfg->dnn_mode = ONLINE_DNN;
-  mobinas_cfg->cache_policy = KEY_FRAME_CACHE;
-  mobinas_cfg->dnn_runtime = GPU_FLOAT16;
-
-  return mobinas_cfg;
-}
+//TODO: code for loading data
+//TODO: select content, index, quality, resolution
 
 DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
              jboolean enableBufferManager, jstring content_path, jstring model_type, jint decode_mode) {
@@ -535,18 +487,22 @@ DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
     }
   }
 
-  /***chanju***/
-  mobinas_cfg_t * mobinas_cfg = init_mobinas_cfg();
+  /* NEMO: load nemo_cfg, dnn, cache_profile */
+  nemo_cfg_t * nemo_cfg = init_nemo_cfg();
 
-  mobinas_cfg->decode_mode = static_cast<mobinas_decode_mode>(decode_mode);
-  mobinas_cfg->dnn_mode = ONLINE_DNN;
-  mobinas_cfg->cache_policy = PROFILE_CACHE;
-  mobinas_cfg->dnn_runtime = GPU_FLOAT16;
+  nemo_cfg->decode_mode = static_cast<nemo_decode_mode>(decode_mode);
+  if (nemo_cfg->decode_mode == DECODE_SR){
+      nemo_cfg->dnn_mode = ONLINE_DNN;
+      nemo_cfg->dnn_runtime = GPU_FLOAT16;
+  }
+  if (nemo_cfg->decode_mode == DECODE_CACHE){
+      nemo_cfg->dnn_mode = ONLINE_DNN;
+      nemo_cfg->dnn_runtime = GPU_FLOAT16;
+      nemo_cfg->cache_mode = PROFILE_CACHE;
+  }
 
-  mobinas_cfg->save_frame = 0;
-  mobinas_cfg->save_quality = 0;
-  mobinas_cfg->save_latency = 1;
-  mobinas_cfg->save_metadata = 1;
+  nemo_cfg->save_latency = 1;
+  nemo_cfg->save_metadata = 1;
 
   const char * contentPath = env->GetStringUTFChars(content_path, NULL);
   const char * modelType = env->GetStringUTFChars(model_type,NULL);
@@ -563,49 +519,44 @@ DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
   sprintf(cache_profile, "%s/profile/%s/%s/%s", content_dir, input_video_name, dnn_name, cache_profile_name);
 
   //setup log directories
-  switch(mobinas_cfg->decode_mode){
+  switch(nemo_cfg->decode_mode){
     case DECODE:
-      if(mobinas_cfg->save_latency){
-        sprintf(mobinas_cfg->log_dir,"%s/log/%s",content_dir,input_video_name);
-        _mkdir(mobinas_cfg->log_dir);
+      if(nemo_cfg->save_latency){
+        sprintf(nemo_cfg->log_dir,"%s/log/%s",content_dir,input_video_name);
+        _mkdir(nemo_cfg->log_dir);
       }
       break;
     case DECODE_SR:
-      if(mobinas_cfg->save_latency){
-        sprintf(mobinas_cfg->log_dir, "%s/log/%s/%s",content_dir, input_video_name,dnn_name);
-        _mkdir(mobinas_cfg->log_dir);
+      if(nemo_cfg->save_latency){
+        sprintf(nemo_cfg->log_dir, "%s/log/%s/%s",content_dir, input_video_name,dnn_name);
+        _mkdir(nemo_cfg->log_dir);
       }
       break;
     case DECODE_CACHE:
-      if(mobinas_cfg->save_latency){
-        sprintf(mobinas_cfg->log_dir, "%s/log/%s/%s/%s", content_dir, input_video_name, dnn_name, cache_profile_name);
-        _mkdir(mobinas_cfg->log_dir);
+      if(nemo_cfg->save_latency){
+        sprintf(nemo_cfg->log_dir, "%s/log/%s/%s/%s", content_dir, input_video_name, dnn_name, cache_profile_name);
+        _mkdir(nemo_cfg->log_dir);
       }
       break;
   }
-  sprintf(mobinas_cfg->input_frame_dir, "%s/log/%s/%s", content_dir, input_video_name, dnn_name);
-  sprintf(mobinas_cfg->sr_frame_dir, "%s/image/%s", content_dir, input_video_name);
-  sprintf(mobinas_cfg->sr_compare_frame_dir, "%s/image/%s", content_dir, compare_video_name);
-  _mkdir(mobinas_cfg->input_frame_dir);
-  _mkdir(mobinas_cfg->sr_frame_dir);
-  _mkdir(mobinas_cfg->sr_compare_frame_dir);
 
-  if(vpx_load_mobinas_cfg(context->decoder, mobinas_cfg)){
+  if(vpx_load_nemo_cfg(context->decoder, nemo_cfg)){
     LOGE("fail1");
   }
 
-  if(mobinas_cfg->dnn_mode == DECODE_SR || mobinas_cfg->dnn_mode == DECODE_CACHE){
-    if(vpx_load_mobinas_dnn(context->decoder, mobinas_cfg, 240, dnn_file)){
+  if(nemo_cfg->dnn_mode == DECODE_SR || nemo_cfg->dnn_mode == DECODE_CACHE){
+    if(vpx_load_nemo_dnn(context->decoder, 4, dnn_file)){
       LOGE("fail2");
     }
   }
 
-  if(mobinas_cfg->cache_policy == PROFILE_CACHE){
-    if(vpx_load_mobinas_cache_profile(context->decoder, mobinas_cfg, 240, cache_profile)){
+  if(nemo_cfg->cache_mode == PROFILE_CACHE){
+    if(vpx_load_nemo_cache_profile(context->decoder, 4, cache_profile)){
       LOGE("fail3");
     }
   }
-  /***chanju***/
+
+  remove_nemo_cfg(nemo_cfg);
 
   if (enableBufferManager) {
     err = vpx_codec_set_frame_buffer_functions(
