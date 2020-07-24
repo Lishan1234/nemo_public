@@ -24,7 +24,7 @@ function _set_conda(){
 function _set_num_blocks(){
     if [ "$1" == 4 ];then
         if [ "$2" == "low" ];then
-            num_blocks=8
+            num_blocks=4
         elif [ "$2" == "medium" ];then
             num_blocks=8
         elif [ "$2" == "high" ];then
