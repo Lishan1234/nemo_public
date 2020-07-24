@@ -126,14 +126,14 @@ public class DefaultRenderersFactory implements RenderersFactory {
 //    this(context, extensionRendererMode, DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS);
 //  }
 
-  /***chanju***/
+  /***NEMO***/
   public DefaultRenderersFactory(Context context, String contentPath, String modelType, int decodeMode){
     this(context);
     this.contentPath = contentPath;
     this.decodeMode = decodeMode;
     this.modelType = modelType;
   }
-  /***chanju***/
+  /***NEMO***/
 
   /**
    * @deprecated Use {@link #DefaultRenderersFactory(Context)} and {@link

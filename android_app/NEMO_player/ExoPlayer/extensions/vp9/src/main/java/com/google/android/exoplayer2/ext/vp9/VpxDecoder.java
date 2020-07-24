@@ -44,7 +44,7 @@ import java.nio.ByteBuffer;
 
   private volatile int outputMode;
 
-  /***Chanju***/
+  /***NEMO***/
   public String contentPath;
   public int decodeMode;
   public String modelType;
@@ -86,7 +86,7 @@ import java.nio.ByteBuffer;
   }
 
 
-  /***chanju***/
+  /***NEMO***/
   public VpxDecoder(
           int numInputBuffers,
           int numOutputBuffers,
@@ -116,7 +116,7 @@ import java.nio.ByteBuffer;
     }
     setInitialInputBufferSize(initialInputBufferSize);
   }
-  /***chanju***/
+  /***NEMO***/
 
   @Override
   public String getName() {
