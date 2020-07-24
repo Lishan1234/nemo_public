@@ -63,7 +63,8 @@ def get_video_url(content, index):
         if index == 0:
             pass
         elif index == 1:
-            url = "https://www.youtube.com/watch?v=_3RVTSpno7Q"
+            #url = "https://www.youtube.com/watch?v=_3RVTSpno7Q"
+            url = "https://www.youtube.com/watch?v=PMfGJGmokqE"
         elif index == 2:
             url = "https://www.youtube.com/watch?v=8DY1dfAZCzQ"
         elif index == 3:
@@ -85,7 +86,8 @@ def get_video_url(content, index):
         elif index == 2:
             url = "https://www.youtube.com/watch?v=yC-QHB6EGFM"
         elif index == 3:
-            url = "https://www.youtube.com/watch?v=Ny9ZYjAYCB0"
+            #url = "https://www.youtube.com/watch?v=Ny9ZYjAYCB0"
+            url = "https://www.youtube.com/watch?v=h5Y_jbbLJ3A"
     elif content == 'favorite':
         if index == 0:
             pass
@@ -94,7 +96,8 @@ def get_video_url(content, index):
         elif index == 2:
             url = "https://www.youtube.com/watch?v=FXZhEGoS6x8"
         elif index == 3:
-            url = "https://www.youtube.com/watch?v=ap4giHCbjYI"
+            #url = "https://www.youtube.com/watch?v=ap4giHCbjYI"
+            url = "https://www.youtube.com/watch?v=A8Az8mlYYmk"
     elif content == 'unboxing':
         if index == 0:
             pass
