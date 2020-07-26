@@ -426,6 +426,33 @@ class AnchorPointSelector():
                 with open(chunk_cache_profile_path, 'rb') as f1:
                     f0.write(f1.read())
 
+        #log (bilinear, sr)
+        log_path = os.path.join(self.dataset_dir, 'log', self.lr_video_name, 'quality.txt')
+        with open(log_path, 'w') as f0:
+            #iterate over chunks
+            for chunk_idx in range(start_idx, end_idx + 1):
+                quality = []
+                chunk_log_path = os.path.join(self.dataset_dir, 'log', self.lr_video_name, 'chunk{:04d}'.format(chunk_idx), 'quality.txt')
+                with open(chunk_log_path, 'r') as f1:
+                    lines = f1.readlines()
+                    for line in lines:
+                        line = line.strip()
+                        quality.append(float(line.split('\t')[1]))
+                    f0.write('{}\t{:.4f}\n'.format(chunk_idx, np.average(quality)))
+
+        log_path = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name, 'quality.txt')
+        with open(log_path, 'w') as f0:
+            #iterate over chunks
+            for chunk_idx in range(start_idx, end_idx + 1):
+                quality = []
+                chunk_log_path = os.path.join(self.dataset_dir, 'log', self.lr_video_name, self.model.name, 'chunk{:04d}'.format(chunk_idx), 'quality.txt')
+                with open(chunk_log_path, 'r') as f1:
+                    lines = f1.readlines()
+                    for line in lines:
+                        line = line.strip()
+                        quality.append(float(line.split('\t')[1]))
+                    f0.write('{}\t{:.4f}\n'.format(chunk_idx, np.average(quality)))
+
     def aggregate_per_chunk_results(self, algorithm_type):
         if algorithm_type == 'nemo':
             self._aggregate_per_chunk_results('{}_{}'.format(algorithm_type, self.quality_margin))
@@ -492,7 +519,7 @@ if __name__ == '__main__':
         raise ValueError('Unsupported training types')
     ckpt = tf.train.Checkpoint(model=model)
     ckpt_path = tf.train.latest_checkpoint(checkpoint_dir)
-    assert(os.path.exists(ckpt_path))
+    assert(ckpt_path is not None)
     ckpt.restore(ckpt_path)
 
     #run aps
