@@ -35,7 +35,7 @@ function _set_bitrate(){
 function _set_num_blocks(){
     if [ "$1" == 240 ];then
         if [ "$2" == "low" ];then
-            num_blocks=8
+            num_blocks=4
         elif [ "$2" == "medium" ];then
             num_blocks=8
         elif [ "$2" == "high" ];then
