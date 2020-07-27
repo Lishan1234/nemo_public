@@ -3,13 +3,13 @@
 function _usage()
 {
 cat << EOF
-_usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-g GPU_INDEX] [-c CONTENT] [-i INDEX] [-q QUALITIY] [-r RESOLUTION] [-a ALGORITHM]
+_usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-c CONTENT] [-i INDEX] [-q QUALITIY] [-r RESOLUTION] [-a ALGORITHM] [-m DECODE_MODE]
 
 mandatory arguments:
--g GPU_INDEX               Specifies GPU index to use
 -c CONTENT                 Specifies content (e.g., product_review)
--i INDEX                    Specifies index (e.g., 0)
+-i INDEX                   Specifies index (e.g., 0)
 -r RESOLUTION              Specifies resolution (e.g., 240)
+-m DECODE_MODE             Specifies decode_mode (e.g., decode)
 
 optional multiple arguments:
 -q QUALITIY                 Specifies quality (e.g., low)
@@ -92,23 +92,18 @@ function _set_num_filters(){
 
 [[ ($# -ge 1)  ]] || { echo "[ERROR] Invalid number of arguments. See -h for help."; exit 1;  }
 
-while getopts ":g:c:i:q:r:a:h" opt; do
+while getopts ":c:i:q:r:a:m:h" opt; do
     case $opt in
         h) _usage; exit 0;;
         a) algorithm="$OPTARG";;
-        g) gpu_index="$OPTARG";;
         c) content="$OPTARG";;
         i) index="$OPTARG";;
         q) quality="$OPTARG";;
+        m) decode_mode="$OPTARG";;
         r) resolution="$OPTARG";;
         \?) exit 1;
     esac
 done
-
-if [ -z "${gpu_index+x}" ]; then
-    echo "[ERROR] gpu_index is not set"
-    exit 1;
-fi
 
 if [ -z "${content+x}" ]; then
     echo "[ERROR] content is not set"
@@ -125,8 +120,13 @@ if [ -z "${index+x}" ]; then
     exit 1;
 fi
 
+if [ -z "${decode_mode+x}" ]; then
+    echo "[ERROR] decode_mode is not set"
+    exit 1;
+fi
+
 _set_conda
 _set_bitrate ${resolution}
 _set_num_blocks ${resolution} ${quality}
 _set_num_filters ${resolution} ${quality}
-CUDA_VISIBLE_DEVICES=${gpu_index} python ${NEMO_ROOT}/cache_profile/frame_dependency_analyzer.py --data_dir ${NEMO_ROOT}/data --content ${content}${index} --video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --algorithm=${algorithm} --decode_mode=${decode_mode}
+python ${NEMO_ROOT}/cache_profile/frame_dependency_analyzer.py --data_dir ${NEMO_ROOT}/data --content ${content}${index} --video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --algorithm=${algorithm} --decode_mode=${decode_mode}

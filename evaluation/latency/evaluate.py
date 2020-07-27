@@ -33,7 +33,7 @@ if __name__ == '__main__':
     parser.add_argument('--output_height', type=int, default=1080)
 
     #experiment
-    parser.add_argument('--sleep', type=float, default=0) #TODO: set this to 10
+    parser.add_argument('--sleep', type=float, default=10)
 
     args = parser.parse_args()
 
@@ -58,8 +58,6 @@ if __name__ == '__main__':
     end_time = time.time()
     print("decode takes {}sec".format(end_time - start_time))
 
-    print(host_log_path)
-
     time.sleep(args.sleep)
 
     #case 2: online sr
@@ -80,12 +78,16 @@ if __name__ == '__main__':
     #case 3: online cache
     device_script_path = os.path.join(device_root_dir, 'script', args.video_name, model.name, args.algorithm_type, 'measure_nemo_latency.sh')
     device_log_path = os.path.join(device_root_dir, 'log', args.video_name, model.name, args.algorithm_type, 'latency.txt')
+    device_log_path1 = os.path.join(device_root_dir, 'log', args.video_name, model.name, args.algorithm_type, 'metadata.txt')
     host_log_dir = os.path.join(args.data_dir, args.content, 'log', args.video_name, model.name, args.algorithm_type, device_name)
     host_log_path = os.path.join(host_log_dir, 'latency.txt')
+    host_log_dir1 = os.path.join(args.data_dir, args.content, 'log', args.video_name, model.name, args.algorithm_type)
+    host_log_path1 = os.path.join(host_log_dir1, 'metadata.txt')
     os.makedirs(host_log_dir, exist_ok=True)
 
     start_time = time.time()
     adb_shell(device_script_path, args.device_id)
     adb_pull(device_log_path, host_log_path, args.device_id)
+    adb_pull(device_log_path1, host_log_path1, args.device_id)
     end_time = time.time()
     print("online cache takes {}sec".format(end_time - start_time))

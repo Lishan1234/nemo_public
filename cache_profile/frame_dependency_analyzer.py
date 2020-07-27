@@ -5,7 +5,6 @@ import collections
 
 import numpy as np
 import networkx as nx
-import matplotlib.pyplot as plt
 
 from nemo.tool.video import profile_video
 import nemo.dnn.model
@@ -15,21 +14,19 @@ class FDA():
         self.log_dir = log_dir
 
     def node_name(self, frame_index, node_index_dict):
-        if not self.show_super_frame:
-            node_name = '{}'.format(node_index_dict[frame_index])
-        else:
-            node_name = '{}.{}'.format(frame_index[0], frame_index[1])
-        return  node_name
+        node_name = '{}.{}'.format(frame_index[0], frame_index[1])
+        return node_name
 
     #Caution: Need to run NEMO first to prepare 'metdata.txt' by 'online_cache_latency.py'
     def all(self):
-        metadata_log_file = os.path.join(self.log_dir, 'metadata.txt')
-        assert(os.path.exists(metadata_log_file))
+        metadata_log_path = os.path.join(self.log_dir, 'metadata.txt')
+        print(metadata_log_path)
+        assert(os.path.exists(metadata_log_path))
 
         #node index
         node_index_dict = {}
         count = 0
-        with open(metadata_log_file, 'r') as f:
+        with open(metadata_log_path, 'r') as f:
             lines = f.readlines()
             for line in lines:
                 line = line.strip().split('\t')
@@ -40,7 +37,7 @@ class FDA():
 
         #build a DAG
         G = nx.DiGraph()
-        with open(metadata_log_file, 'r') as f:
+        with open(metadata_log_path, 'r') as f:
             lines = f.readlines()
             for idx, line in enumerate(lines):
                 result = line.strip().split('\t')
@@ -64,7 +61,7 @@ class FDA():
                     #add node
                     G.add_node(node_name, video_frame=video_frame, super_frame=super_frame, frame_type=frame_type, is_anchor_point=is_anchor_point)
 
-        #log0: out-degree per anchor point (CDF)
+        #log: reference counts of anchor points
         out_degree = []
         nodes = sorted(G.nodes, key=lambda x: float(x))
         for node in nodes:
@@ -77,11 +74,39 @@ class FDA():
         for i in range(len(count)):
             cdf.append(sum(count[0:i+1]) / sum(count))
 
-        print(np.average(out_degree))
-
-        cdf_log_file = os.path.join(self.log_dir, 'frame_out_degree_cdf.txt')
+        cdf_log_path = os.path.join(self.log_dir, 'anchor_point_reference_count_cdf.txt')
         is_first = True
-        with open(cdf_log_file, 'w') as f:
+        with open(cdf_log_path, 'w') as f:
+            for x_val, y_val in zip(value, cdf):
+                if is_first:
+                    if x_val != 0:
+                        f.write('{}\t{}\n'.format(0, 0))
+                        f.write('{}\t{}\n'.format(x_val, 0))
+                        f.write('{}\t{}\n'.format(x_val, y_val))
+                    else:
+                        f.write('{}\t{}\n'.format(x_val, 0))
+                        f.write('{}\t{}\n'.format(x_val, y_val))
+                    is_first = False
+                else:
+                    f.write('{}\t{}\n'.format(x_val, y_pre_val))
+                    f.write('{}\t{}\n'.format(x_val, y_val))
+                y_pre_val = y_val
+
+        #log: reference counts of frames
+        out_degree = []
+        nodes = sorted(G.nodes, key=lambda x: float(x))
+        for node in nodes:
+            out_degree.append(G.out_degree(node))
+        out_degree.sort()
+        count = {x:out_degree.count(x) for x in out_degree}
+        value, count = list(count.keys()), list(count.values())
+        cdf = []
+        for i in range(len(count)):
+            cdf.append(sum(count[0:i+1]) / sum(count))
+
+        cdf_log_path = os.path.join(self.log_dir, 'frame_reference_count_cdf.txt')
+        is_first = True
+        with open(cdf_log_path, 'w') as f:
             for x_val, y_val in zip(value, cdf):
                 if is_first:
                     if x_val != 0:
@@ -148,8 +173,8 @@ class FDA():
                 print(G.nodes[node]['frame_type'])
                 raise NotImplementedError
 
-        frame_type_log_file = os.path.join(self.log_dir, 'frame_type.txt')
-        with open(frame_type_log_file, 'w') as f:
+        frame_type_log_path = os.path.join(self.log_dir, 'frame_type.txt')
+        with open(frame_type_log_path, 'w') as f:
             f.write("Key frame\t{:.2f}\t{:.2f}\n".format(len(key_frame)/len(nodes) * 100, np.average(key_frame)))
             f.write("Alternative reference frame\t{:.2f}\t{:.2f}\n".format(len(alternative_reference_frame)/len(nodes) * 100, np.average(alternative_reference_frame)))
             f.write("Golden frame\t{:.2f}\t{:.2f}\n".format(len(golden_frame)/len(nodes) * 100, np.average(golden_frame)))
@@ -186,24 +211,23 @@ if __name__ == '__main__':
     data_dir = os.path.join(args.data_dir, args.content)
     video_path = os.path.join(data_dir, 'video', args.video_name)
     video_profile = profile_video(video_path)
-    hr_video_profile = profile_video(hr_video_path)
     scale = args.output_height // video_profile['height']
     nhwc = [1, video_profile['height'], video_profile['width'], 3]
 
     #build a dnn
 
     #run fda
-    if decode_mode == 'decode':
-        log_dir = os.path.join(args.data_dir, 'log', args.video_name)
-    elif decode_mode == 'decode_sr':
+    if args.decode_mode == 'decode':
+        log_dir = os.path.join(args.data_dir, args.content, 'log', args.video_name)
+    elif args.decode_mode == 'decode_sr':
         assert(args.num_filters is not None and args.num_blocks is not None)
         model = nemo.dnn.model.build(args.model_type, args.num_blocks, args.num_filters, scale, args.upsample_type)
-        log_dir = os.path.join(args.data_dir, 'log', args.video_name, model.name)
-    elif decode_mode == 'decode_cache':
+        log_dir = os.path.join(args.data_dir, args.content, 'log', args.video_name, model.name)
+    elif args.decode_mode == 'decode_cache':
         assert(args.num_filters is not None and args.num_blocks is not None)
         assert(args.algorithm is not None)
         model = nemo.dnn.model.build(args.model_type, args.num_blocks, args.num_filters, scale, args.upsample_type)
-        log_dir = os.path.join(args.data_dir, 'log', args.video_name, model.name, args.algorithm)
+        log_dir = os.path.join(args.data_dir, args.content, 'log', args.video_name, model.name, args.algorithm)
         pass
     else:
         raise NotImplementedError
