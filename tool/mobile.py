@@ -20,5 +20,7 @@ def id_to_name(id):
         return 'lg_gpad5'
     elif id == '637056d1':
         return 'xiaomi_note6_pro'
+    elif id == 'a152b92a':
+        return 'xiaomi_mi8'
     else:
         raise NotImplementedError

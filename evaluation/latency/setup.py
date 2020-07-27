@@ -33,7 +33,7 @@ if __name__ == '__main__':
     #codec
     parser.add_argument('--output_width', type=int, default=1920)
     parser.add_argument('--output_height', type=int, default=1080)
-    parser.add_argument('--limit', type=int, default=10) #TODO: change to 100
+    parser.add_argument('--limit', type=int, default=100)
 
     args = parser.parse_args()
 
@@ -82,10 +82,11 @@ if __name__ == '__main__':
     dlc_path = os.path.join(checkpoint_dir, '{}.dlc'.format(model.name))
     adb_push(device_checkpoint_dir, dlc_path, args.device_id)
 
-    #TODO
     #setup a cache profile
-    #cache_profile_path = os.path.join(dataset_dir, 'profile', args.video_name, model.name, '{}.profile'.format(args.algorithm))
-    #adb_push(device_cache_profile_dir, cache_profile_path, args.device_id)
+    device_cache_profile_dir = os.path.join(device_root_dir, 'profile', args.video_name, model.name)
+    adb_mkdir(device_cache_profile_dir, args.device_id)
+    cache_profile_path = os.path.join(args.data_dir, args.content, 'profile', args.video_name, model.name, '{}.profile'.format(args.algorithm))
+    adb_push(device_cache_profile_dir, cache_profile_path, args.device_id)
 
     #setup scripts (setup.sh, offline_dnn.sh, online_dnn.sh)
     script_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '.script')
@@ -124,20 +125,16 @@ if __name__ == '__main__':
     adb_push(device_script_dir, cmd_script_path, args.device_id)
     os.system('adb -s {} shell "chmod +x {}"'.format(args.device_id, os.path.join(device_script_dir, '*.sh')))
 
-    #TODO
     #case 3: NEMO
-    """
-    cache_profile_name = '{}.profile'.format(args.algorithm_type)
-    device_script_dir = os.path.join(device_root_dir, 'script', args.video_name, model.name, args.algorithm_type)
-    device_cache_profile_file = os.path.join(device_cache_profile_dir, args.algorithm_type)
+    device_script_dir = os.path.join(device_root_dir, 'script', args.video_name, model.name, args.algorithm)
     adb_mkdir(device_script_dir, args.device_id)
 
     cmds = ['#!/system/bin/sh',
             'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{}'.format(device_lib_dir),
             'cd {}'.format(device_root_dir),
-            '{} --codec=vp9  --noblit --threads={} --frame-buffers=50 {} --dataset-dir={} --input-video-name={} --decode-mode=2 --dnn-mode=1 --dnn-runtime=3 --cache-policy=1 --dnn-name={} -dnn-scale={} --cache-profile-name={} --save-latency --save-metadata'.format(os.path.join(device_bin_dir, 'vpxdec_nemo_ver2'), get_num_threads(input_height), limit, device_root_dir, args.video_name, model.name, scale, cache_profile_name),
+            '{} --codec=vp9  --noblit --threads={} --frame-buffers=50 --dataset-dir={} --input-video-name={} --decode-mode=decode_cache --dnn-mode=online_dnn --dnn-runtime=gpu_float16 --cache-mode=profile_cache --dnn-name={} --dnn-scale={} --cache-profile-name={} --save-latency --save-metadata'.format(os.path.join(device_bin_dir, 'vpxdec_nemo_ver2'), get_num_threads(input_height), device_root_dir, args.video_name, model.name, scale, args.algorithm),
             'exit']
-    cmd_script_path = os.path.join(script_dir, 'online_profile_cache_latency.sh')
+    cmd_script_path = os.path.join(script_dir, 'measure_nemo_latency.sh')
     with open(cmd_script_path, 'w') as cmd_script:
         for ln in cmds:
             cmd_script.write(ln + '\n')
@@ -145,4 +142,3 @@ if __name__ == '__main__':
 
     adb_push(device_script_dir, cmd_script_path, args.device_id)
     os.system('adb -s {} shell "chmod +x {}"'.format(args.device_id, os.path.join(device_script_dir, '*.sh')))
-    """

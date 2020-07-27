@@ -77,10 +77,8 @@ if __name__ == '__main__':
 
     time.sleep(args.sleep)
 
-    #TODO
     #case 3: online cache
-    """
-    device_script_path = os.path.join(device_root_dir, 'script', args.video_name, model.name, args.algorithm_type, 'measure_per_frame_sr_latency.sh')
+    device_script_path = os.path.join(device_root_dir, 'script', args.video_name, model.name, args.algorithm_type, 'measure_nemo_latency.sh')
     device_log_path = os.path.join(device_root_dir, 'log', args.video_name, model.name, args.algorithm_type, 'latency.txt')
     host_log_dir = os.path.join(args.data_dir, args.content, 'log', args.video_name, model.name, args.algorithm_type, device_name)
     host_log_path = os.path.join(host_log_dir, 'latency.txt')
@@ -91,4 +89,3 @@ if __name__ == '__main__':
     adb_pull(device_log_path, host_log_path, args.device_id)
     end_time = time.time()
     print("online cache takes {}sec".format(end_time - start_time))
-    """

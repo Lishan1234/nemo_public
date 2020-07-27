@@ -421,7 +421,7 @@ class AnchorPointSelector():
         cache_profile_path = os.path.join(cache_profile_dir, cache_profile_name)
         cache_data = b''
         with open(cache_profile_path, 'wb') as f0:
-            for chunk_idx in range(start_idx, end_idx):
+            for chunk_idx in range(start_idx, end_idx + 1):
                 chunk_cache_profile_path = os.path.join(cache_profile_dir, 'chunk{:04d}'.format(chunk_idx), cache_profile_name)
                 with open(chunk_cache_profile_path, 'rb') as f1:
                     f0.write(f1.read())
