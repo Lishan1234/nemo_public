@@ -33,7 +33,7 @@ if __name__ == '__main__':
     #codec
     parser.add_argument('--output_width', type=int, default=1920)
     parser.add_argument('--output_height', type=int, default=1080)
-    parser.add_argument('--limit', type=int, default=100)
+    parser.add_argument('--limit', type=int, default=30)
 
     args = parser.parse_args()
 

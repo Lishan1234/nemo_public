@@ -214,8 +214,6 @@ if __name__ == '__main__':
     scale = args.output_height // video_profile['height']
     nhwc = [1, video_profile['height'], video_profile['width'], 3]
 
-    #build a dnn
-
     #run fda
     if args.decode_mode == 'decode':
         log_dir = os.path.join(args.data_dir, args.content, 'log', args.video_name)

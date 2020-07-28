@@ -1,3 +1,3 @@
 #!/bin/bash
 
-ndk-build NDK_TOOLCHAIN_VERSION=clang APP_STL=c++_shared
+ndk-build NDK_TOOLCHAIN_VERSION=clang APP_STL=c++_shared NDK_DEBUG=0
