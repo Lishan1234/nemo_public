@@ -6,10 +6,10 @@ cat << EOF
 _usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-g GPU_INDEX] [-c CONTENTS] [-i INDEXES] [-r RESOLUTIONS] [-d DEVICE_IDS]
 
 mandatory arguments:
--c CONTENTS                 Specifies contents (e.g., product_review)
 -d DEVICE_IDS               Specifies device_ids
 
 optional multiple arguments:
+-c CONTENTS                 Specifies contents (e.g., product_review)
 -r RESOLUTIONS              Specifies resolutions (e.g., 240)
 -i INDEXES                  Specifies indexes (e.g., 0)
 
@@ -53,11 +53,6 @@ while getopts ":c:i:r:d:h" opt; do
     esac
 done
 
-if [ -z "${contents+x}" ]; then
-    echo "[ERROR] contents is not set"
-    exit 1;
-fi
-
 if [ -z "${indexes+x}" ]; then
     echo "[ERROR] indexes is not set"
     exit 1;
@@ -66,6 +61,10 @@ fi
 if [ -z "${device_ids+x}" ]; then
     echo "[ERROR] device_ids is not set"
     exit 1;
+fi
+
+if [ -z "${contents+x}" ]; then
+    contents=("product_review", "vlogs", "how_to", "skit", "game_play", "haul", "challenge", "education", "favorite", "unboxing")
 fi
 
 if [ -z "${resolutions+x}" ]; then
