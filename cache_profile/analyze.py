@@ -13,8 +13,8 @@ import nemo.dnn.model
 #indexes = [1, 2, 3]
 #resolution = [240, 360, 480]
 
-contents = ['skit']
-indexes = [2]
+contents = ['game_play', 'skit', 'haul']
+indexes = [1, 2]
 resolutions = [240, 360, 480]
 qualities = ['low', 'medium', 'high']
 
@@ -98,73 +98,41 @@ if __name__ == '__main__':
                         model_name = nemo.dnn.model.build(args.model_type, num_blocks, num_filters, scale, args.upsample_type).name
 
                         nemo_05_log_path = os.path.join(args.data_dir, content_name, 'log', video_name, model_name, 'quality_nemo_0.5.txt')
-                        nemo_05_12_log_path = os.path.join(args.data_dir, content_name, 'log', video_name, model_name, 'quality_nemo_0.5_12.txt')
                         nemo_05_24_log_path = os.path.join(args.data_dir, content_name, 'log', video_name, model_name, 'quality_nemo_0.5_24.txt')
 
-                        with open(nemo_05_log_path, 'r') as f0, open(nemo_05_12_log_path, 'r') as f1, open(nemo_05_24_log_path, 'r') as f2:
-                            f0_lines = f0.readlines()
-                            f1_lines = f1.readlines()
-                            f2_lines = f2.readlines()
+                        if not os.path.exists(nemo_05_24_log_path):
+                            f.write('{}\t{}\t{}\tnemo_0.5_24\tfailed\n'.format(video_name, content_name, model_name))
+                        else:
+                            with open(nemo_05_log_path, 'r') as f0, open(nemo_05_24_log_path, 'r') as f1:
+                                f0_lines = f0.readlines()
+                                f1_lines = f1.readlines()
 
-                            nemo_05_12_num_abnormal_chunks = 0
-                            nemo_075_12_num_abnormal_chunks = 0
-                            nemo_10_12_num_abnormal_chunks = 0
-                            nemo_05_12_quality_degradation = {'abnormal': [], 'all': []}
-                            nemo_05_12_quality_margin = {'abnormal': [], 'all': []}
-                            nemo_05_24_num_abnormal_chunks = 0
-                            nemo_075_24_num_abnormal_chunks = 0
-                            nemo_10_24_num_abnormal_chunks = 0
-                            nemo_05_24_quality_degradation = {'abnormal': [], 'all': []}
-                            nemo_05_24_quality_margin = {'abnormal': [], 'all': []}
-                            count = 0
+                                nemo_05_24_num_abnormal_chunks = 0
+                                nemo_075_24_num_abnormal_chunks = 0
+                                nemo_05_24_pass = 0
+                                nemo_075_24_pass = 0
+                                count = 0
 
-                            for f0_line, f1_line, f2_line in zip(f0_lines, f1_lines, f2_lines):
-                                nemo_05_num_chunks = int(f0_line.split('\t')[1])
-                                nemo_05_12_num_chunks = int(f1_line.split('\t')[1])
-                                nemo_05_24_num_chunks = int(f2_line.split('\t')[1])
-                                nemo_05_quality = float(f0_line.split('\t')[3])
-                                nemo_05_12_quality = float(f1_line.split('\t')[3])
-                                nemo_05_24_quality = float(f2_line.split('\t')[3])
-                                per_frame_sr_quality = float(f0_line.split('\t')[4])
+                                for f0_line, f1_line in zip(f0_lines, f1_lines):
+                                    nemo_05_num_chunks = int(f0_line.split('\t')[1])
+                                    nemo_05_24_num_chunks = int(f1_line.split('\t')[1])
+                                    nemo_05_quality = float(f0_line.split('\t')[3])
+                                    nemo_05_24_quality = float(f1_line.split('\t')[3])
+                                    per_frame_sr_quality = float(f0_line.split('\t')[4])
 
-                                count += 1
+                                    count += 1
 
-                                if nemo_05_num_chunks > 8:
-                                    nemo_05_12_num_abnormal_chunks += 1
-                                    nemo_05_12_quality_degradation['abnormal'].append(nemo_05_quality - nemo_05_12_quality)
-                                    nemo_05_12_quality_margin['abnormal'].append(per_frame_sr_quality - nemo_05_12_quality)
-                                    if per_frame_sr_quality - nemo_05_12_quality > 0.75:
-                                        nemo_075_12_num_abnormal_chunks += 1
-                                    if per_frame_sr_quality - nemo_05_12_quality > 1:
-                                        nemo_10_12_num_abnormal_chunks += 1
-                                nemo_05_12_quality_degradation['all'].append(nemo_05_quality - nemo_05_12_quality)
-                                nemo_05_12_quality_margin['all'].append(per_frame_sr_quality - nemo_05_12_quality)
+                                    if nemo_05_24_num_chunks == 24:
+                                        nemo_05_24_quality_degradation = per_frame_sr_quality - nemo_05_24_quality
 
-                                if nemo_05_num_chunks > 24:
-                                    nemo_05_24_num_abnormal_chunks += 1
-                                    nemo_05_24_quality_degradation['abnormal'].append(nemo_05_quality - nemo_05_24_quality)
-                                    nemo_05_24_quality_margin['abnormal'].append(per_frame_sr_quality - nemo_05_24_quality)
-                                    if per_frame_sr_quality - nemo_05_24_quality > 0.75:
-                                        nemo_075_24_num_abnormal_chunks += 1
-                                    if per_frame_sr_quality - nemo_05_24_quality > 1:
-                                        nemo_10_24_num_abnormal_chunks += 1
-                                nemo_05_24_quality_degradation['all'].append(nemo_05_quality - nemo_05_24_quality)
-                                nemo_05_24_quality_margin['all'].append(per_frame_sr_quality - nemo_05_24_quality)
+                                        if nemo_05_24_quality_degradation > 0.5:
+                                            nemo_05_24_num_abnormal_chunks += 1
 
-                            nemo_05_12_log = '{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}'.format(nemo_05_12_num_abnormal_chunks / count * 100,
-                                                                          nemo_075_12_num_abnormal_chunks / count * 100,
-                                                                          nemo_10_12_num_abnormal_chunks / count * 100,
-                                                                          np.average(nemo_05_12_quality_degradation['abnormal']),
-                                                                          np.average(nemo_05_12_quality_margin['abnormal']),
-                                                                          np.average(nemo_05_12_quality_degradation['all']),
-                                                                          np.average(nemo_05_12_quality_margin['all']))
-                            nemo_05_24_log = '{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}'.format(nemo_05_24_num_abnormal_chunks / count * 100,
-                                                                          nemo_075_24_num_abnormal_chunks / count * 100,
-                                                                          nemo_10_24_num_abnormal_chunks / count * 100,
-                                                                          np.average(nemo_05_24_quality_degradation['abnormal']),
-                                                                          np.average(nemo_05_24_quality_margin['abnormal']),
-                                                                          np.average(nemo_05_24_quality_degradation['all']),
-                                                                          np.average(nemo_05_24_quality_margin['all']))
+                                        if nemo_05_24_quality_degradation > 0.75:
+                                            nemo_075_24_num_abnormal_chunks += 1
 
-                            #f.write('{}\t{}\t{}\tnemo_0.5_12\t{}\n'.format(video_name, content_name, model_name, nemo_05_12_log))
-                            f.write('{}\t{}\t{}\tnemo_0.5_24\t{}\n'.format(video_name, content_name, model_name, nemo_05_24_log))
+                                if (nemo_05_24_num_abnormal_chunks / count) * 100 <= 10:
+                                    nemo_05_24_pass = 1
+                                if (nemo_075_24_num_abnormal_chunks / count) * 100 <= 10:
+                                    nemo_075_24_pass = 1
+                                f.write('{}\t{}\t{}\tnemo_0.5_24\t{}\t{}\n'.format(video_name, content_name, model_name, nemo_05_24_pass, nemo_075_24_pass))
