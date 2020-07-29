@@ -75,9 +75,9 @@ class AnchorPointSelector():
         num_decoded_frames = self.gop if num_left_frames >= self.gop else num_left_frames
 
         #save low-resolution, super-resoluted, high-resolution frames to local storage
-        libvpx_save_rgb_frame(self.vpxdec_path, self.dataset_dir, self.lr_video_name, skip=num_skipped_frames, limit=num_decoded_frames, postfix=postfix)
-        libvpx_save_yuv_frame(self.vpxdec_path, self.dataset_dir, self.hr_video_name, self.output_width, self.output_height, num_skipped_frames, num_decoded_frames, postfix)
-        libvpx_setup_sr_frame(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.model, postfix)
+        #libvpx_save_rgb_frame(self.vpxdec_path, self.dataset_dir, self.lr_video_name, skip=num_skipped_frames, limit=num_decoded_frames, postfix=postfix)
+        #libvpx_save_yuv_frame(self.vpxdec_path, self.dataset_dir, self.hr_video_name, self.output_width, self.output_height, num_skipped_frames, num_decoded_frames, postfix)
+        #libvpx_setup_sr_frame(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.model, postfix)
 
         #measure bilinear, per-frame super-resolution quality
         quality_bilinear = libvpx_bilinear_quality(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.hr_video_name, self.output_width, self.output_height,
@@ -144,7 +144,7 @@ class AnchorPointSelector():
         ###########step 3: select anchor points##########
         start_time = time.time()
         log_path0 = os.path.join(log_dir, 'quality_{}.txt'.format(algorithm_type))
-        log_path1 = os.path.join(log_dir, 'quality_{}_12.txt'.format(algorithm_type))
+        log_path1 = os.path.join(log_dir, 'quality_{}_8.txt'.format(algorithm_type))
         log_path2 = os.path.join(log_dir, 'quality_{}_24.txt'.format(algorithm_type))
         log_path3 = os.path.join(log_dir, 'quality_fast.txt')
         with open(log_path0, 'w') as f0, open(log_path1, 'w') as f1, open(log_path2, 'w') as f2, open(log_path3, 'w') as f3:
@@ -159,7 +159,7 @@ class AnchorPointSelector():
                 quality_log = '{}\t{}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\n'.format(anchor_point_set.get_num_anchor_points(), len(frames), \
                                          np.average(quality_cache), np.average(quality_dnn), np.average(quality_bilinear), np.average(anchor_point_set.estimated_quality))
                 f0.write(quality_log)
-                if idx < 12:
+                if idx < 8:
                     f1.write(quality_log)
                 if idx < 24:
                     f2.write(quality_log)
@@ -171,20 +171,14 @@ class AnchorPointSelector():
                     #case 1: does not restrict #anchor points
                     anchor_point_set.set_cache_profile_name(algorithm_type)
                     anchor_point_set.save_cache_profile()
-                    libvpx_offline_cache_quality(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
-                                            self.model.name, anchor_point_set.get_cache_profile_name(), self.output_width, self.output_height, \
-                                            num_skipped_frames, num_decoded_frames, postfix)
 
-                    #case 2: limit #anchor points to 12
-                    if anchor_point_set.get_num_anchor_points() > 12:
-                        anchor_point_set_ = multiple_anchor_point_sets[11]
+                    #case 2: limit #anchor points to 8
+                    if anchor_point_set.get_num_anchor_points() > 8:
+                        anchor_point_set_ = multiple_anchor_point_sets[7]
                     else:
                         anchor_point_set_ = anchor_point_set
-                    anchor_point_set_.set_cache_profile_name('{}_12'.format(algorithm_type))
+                    anchor_point_set_.set_cache_profile_name('{}_8'.format(algorithm_type))
                     anchor_point_set_.save_cache_profile()
-                    libvpx_offline_cache_quality(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
-                                            self.model.name, anchor_point_set_.get_cache_profile_name(), self.output_width, self.output_height, \
-                                            num_skipped_frames, num_decoded_frames, postfix)
 
                     #case 3: limit #anchor points to 24
                     if anchor_point_set.get_num_anchor_points() > 24:
@@ -193,17 +187,11 @@ class AnchorPointSelector():
                         anchor_point_set_ = anchor_point_set
                     anchor_point_set_.set_cache_profile_name('{}_24'.format(algorithm_type))
                     anchor_point_set_.save_cache_profile()
-                    libvpx_offline_cache_quality(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
-                                            self.model.name, anchor_point_set_.get_cache_profile_name(), self.output_width, self.output_height, \
-                                            num_skipped_frames, num_decoded_frames, postfix)
 
-                    #case 2: limit #anchor points to 24
+                    #case 4: FAST
                     anchor_point_set_ = FAST_anchor_point_set
                     anchor_point_set_.set_cache_profile_name('fast'.format(algorithm_type))
                     anchor_point_set_.save_cache_profile()
-                    libvpx_offline_cache_quality(self.vpxdec_path, self.dataset_dir, self.lr_video_name, self.hr_video_name, \
-                                            self.model.name, anchor_point_set_.get_cache_profile_name(), self.output_width, self.output_height, \
-                                            num_skipped_frames, num_decoded_frames, postfix)
 
                     break
 
@@ -456,7 +444,7 @@ class AnchorPointSelector():
     def aggregate_per_chunk_results(self, algorithm_type):
         if algorithm_type == 'nemo':
             self._aggregate_per_chunk_results('{}_{}'.format(algorithm_type, self.quality_margin))
-            self._aggregate_per_chunk_results('{}_{}_12'.format(algorithm_type, self.quality_margin))
+            self._aggregate_per_chunk_results('{}_{}_8'.format(algorithm_type, self.quality_margin))
             self._aggregate_per_chunk_results('{}_{}_24'.format(algorithm_type, self.quality_margin))
             self._aggregate_per_chunk_results('fast')
         else:
