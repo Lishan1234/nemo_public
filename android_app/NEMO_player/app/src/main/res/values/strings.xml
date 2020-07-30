@@ -14,7 +14,6 @@
     </string-array>
 
     <string-array name = "contents">
-        <item>unboxing</item>
-        <item>vlogs</item>
+        <item>product_review1</item>
     </string-array>
 </resources>

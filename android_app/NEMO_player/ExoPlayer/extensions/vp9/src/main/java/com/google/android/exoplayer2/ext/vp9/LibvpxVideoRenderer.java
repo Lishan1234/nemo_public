@@ -316,9 +316,9 @@ public class LibvpxVideoRenderer extends BaseRenderer {
       try {
         // Rendering loop.
         TraceUtil.beginSection("drainAndFeed");
-//        Log.e("exo_queue","before drain: " + decoder.queuedOutputBuffers.size()+"");
+        Log.e("exo_queue","before drain: " + decoder.queuedOutputBuffers.size()+"");
         while (drainOutputBuffer(positionUs, elapsedRealtimeUs)) {}
-//        Log.e("exo_queue","after drain: " + decoder.queuedOutputBuffers.size()+"");
+        Log.e("exo_queue","after drain: " + decoder.queuedOutputBuffers.size()+"");
 
         while (feedInputBuffer()) {}
         TraceUtil.endSection();

@@ -29,13 +29,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-import static com.example.exoplayernewlibvpx.Constants.HOW_TO_PATH;
 import static com.example.exoplayernewlibvpx.Constants.MESSAGE_EXO_STOP;
 import static com.example.exoplayernewlibvpx.Constants.ONE_MINUTE_MS;
-import static com.example.exoplayernewlibvpx.Constants.PRODUCT_REVIEW_PATH;
-import static com.example.exoplayernewlibvpx.Constants.UNBOXING_PATH;
+import static com.example.exoplayernewlibvpx.Constants.PRODUCT1_REVIEW_PATH;
 import static com.example.exoplayernewlibvpx.Constants.VIDEO_RELATIVE_PATH;
-import static com.example.exoplayernewlibvpx.Constants.VLOGS_PATH;
 
 
 public class PlayerActivity extends AppCompatActivity {
@@ -68,14 +65,8 @@ public class PlayerActivity extends AppCompatActivity {
     private void setupExoPlayer(String model, String content, String mode){
 
         String contentPath = "";
-        if(content.equals("product_review")){
-            contentPath = PRODUCT_REVIEW_PATH;
-        } else if (content.equals("vlogs")) {
-            contentPath = VLOGS_PATH;
-        } else if (content.equals("how_to")) {
-            contentPath = HOW_TO_PATH;
-        } else if(content.equals("unboxing")){
-            contentPath = UNBOXING_PATH;
+        if(content.equals("product_review1")){
+            contentPath = PRODUCT1_REVIEW_PATH;
         }
 
         int decodeMode = 0;
