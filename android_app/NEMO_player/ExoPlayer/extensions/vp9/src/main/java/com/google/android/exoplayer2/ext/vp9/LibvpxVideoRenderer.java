@@ -107,7 +107,7 @@ public class LibvpxVideoRenderer extends BaseRenderer {
    * The number of output buffers. The renderer may limit the minimum possible value due to
    * requiring multiple output buffers to be dequeued at a time for it to make progress.
    */
-  private static final int NUM_OUTPUT_BUFFERS = 40;
+  private static final int NUM_OUTPUT_BUFFERS = 60;
   /** The default input buffer size. */
   private static final int DEFAULT_INPUT_BUFFER_SIZE = 768 * 1024; // Value based on cs/SoftVpx.cpp.
 
