@@ -13,7 +13,6 @@ if __name__ == '__main__':
     parser.add_argument('--content', type=str, required=True)
     parser.add_argument('--lr_video_name', type=str, required=True)
     parser.add_argument('--ffmpeg_path', type=str, default='/usr/bin/ffmpeg')
-    parser.add_argument('--output_width', type=int, default=1920)
     parser.add_argument('--output_height', type=int, default=1080)
 
     #training

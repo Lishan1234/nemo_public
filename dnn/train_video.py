@@ -25,7 +25,6 @@ if __name__ == '__main__':
     parser.add_argument('--lr_video_name', type=str, required=True)
     parser.add_argument('--hr_video_name', type=str, required=True)
     parser.add_argument('--sample_fps', type=float, default=1.0)
-    parser.add_argument('--output_width', type=int, default=1920)
     parser.add_argument('--output_height', type=int, default=1080)
 
     #training & testing

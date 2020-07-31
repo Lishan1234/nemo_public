@@ -3,7 +3,7 @@
 function _usage()
 {
 cat << EOF
-_usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-c CONTENTS] [i INDEXES] [-q QUALITIES] [-r RESOLUTIONS] [-t TRAIN_TYPES]
+_usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-c CONTENTS] [i INDEXES] [-q QUALITIES] [-r RESOLUTIONS] [-t TRAIN_TYPES] [-o OUTPUT_RESOLUTION]
 
 mandatory arguments:
 -c CONTENTS                 Specifies contents (e.g., product_review)
@@ -13,6 +13,7 @@ optional multiple arguments:
 -q QUALITIES                Specifies qualities (e.g., low)
 -r RESOLUTIONS              Specifies resolutions (e.g., 240)
 -t TRAIN_TYPES              Specifies train types (e.g., train_video)
+-o OUTPUT_RESOLUTION        Specifies output resolution  (e.g., 1080)
 
 EOF
 }
@@ -99,6 +100,7 @@ while getopts ":c:i:q:r:t:h" opt; do
         q) qualities+=("$OPTARG");;
         r) resolutions+=("$OPTARG");;
         t) train_types+=("$OPTARG");;
+        o) output_resolution="$OPTARG";;
         \?) exit 1;
     esac
 done
@@ -124,6 +126,10 @@ if [ -z "${indexes+x}" ]; then
     indexes=("1" "2" "3")
 fi
 
+if [ -z "${output_resolution+x}" ]; then
+    output_resolution=1080
+fi
+
 _set_conda
 
 for content in "${contents[@]}"
@@ -139,7 +145,7 @@ do
                     _set_bitrate ${resolution}
                     _set_num_blocks ${resolution} ${quality}
                     _set_num_filters ${resolution} ${quality}
-                   CUDA_VISIBLE_DEVICES=0 python ${NEMO_ROOT}/dnn/convert_tensorflow_to_snpe.py --data_dir ${NEMO_ROOT}/data --content ${content}${index} --lr_video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --train_type ${train_type}
+                   CUDA_VISIBLE_DEVICES=0 python ${NEMO_ROOT}/dnn/convert_tensorflow_to_snpe.py --data_dir ${NEMO_ROOT}/data --content ${content}${index} --lr_video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --train_type ${train_type} --output_height ${output_resolution}
                 done
             done
         done
