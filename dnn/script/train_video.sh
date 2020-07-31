@@ -3,7 +3,7 @@
 function _usage()
 {
 cat << EOF
-_usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-g GPU_INDEX] [-c CONTENTS] [-i INDEXES] [-q QUALITIES] [-r RESOLUTIONS]
+_usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-g GPU_INDEX] [-c CONTENTS] [-i INDEXES] [-q QUALITIES] [-r RESOLUTIONS] [-o OUTPUT_RESOLUTION]
 
 mandatory arguments:
 -g GPU_INDEX                Specifies GPU index to use
@@ -13,6 +13,7 @@ optional multiple arguments:
 -i INDEXES                  Specifies indexes (e.g., 0)
 -q QUALITIES                Specifies qualities (e.g., low)
 -r RESOLUTIONS              Specifies resolutions (e.g., 240)
+-o OUTPUT_RESOLUTION        Specifies output resolution  (e.g., 1080)
 
 EOF
 }
@@ -91,7 +92,7 @@ function _set_num_filters(){
 
 [[ ($# -ge 1)  ]] || { echo "[ERROR] Invalid number of arguments. See -h for help."; exit 1;  }
 
-while getopts ":g:c:i:q:r:h" opt; do
+while getopts ":g:c:i:q:r:o:h" opt; do
     case $opt in
         h) _usage; exit 0;;
         g) gpu_index="$OPTARG";;
@@ -99,6 +100,7 @@ while getopts ":g:c:i:q:r:h" opt; do
         i) indexes+=("$OPTARG");;
         q) qualities+=("$OPTARG");;
         r) resolutions+=("$OPTARG");;
+        o) output_resolution="$OPTARG";;
         \?) exit 1;
     esac
 done
@@ -125,6 +127,10 @@ if [ -z "${indexes+x}" ]; then
     indexes=("1" "2" "3")
 fi
 
+if [ -z "${output_resolution+x}" ]; then
+    output_resolution=1080
+fi
+
 _set_conda
 
 for content in "${contents[@]}"
@@ -138,7 +144,7 @@ do
                 _set_bitrate ${resolution}
                 _set_num_blocks ${resolution} ${quality}
                 _set_num_filters ${resolution} ${quality}
-                CUDA_VISIBLE_DEVICES=${gpu_index} python ${NEMO_ROOT}/dnn/train_video.py --data_dir ${NEMO_ROOT}/data --content ${content}${index} --lr_video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --hr_video_name 2160p_12000kbps_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --load_on_memory
+                CUDA_VISIBLE_DEVICES=${gpu_index} python ${NEMO_ROOT}/dnn/train_video.py --data_dir ${NEMO_ROOT}/data --content ${content}${index} --lr_video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --hr_video_name 2160p_12000kbps_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --load_on_memory --output_height ${output_resolution}
             done
         done
     done

@@ -31,6 +31,9 @@ function _transcode()
 
     #encode (1080p)
     python $NEMO_ROOT/tool/encoder.py --output_video_dir $NEMO_ROOT/data/$1$2/video --input_video_path $NEMO_ROOT/data/$1$2/video/2160p_12000kbps_s0_d300.webm --bitrate 4400 --output_width 1920 --output_height 1080 --start 0 --duration 300 --mode resize_and_encode
+
+    #encode (1440p)
+    python $NEMO_ROOT/tool/encoder.py --output_video_dir $NEMO_ROOT/data/$1$2/video --input_video_path $NEMO_ROOT/data/$1$2/video/2160p_12000kbps_s0_d300.webm --bitrate 8000 --output_width 2560 --output_height 1440 --start 0 --duration 300 --mode resize_and_encode
 }
 
 [[ ($# -ge 1)  ]] || { echo "[ERROR] Invalid number of arguments. See -h for help."; exit 1;  }
