@@ -58,8 +58,21 @@ if __name__ == '__main__':
     except:
         pass
 
+    device_log_path = os.path.join(device_root_dir, 'log', args.video_name, model.name, args.algorithm, 'metadata.txt')
+    host_log_dir = os.path.join(args.data_dir, args.content, 'log', args.video_name, model.name, args.algorithm, id_to_name(args.device_id))
+    os.makedirs(host_log_dir, exist_ok=True)
+    try:
+        adb_pull(device_log_path, host_log_dir, args.device_id)
+    except:
+        pass
+
     #setup a per-frame SR result
     device_log_path = os.path.join(device_root_dir, 'log', args.video_name, model.name, 'latency.txt')
+    host_log_dir = os.path.join(args.data_dir, args.content, 'log', args.video_name, model.name, id_to_name(args.device_id))
+    os.makedirs(host_log_dir, exist_ok=True)
+    adb_pull(device_log_path, host_log_dir, args.device_id)
+
+    device_log_path = os.path.join(device_root_dir, 'log', args.video_name, model.name, 'metadata.txt')
     host_log_dir = os.path.join(args.data_dir, args.content, 'log', args.video_name, model.name, id_to_name(args.device_id))
     os.makedirs(host_log_dir, exist_ok=True)
     adb_pull(device_log_path, host_log_dir, args.device_id)
