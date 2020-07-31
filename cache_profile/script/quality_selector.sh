@@ -3,10 +3,10 @@
 function _usage()
 {
 cat << EOF
-_usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-g GPU_INDEX] [-c CONTENTS] [-i INDEXES] [-r RESOLUTIONS] [-d DEVICE_IDS]
+_usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-g GPU_INDEX] [-c CONTENTS] [-i INDEXES] [-r RESOLUTIONS] [-d DEVICE_NAMES]
 
 mandatory arguments:
--d DEVICE_IDS               Specifies device_ids
+-d DEVICE_NAMES               Specifies device_names
 
 optional multiple arguments:
 -c CONTENTS                 Specifies contents (e.g., product_review)
@@ -32,11 +32,11 @@ function _set_bitrate(){
     fi
 }
 
-function _set_device_id(){
-    device_id_arg=""
-    for device_id in "${device_ids[@]}"
+function _set_device_name(){
+    device_name_arg=""
+    for device_name in "${device_names[@]}"
     do
-        device_id_arg+="${device_id} "
+        device_name_arg+="${device_name} "
     done
 }
 
@@ -48,23 +48,18 @@ while getopts ":c:i:r:d:h" opt; do
         c) contents+=("$OPTARG");;
         i) indexes+=("$OPTARG");;
         r) resolutions+=("$OPTARG");;
-        d) device_ids+=("$OPTARG");;
+        d) device_names+=("$OPTARG");;
         \?) exit 1;
     esac
 done
 
-if [ -z "${indexes+x}" ]; then
-    echo "[ERROR] indexes is not set"
-    exit 1;
-fi
-
-if [ -z "${device_ids+x}" ]; then
-    echo "[ERROR] device_ids is not set"
+if [ -z "${device_names+x}" ]; then
+    echo "[ERROR] device_names is not set"
     exit 1;
 fi
 
 if [ -z "${contents+x}" ]; then
-    contents=("product_review", "vlogs", "how_to", "skit", "game_play", "haul", "challenge", "education", "favorite", "unboxing")
+    contents=("product_review" "vlogs" "how_to" "skit" "game_play" "haul" "challenge" "education" "favorite" "unboxing")
 fi
 
 if [ -z "${resolutions+x}" ]; then
@@ -77,7 +72,7 @@ fi
 
 
 _set_conda
-_set_device_id
+_set_device_name
 
 for content in "${contents[@]}"
 do
@@ -86,7 +81,7 @@ do
         for resolution in "${resolutions[@]}";
         do
             _set_bitrate ${resolution}
-            python ${NEMO_ROOT}/cache_profile/quality_selector.py --data_dir ${NEMO_ROOT}/data --content ${content}${index} --video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --device_id ${device_id_arg}
+            python ${NEMO_ROOT}/cache_profile/quality_selector.py --data_dir ${NEMO_ROOT}/data --content ${content}${index} --video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --device_name ${device_name_arg}
         done
     done
 done
