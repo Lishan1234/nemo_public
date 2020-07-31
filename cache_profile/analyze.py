@@ -10,12 +10,8 @@ from nemo.tool.video import profile_video
 from nemo.tool.mobile import id_to_name
 import nemo.dnn.model
 
-#contents = ['product_review, how_to, vlogs, skit, game_play, haul, challenge, education, favorite, unboxing']
-#indexes = [1, 2, 3]
-#resolution = [240, 360, 480]
-
-contents = ['game_play', 'skit', 'haul']
-indexes = [1, 2]
+contents = ['product_review', 'how_to', 'vlogs', 'skit', 'game_play', 'haul', 'challenge', 'education', 'favorite', 'unboxing']
+indexes = [1, 2, 3]
 resolutions = [240, 360, 480]
 qualities = ['low', 'medium', 'high']
 
@@ -84,8 +80,8 @@ if __name__ == '__main__':
     log_path = os.path.join(log_dir, 'cache_profile_analysis.txt')
     os.makedirs(log_dir, exist_ok=True)
     with open (log_path, 'w') as f:
-        num_90_abnormal_pairs = 0
-        num_80_abnormal_pairs = 0
+        num_90_normal_pairs = 0
+        num_80_normal_pairs = 0
         num_total_pairs = 0
         quality_diffs_pairs = []
 
@@ -106,11 +102,14 @@ if __name__ == '__main__':
                         nemo_05_log_path = os.path.join(args.data_dir, content_name, 'log', video_name, model_name, 'quality_nemo_0.5.txt')
                         nemo_05_24_log_path = os.path.join(args.data_dir, content_name, 'log', video_name, model_name, 'quality_nemo_0.5_24.txt')
                         nemo_05_8_log_path = os.path.join(args.data_dir, content_name, 'log', video_name, model_name, 'quality_nemo_0.5_8.txt')
+                        assert(os.path.exists(nemo_05_log_path))
+                        assert(os.path.exists(nemo_05_24_log_path))
+                        assert(os.path.exists(nemo_05_8_log_path))
 
                         with open(nemo_05_log_path, 'r') as f0, open(nemo_05_24_log_path, 'r') as f1, open(nemo_05_8_log_path, 'r') as f2:
                             f0_lines = f0.readlines()
                             f1_lines = f1.readlines()
-                            f2_lines = f1.readlines()
+                            f2_lines = f2.readlines()
 
                             num_abnormal_chunks = 0
                             num_total_chunks = 0
@@ -130,18 +129,21 @@ if __name__ == '__main__':
                                     if nemo_05_num_chunks >= 9:
                                         num_abnormal_chunks += 1
                                     quality_diffs.append(per_frame_sr_quality - nemo_05_8_quality)
-
-                                if quality == 'low':
+                                else:
                                     if nemo_05_num_chunks >= 25:
                                         num_abnormal_chunks += 1
                                     quality_diffs.append(per_frame_sr_quality - nemo_05_24_quality)
 
                             if num_abnormal_chunks / num_total_chunks * 100 <= 20:
-                                num_80_abnormal_pairs += 1
+                                num_80_normal_pairs += 1
                             if num_abnormal_chunks / num_total_chunks * 100 <= 10:
-                                num_90_abnormal_pairs += 1
+                                num_90_normal_pairs += 1
                             num_total_pairs += 1
-                            quality_diffs_pairs.append(np.average(quality_diffs))
-        f.write('num_80_abnormal_pairs: {}%'.format(num_80_abnormal_pairs / num_total_pairs) * 100)
-        f.write('num_90_abnormal_pairs: {}%'.format(num_90_abnormal_pairs / num_total_pairs) * 100)
-        f.write('min: {}, max: {}, average: {}'.format(np.min(quality_diffs_pairs), np.max(quality_diffs_pairs), np.average(quality_diffs_pairs)))
+
+                            avg_quality_diffs = np.average(quality_diffs)
+                            if avg_quality_diffs > 0:
+                                quality_diffs_pairs.append(avg_quality_diffs)
+
+        f.write('num_80_normal_pairs: {}%\n'.format(num_80_normal_pairs / num_total_pairs) * 100)
+        f.write('num_90_normal_pairs: {}%\n'.format(num_90_normal_pairs / num_total_pairs) * 100)
+        f.write('min: {}, max: {}, average: {}\n'.format(np.min(quality_diffs_pairs), np.max(quality_diffs_pairs), np.average(quality_diffs_pairs)))
