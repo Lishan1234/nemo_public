@@ -1,19 +1,21 @@
 <resources>
     <string name="app_name">ExoPlayerNewLibvpx</string>
 
-    <string-array name = "devices">
-        <item>9</item>
-        <item>21</item>
-        <item>32</item>
+    <string-array name = "quality">
+        <item>low</item>
+        <item>medium</item>
+        <item>high</item>
     </string-array>
 
-    <string-array name = "modes">
+    <string-array name = "resolution">
+        <item>240</item>
+        <item>360</item>
+        <item>480</item>
+    </string-array>
+
+    <string-array name = "mode">
         <item>Decode</item>
         <item>Decode-SR</item>
         <item>Decode-Cache</item>
-    </string-array>
-
-    <string-array name = "contents">
-        <item>product_review1</item>
     </string-array>
 </resources>

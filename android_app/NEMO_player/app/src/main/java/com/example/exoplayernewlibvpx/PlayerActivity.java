@@ -31,8 +31,7 @@ import java.io.OutputStream;
 
 import static com.example.exoplayernewlibvpx.Constants.MESSAGE_EXO_STOP;
 import static com.example.exoplayernewlibvpx.Constants.ONE_MINUTE_MS;
-import static com.example.exoplayernewlibvpx.Constants.PRODUCT1_REVIEW_PATH;
-import static com.example.exoplayernewlibvpx.Constants.VIDEO_RELATIVE_PATH;
+import static com.example.exoplayernewlibvpx.Constants.CONTENT_PATH;
 
 
 public class PlayerActivity extends AppCompatActivity {
@@ -45,42 +44,48 @@ public class PlayerActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_player);
 
-        setupExoPlayer(getIntent().getStringExtra("model_type"),
-                getIntent().getStringExtra("content_type"),
-                getIntent().getStringExtra("mode_type"));
+        setupExoPlayer(getIntent().getStringExtra("quality"),
+                getIntent().getStringExtra("resolution"),
+                getIntent().getStringExtra("mode"));
 
-        loopExoPlayer(7);
+        loopExoPlayer(5);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
 
-        if(mSimpleExoPlayer!=null){
+        if (mSimpleExoPlayer != null) {
             mSimpleExoPlayer.stop(true);
             mSimpleExoPlayer.release();
         }
     }
 
-    private void setupExoPlayer(String model, String content, String mode){
+    //TODO: video relative path, content path
 
-        String contentPath = "";
-        if(content.equals("product_review1")){
-            contentPath = PRODUCT1_REVIEW_PATH;
-        }
-
+    private void setupExoPlayer(String quality, String resolution, String mode) {
+        String contentPath = CONTENT_PATH;
+        String videoName ="";
         int decodeMode = 0;
-        if(mode.equals("Decode")){
+
+        if (mode.equals("Decode")) {
             decodeMode = 0;
-        } else if (mode.equals("Decode-SR")){
+        } else if (mode.equals("Decode-SR")) {
             decodeMode = 1;
-        } else if (mode.equals("Decode-Cache")){
+        } else if (mode.equals("Decode-Cache")) {
             decodeMode = 2;
         }
 
-        PlayerView playerView = findViewById(R.id.player);
+        if (resolution.equals("240")) {
+            videoName = "240p_512kbps_s0_d300.webm";
+        } else if (resolution.equals("360")) {
+            videoName = "360p_1024kbps_s0_d300.webm";
+        } else if (resolution.equals("480")) {
+            videoName = "480p_1600kbps_s0_d300.webm";
+        }
 
-        DefaultRenderersFactory renderFactory = new DefaultRenderersFactory(this,contentPath,model,decodeMode);
+        PlayerView playerView = findViewById(R.id.player);
+        DefaultRenderersFactory renderFactory = new DefaultRenderersFactory(this, contentPath, quality,  Integer.parseInt(resolution), decodeMode);
         renderFactory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER);
         mSimpleExoPlayer =
                 ExoPlayerFactory.newSimpleInstance(this,
@@ -92,7 +97,7 @@ public class PlayerActivity extends AppCompatActivity {
 
         playerView.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_FIXED_HEIGHT);
 
-        MediaSource mediaSource = createLocalMediaSource(contentPath);
+        MediaSource mediaSource = createLocalMediaSource(contentPath, videoName);
 
         mSimpleExoPlayer.prepare(mediaSource);
         mSimpleExoPlayer.setPlayWhenReady(true);
@@ -100,56 +105,56 @@ public class PlayerActivity extends AppCompatActivity {
         mSimpleExoPlayer.addListener(new Player.EventListener() {
             @Override
             public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
-                if(playbackState == Player.STATE_ENDED){
+                if (playbackState == Player.STATE_ENDED) {
                     mSimpleExoPlayer.stop(true);
                 }
             }
         });
     }
 
-    private void loopExoPlayer(int minutes){
+    private void loopExoPlayer(int minutes) {
         mSimpleExoPlayer.setRepeatMode(Player.REPEAT_MODE_ALL);
         mExoPlayerHandler = new ExoPlayerHandler();
         Message message = mExoPlayerHandler.obtainMessage();
         message.what = MESSAGE_EXO_STOP;
-        mExoPlayerHandler.sendMessageDelayed(message,minutes*ONE_MINUTE_MS);
+        mExoPlayerHandler.sendMessageDelayed(message, minutes * ONE_MINUTE_MS);
     }
 
-    private MediaSource createLocalMediaSource(String contentPath){
-        File file = new File(contentPath + VIDEO_RELATIVE_PATH);
+    private MediaSource createLocalMediaSource(String contentPath, String videoName) {
+        File file = new File(contentPath + File.separator + "video" + File.separator + videoName);
         Uri uri = Uri.fromFile(file);
 
-        DataSource.Factory dataSourceFactory = new DefaultDataSourceFactory(this, Util.getUserAgent(this,"ExoPlayer"));
+        DataSource.Factory dataSourceFactory = new DefaultDataSourceFactory(this, Util.getUserAgent(this, "ExoPlayer"));
         MediaSource videoSource = new ExtractorMediaSource.Factory(dataSourceFactory).createMediaSource(uri);
         return videoSource;
     }
 
 
-    private void setupDirectories(){
-        File dataDir = new File("/storage/emulated/0/Android/data","android.example.testlibvpx");
-        if(!dataDir.exists()){
+    private void setupDirectories() {
+        File dataDir = new File("/storage/emulated/0/Android/data", "android.example.testlibvpx");
+        if (!dataDir.exists()) {
             dataDir.mkdir();
 
-            File fileDir = new File("/storage/emulated/0/Android/data/android.example.testlibvpx","files");
-            if(!fileDir.exists()){
+            File fileDir = new File("/storage/emulated/0/Android/data/android.example.testlibvpx", "files");
+            if (!fileDir.exists()) {
                 fileDir.mkdir();
 
                 //Make inner directory structures
-                File videoDir = new File("/storage/emulated/0/Android/data/android.example.testlibvpx/files","video");
-                File checkpointDir = new File("/storage/emulated/0/Android/data/android.example.testlibvpx/files","checkpoint");
-                File imageDir = new File("/storage/emulated/0/Android/data/android.example.testlibvpx/files","image");
-                File logDir = new File("/storage/emulated/0/Android/data/android.example.testlibvpx/files","log");
+                File videoDir = new File("/storage/emulated/0/Android/data/android.example.testlibvpx/files", "video");
+                File checkpointDir = new File("/storage/emulated/0/Android/data/android.example.testlibvpx/files", "checkpoint");
+                File imageDir = new File("/storage/emulated/0/Android/data/android.example.testlibvpx/files", "image");
+                File logDir = new File("/storage/emulated/0/Android/data/android.example.testlibvpx/files", "log");
                 videoDir.mkdir();
                 checkpointDir.mkdir();
                 imageDir.mkdir();
                 logDir.mkdir();
 
                 //Add model and video from android resources
-                File edsr64Dir = new File("/storage/emulated/0/Android/data/android.example.testlibvpx/files/checkpoint","EDSR_S_B8_F64_S4");
+                File edsr64Dir = new File("/storage/emulated/0/Android/data/android.example.testlibvpx/files/checkpoint", "EDSR_S_B8_F64_S4");
                 edsr64Dir.mkdir();
-                File model = new File("/storage/emulated/0/Android/data/android.example.testlibvpx/files/checkpoint/EDSR_S_B8_F64_S4","ckpt-100.dlc");
+                File model = new File("/storage/emulated/0/Android/data/android.example.testlibvpx/files/checkpoint/EDSR_S_B8_F64_S4", "ckpt-100.dlc");
 
-                File video = new File("/storage/emulated/0/Android/data/android.example.testlibvpx/files/video","240p_s0_d60_encoded.webm");
+                File video = new File("/storage/emulated/0/Android/data/android.example.testlibvpx/files/video", "240p_s0_d60_encoded.webm");
 
                 try {
                     InputStream modelInputStream = getResources().openRawResource(R.raw.ckpt_100);
@@ -177,18 +182,18 @@ public class PlayerActivity extends AppCompatActivity {
     }
 
     //This version should be used when libvpx is changed to receive file paths from java side.
-    private void setupDirectoriesSafe(){
+    private void setupDirectoriesSafe() {
 
-        File fileDir = new File(this.getExternalFilesDir(null),"files");
+        File fileDir = new File(this.getExternalFilesDir(null), "files");
         //Files have not been initialized yet.
-        if(!fileDir.exists()){
+        if (!fileDir.exists()) {
             fileDir.mkdir();
 
             //Make all directory structures
-            File videoDir = new File(this.getExternalFilesDir("files"),"video");
-            File checkpointDir = new File(this.getExternalFilesDir("files"),"checkpoint");
-            File imageDir = new File(this.getExternalFilesDir("files"),"image");
-            File logDir = new File(this.getExternalFilesDir("files"),"log");
+            File videoDir = new File(this.getExternalFilesDir("files"), "video");
+            File checkpointDir = new File(this.getExternalFilesDir("files"), "checkpoint");
+            File imageDir = new File(this.getExternalFilesDir("files"), "image");
+            File logDir = new File(this.getExternalFilesDir("files"), "log");
             videoDir.mkdir();
             checkpointDir.mkdir();
             imageDir.mkdir();

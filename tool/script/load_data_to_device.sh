@@ -3,11 +3,10 @@
 function _usage()
 {
 cat << EOF
-_usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-c CONTENTS] [-i INDEXES] [-q QUALITIES] [-r RESOLUTIONS] [-a ALGORITHM] [-d DEVICE_ID] [-e DEVICE_DATA_DIR]
+_usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-c CONTENTS] [-i INDEXES] [-q QUALITIES] [-r RESOLUTIONS] [-d DEVICE_ID] [-e DEVICE_DATA_DIR]
 
 mandatory arguments:
 -c CONTENTS                 Specifies contents (e.g., product_review)
--a ALGORITHM                Specifies algorithm (e.g., nemo)
 -d DEVICE_ID                Specifies a device id
 -e DEVICE_DATA_DIR          Specifies device data directory (e.g., /sdcard/NEMO)
 
@@ -38,7 +37,7 @@ function _set_bitrate(){
 function _set_num_blocks(){
     if [ "$1" == 240 ];then
         if [ "$2" == "low" ];then
-            num_blocks=8
+            num_blocks=4
         elif [ "$2" == "medium" ];then
             num_blocks=8
         elif [ "$2" == "high" ];then
@@ -91,12 +90,19 @@ function _set_num_filters(){
     fi
 }
 
+function _set_algorithm(){
+    if [ "$1" == "low" ];then
+        algorithm=nemo_0.5_8
+    else
+        algorithm=nemo_0.5_24
+    fi
+}
+
 [[ ($# -ge 1)  ]] || { echo "[ERROR] Invalid number of arguments. See -h for help."; exit 1;  }
 
-while getopts ":c:i:q:r:t:a:d:e:h" opt; do
+while getopts ":c:i:q:r:t:d:e:h" opt; do
     case $opt in
         h) _usage; exit 0;;
-        a) algorithm="$OPTARG";;
         e) device_data_dir="$OPTARG";;
         c) contents+=("$OPTARG");;
         i) indexes+=("$OPTARG");;
@@ -109,11 +115,6 @@ done
 
 if [ -z "${contents+x}" ]; then
     echo "[ERROR] contents is not set"
-    exit 1;
-fi
-
-if [ -z "${algorithm+x}" ]; then
-    echo "[ERROR] algorithm is not set"
     exit 1;
 fi
 
@@ -152,6 +153,7 @@ do
                 _set_bitrate ${resolution}
                 _set_num_blocks ${resolution} ${quality}
                 _set_num_filters ${resolution} ${quality}
+                _set_algorithm ${quality}
                 CUDA_VISIBLE_DEVICES=${gpu_index} python ${NEMO_ROOT}/tool/load_data_to_device.py --data_dir ${NEMO_ROOT}/data --device_data_dir ${device_data_dir} --content ${content}${index} --video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --algorithm=${algorithm} --device_id=${device_id}
             done
         done

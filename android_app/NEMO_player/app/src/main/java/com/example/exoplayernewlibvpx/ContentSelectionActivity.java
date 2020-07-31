@@ -15,8 +15,8 @@ import androidx.core.content.ContextCompat;
 
 public class ContentSelectionActivity extends AppCompatActivity {
 
-    Spinner deviceSpinner;
-    Spinner contentSpinner;
+    Spinner qualitySpinner;
+    Spinner resolutionSpinner;
     Spinner modeSpinner;
 
     @Override
@@ -28,26 +28,26 @@ public class ContentSelectionActivity extends AppCompatActivity {
 
         requestPermissions();
 
-        ArrayAdapter<CharSequence> deviceAdapter = ArrayAdapter.createFromResource(this, R.array.devices, android.R.layout.simple_spinner_item);
+        ArrayAdapter<CharSequence> deviceAdapter = ArrayAdapter.createFromResource(this, R.array.quality, android.R.layout.simple_spinner_item);
         deviceAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        deviceSpinner = findViewById(R.id.select_device);
-        deviceSpinner.setAdapter(deviceAdapter);
+        qualitySpinner = findViewById(R.id.select_device);
+        qualitySpinner.setAdapter(deviceAdapter);
 
-        ArrayAdapter<CharSequence> contentAdapter = ArrayAdapter.createFromResource(this, R.array.contents, android.R.layout.simple_spinner_item);
+        ArrayAdapter<CharSequence> contentAdapter = ArrayAdapter.createFromResource(this, R.array.resolution, android.R.layout.simple_spinner_item);
         contentAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        contentSpinner = findViewById(R.id.select_content);
-        contentSpinner.setAdapter(contentAdapter);
+        resolutionSpinner = findViewById(R.id.select_content);
+        resolutionSpinner.setAdapter(contentAdapter);
 
-        ArrayAdapter<CharSequence> modeAdapter = ArrayAdapter.createFromResource(this, R.array.modes, android.R.layout.simple_spinner_item);
+        ArrayAdapter<CharSequence> modeAdapter = ArrayAdapter.createFromResource(this, R.array.mode, android.R.layout.simple_spinner_item);
         modeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         modeSpinner = findViewById(R.id.select_mode);
         modeSpinner.setAdapter(modeAdapter);
 
         findViewById(R.id.start).setOnClickListener((view)->{
                 Intent intent = new Intent(ContentSelectionActivity.this, PlayerActivity.class);
-                intent.putExtra("model_type",deviceSpinner.getSelectedItem().toString());
-                intent.putExtra("content_type",contentSpinner.getSelectedItem().toString());
-                intent.putExtra("mode_type",modeSpinner.getSelectedItem().toString());
+                intent.putExtra("quality", qualitySpinner.getSelectedItem().toString());
+                intent.putExtra("resolution", resolutionSpinner.getSelectedItem().toString());
+                intent.putExtra("mode",modeSpinner.getSelectedItem().toString());
                 startActivity(intent);
             }
         );

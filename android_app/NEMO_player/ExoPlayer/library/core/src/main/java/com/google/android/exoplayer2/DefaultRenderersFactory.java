@@ -86,8 +86,9 @@ public class DefaultRenderersFactory implements RenderersFactory {
   protected static final int MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY = 50;
 
   public String contentPath;
+  public String quality;
+  public int resolution;
   public int decodeMode;
-  public String modelType;
 
   private final Context context;
   @Nullable private DrmSessionManager<FrameworkMediaCrypto> drmSessionManager;
@@ -127,11 +128,12 @@ public class DefaultRenderersFactory implements RenderersFactory {
 //  }
 
   /***NEMO***/
-  public DefaultRenderersFactory(Context context, String contentPath, String modelType, int decodeMode){
+  public DefaultRenderersFactory(Context context, String contentPath, String quality, int resolution, int decodeMode){
     this(context);
     this.contentPath = contentPath;
+    this.quality = quality;
+    this.resolution = resolution;
     this.decodeMode = decodeMode;
-    this.modelType = modelType;
   }
   /***NEMO***/
 
@@ -343,6 +345,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
               int.class,
               String.class,
               String.class,
+              int.class,
               int.class    );
       // LINT.ThenChange(../../../../../../../proguard-rules.txt)
       Renderer renderer =
@@ -354,7 +357,8 @@ public class DefaultRenderersFactory implements RenderersFactory {
                   eventListener,
                   MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
                   contentPath,
-                  modelType,
+                  quality,
+                  resolution,
                   decodeMode);
       out.add(extensionRendererIndex++, renderer);
       Log.i(TAG, "Loaded LibvpxVideoRenderer.");

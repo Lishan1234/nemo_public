@@ -161,8 +161,9 @@ public class LibvpxVideoRenderer extends BaseRenderer {
 
   /***NEMO***/
   public String contentPath;
+  public String quality;
+  public int resolution;
   public int decodeMode;
-  public String modelType;
 
   /**
    * @param scaleToFit Whether video frames should be scaled to fit when rendering.
@@ -201,7 +202,7 @@ public class LibvpxVideoRenderer extends BaseRenderer {
   /***NEMO***/
   public LibvpxVideoRenderer(boolean scaleToFit, long allowedJoiningTimeMs,
                              Handler eventHandler, VideoRendererEventListener eventListener,
-                             int maxDroppedFramesToNotify, String contentPath, String modelType, int decodeMode) {
+                             int maxDroppedFramesToNotify, String contentPath, String quality, int resolution, int decodeMode) {
     this(
             scaleToFit,
             allowedJoiningTimeMs,
@@ -213,8 +214,9 @@ public class LibvpxVideoRenderer extends BaseRenderer {
             /* disableLoopFilter= */ false,
             /* useSurfaceYuvOutput= */ false);
     this.contentPath = contentPath;
+    this.quality = quality;
+    this.resolution = resolution;
     this.decodeMode = decodeMode;
-    this.modelType = modelType;
   }
   /*** NEMO***/
 
@@ -777,7 +779,8 @@ public class LibvpxVideoRenderer extends BaseRenderer {
               disableLoopFilter,
               useSurfaceYuvOutput,
                   contentPath,
-                  modelType,
+                  quality,
+                  resolution,
                   decodeMode);
       decoder.setOutputMode(outputMode);
       TraceUtil.endSection();

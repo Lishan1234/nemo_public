@@ -15,6 +15,7 @@
  */
 
 #include <cpu-features.h>
+#include <string.h>
 
 #ifdef __ARM_NEON__
 #include <arm_neon.h>
@@ -468,7 +469,7 @@ static void _mkdir(const char *dir) {
 //TODO: select content, index, quality, resolution
 
 DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
-             jboolean enableBufferManager, jstring content_path, jstring model_type,
+             jboolean enableBufferManager, jstring content_path, jstring quality, jint resolution,
              jint decode_mode) {
 
     JniCtx *context = new JniCtx(enableBufferManager);
@@ -509,27 +510,103 @@ DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
     nemo_cfg->save_metadata = 1;
 
     const char *contentPath = env->GetStringUTFChars(content_path, NULL);
-    const char *modelType = env->GetStringUTFChars(model_type, NULL);
+    const char *quality_ = env->GetStringUTFChars(quality, NULL);
+    const int resolution_ = (int) resolution;
+
     const char * content_dir = contentPath;
-    const char *input_video_name = "240p_512kbps_s0_d300.webm";
+    const char *input_video_name;
+    int scale;
     char dnn_name[MAX_INPUT];
     char cache_profile_name[MAX_INPUT];
     char dnn_file[MAX_INPUT];
     char cache_profile_file[MAX_INPUT];
-    if (atoi(modelType) == 9) {
-        sprintf(dnn_name, "NEMO_S_B4_F%s_S4_deconv", modelType);
-        sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
-        sprintf(cache_profile_name, "nemo_0.5_8");
-        sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
-                cache_profile_name);
+
+    if (resolution_ == 240) {
+        input_video_name = "240p_512kbps_s0_d300.webm";
+        scale = 4;
     }
-    else {
-        sprintf(dnn_name, "NEMO_S_B8_F%s_S4_deconv", modelType);
-        sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
-        sprintf(cache_profile_name, "nemo_0.5_24");
-        sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
-                cache_profile_name);
+    else if (resolution_ == 360) {
+        input_video_name = "360p_1024kbps_s0_d300.webm";
+        scale = 3;
     }
+    else if (resolution_ == 480) {
+        input_video_name = "480p_1600kbps_s0_d300.webm";
+        scale = 2;
+    }
+
+    if (strcmp(quality_, "low") == 0){
+        if (resolution_ == 240) {
+            sprintf(dnn_name, "NEMO_S_B4_F9_S4_deconv");
+            sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
+            sprintf(cache_profile_name, "nemo_0.5_8");
+            sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
+                    cache_profile_name);
+        }
+        else if (resolution_ == 360) {
+            sprintf(dnn_name, "NEMO_S_B4_F8_S3_deconv");
+            sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
+            sprintf(cache_profile_name, "nemo_0.5_8");
+            sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
+                    cache_profile_name);
+        }
+        else if (resolution_ == 480) {
+            sprintf(dnn_name, "NEMO_S_B4_F4_S2_deconv");
+            sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
+            sprintf(cache_profile_name, "nemo_0.5_8");
+            sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
+                    cache_profile_name);
+        }
+    }
+    else if (strcmp(quality_, "medium") == 0){
+        if (resolution_ == 240) {
+            sprintf(dnn_name, "NEMO_S_B8_F21_S4_deconv");
+            sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
+            sprintf(cache_profile_name, "nemo_0.5_24");
+            sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
+                    cache_profile_name);
+        }
+        else if (resolution_ == 360) {
+            sprintf(dnn_name, "NEMO_S_B4_F18_S3_deconv");
+            sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
+            sprintf(cache_profile_name, "nemo_0.5_24");
+            sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
+                    cache_profile_name);
+        }
+        else if (resolution_ == 480) {
+            sprintf(dnn_name, "NEMO_S_B4_F9_S2_deconv");
+            sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
+            sprintf(cache_profile_name, "nemo_0.5_24");
+            sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
+                    cache_profile_name);
+        }
+    }
+    else if (strcmp(quality_, "high") == 0){
+        if (resolution_ == 240) {
+            sprintf(dnn_name, "NEMO_S_B8_F32_S4_deconv");
+            sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
+            sprintf(cache_profile_name, "nemo_0.5_24");
+            sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
+                    cache_profile_name);
+        }
+        else if (resolution_ == 360) {
+            sprintf(dnn_name, "NEMO_S_B4_F29_S3_deconv");
+            sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
+            sprintf(cache_profile_name, "nemo_0.5_24");
+            sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
+                    cache_profile_name);
+        }
+        else if (resolution_ == 480) {
+            sprintf(dnn_name, "NEMO_S_B4_F18_S2_deconv");
+            sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
+            sprintf(cache_profile_name, "nemo_0.5_24");
+            sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
+                    cache_profile_name);
+        }
+    }
+
+    LOGE("contentPath: %s, quality_: %s, resolution: %d", contentPath, quality_, resolution_);
+    LOGE("dnn_file: %s, cache_profile_file: %s", dnn_file, cache_profile_file);
+
 
     //setup log directories
     switch (nemo_cfg->decode_mode) {
@@ -558,15 +635,15 @@ DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
         LOGE("fail1");
     }
 
-    if (nemo_cfg->dnn_mode == DECODE_SR || nemo_cfg->dnn_mode == DECODE_CACHE) {
-        if (vpx_load_nemo_dnn(context->decoder, 4, dnn_file)) {
+    if (nemo_cfg->decode_mode == DECODE_SR || nemo_cfg->decode_mode == DECODE_CACHE) {
+        if (vpx_load_nemo_dnn(context->decoder, scale, dnn_file)) {
             LOGE("fail2");
             LOGE("nemo_dnn: %s", dnn_file);
         }
     }
 
-    if (nemo_cfg->cache_mode == PROFILE_CACHE) {
-        if (vpx_load_nemo_cache_profile(context->decoder, 4, cache_profile_file)) {
+    if (nemo_cfg->decode_mode == DECODE_CACHE &&  nemo_cfg->cache_mode == PROFILE_CACHE) {
+        if (vpx_load_nemo_cache_profile(context->decoder, scale, cache_profile_file)) {
             LOGE("fail3");
             LOGE("nemo_cache profile: %s", cache_profile_file);
         }

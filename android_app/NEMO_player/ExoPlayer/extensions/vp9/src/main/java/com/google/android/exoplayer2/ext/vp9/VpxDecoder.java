@@ -46,8 +46,9 @@ import java.nio.ByteBuffer;
 
   /***NEMO***/
   public String contentPath;
+  public String quality;
+  public int resolution;
   public int decodeMode;
-  public String modelType;
 
   /**
    * Creates a VP9 decoder.
@@ -78,7 +79,7 @@ import java.nio.ByteBuffer;
     if (exoMediaCrypto != null && !VpxLibrary.vpxIsSecureDecodeSupported()) {
       throw new VpxDecoderException("Vpx decoder does not support secure decode.");
     }
-    vpxDecContext = vpxInit(disableLoopFilter, enableSurfaceYuvOutputMode,contentPath,modelType,decodeMode);
+    vpxDecContext = vpxInit(disableLoopFilter, enableSurfaceYuvOutputMode,contentPath,quality,resolution,decodeMode);
     if (vpxDecContext == 0) {
       throw new VpxDecoderException("Failed to initialize decoder");
     }
@@ -95,13 +96,16 @@ import java.nio.ByteBuffer;
           boolean disableLoopFilter,
           boolean enableSurfaceYuvOutputMode,
           String contentPath,
-          String modelType,
-          int decodeMode)
+          String quality,
+          int resolution,
+          int decodeMode
+          )
           throws VpxDecoderException {
     super(new VpxInputBuffer[numInputBuffers], new VpxOutputBuffer[numOutputBuffers]);
     this.contentPath = contentPath;
+    this.quality = quality;
+    this.resolution = resolution;
     this.decodeMode = decodeMode;
-    this.modelType = modelType;
 
     if (!VpxLibrary.isAvailable()) {
       throw new VpxDecoderException("Failed to load decoder native libraries.");
@@ -110,7 +114,7 @@ import java.nio.ByteBuffer;
     if (exoMediaCrypto != null && !VpxLibrary.vpxIsSecureDecodeSupported()) {
       throw new VpxDecoderException("Vpx decoder does not support secure decode.");
     }
-    vpxDecContext = vpxInit(disableLoopFilter, enableSurfaceYuvOutputMode,contentPath,modelType,decodeMode);
+    vpxDecContext = vpxInit(disableLoopFilter, enableSurfaceYuvOutputMode,contentPath,quality,resolution,decodeMode);
     if (vpxDecContext == 0) {
       throw new VpxDecoderException("Failed to initialize decoder");
     }
@@ -211,7 +215,7 @@ import java.nio.ByteBuffer;
     }
   }
 
-  private native long vpxInit(boolean disableLoopFilter, boolean enableSurfaceYuvOutputMode, String contentPath, String modelType, int decodeMode);
+  private native long vpxInit(boolean disableLoopFilter, boolean enableSurfaceYuvOutputMode, String contentPath, String quality, int resolution, int decodeMode);
 
   private native long vpxClose(long context);
   private native long vpxDecode(long context, ByteBuffer encoded, int length);

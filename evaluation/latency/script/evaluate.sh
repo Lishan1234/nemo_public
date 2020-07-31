@@ -7,7 +7,6 @@ _usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-c CONTENTS] [-i IND
 
 mandatory arguments:
 -c CONTENTS                 Specifies contents (e.g., product_review)
--a ALGORITHM                Specifies algorithm (e.g., nemo)
 -d DEVICE_ID                Specifies a device id
 
 optional multiple arguments:
@@ -88,6 +87,10 @@ function _set_num_filters(){
             num_filters=18
         fi
     fi
+}
+
+function _set_algorithm(){
+
 }
 
 [[ ($# -ge 1)  ]] || { echo "[ERROR] Invalid number of arguments. See -h for help."; exit 1;  }
