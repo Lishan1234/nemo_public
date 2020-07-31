@@ -13,10 +13,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import static com.example.exoplayernewlibvpx.Constants.HOW_TO_PATH;
-import static com.example.exoplayernewlibvpx.Constants.PRODUCT_REVIEW_PATH;
-import static com.example.exoplayernewlibvpx.Constants.VLOGS_PATH;
-
 public class ContentSelectionActivity extends AppCompatActivity {
 
     Spinner deviceSpinner;

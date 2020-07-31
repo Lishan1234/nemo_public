@@ -69,7 +69,8 @@ if __name__ == '__main__':
     dlc_path = os.path.join(checkpoint_dir, '{}.dlc'.format(model.name))
     adb_push(device_checkpoint_dir, dlc_path, args.device_id)
 
-    #TODO
     #setup a cache profile
-    #cache_profile_path = os.path.join(dataset_dir, 'profile', args.video_name, model.name, '{}.profile'.format(args.algorithm))
-    #adb_push(device_cache_profile_dir, cache_profile_path, args.device_id)
+    device_cache_profile_dir = os.path.join(device_root_dir, 'profile', args.video_name, model.name)
+    adb_mkdir(device_cache_profile_dir, args.device_id)
+    cache_profile_path = os.path.join(args.data_dir, args.content, 'profile', args.video_name, model.name, '{}.profile'.format(args.algorithm))
+    adb_push(device_cache_profile_dir, cache_profile_path, args.device_id)

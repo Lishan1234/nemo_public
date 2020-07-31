@@ -24,7 +24,8 @@ def get_video_url(content, index):
             pass
         elif index == 1:
             #url = "https://www.youtube.com/watch?v=mJD30Y4PwV0"
-            url = "https://www.youtube.com/watch?v=pFeQnVvS-yI"
+            #url = "https://www.youtube.com/watch?v=pFeQnVvS-yI"
+            url = "https://www.youtube.com/watch?v=2ecqslqwXLQ"
         elif index == 2:
             #url = "https://www.youtube.com/watch?v=Tq-o_296vz4"
             url = "https://www.youtube.com/watch?v=aqMZfQODJZo"
@@ -35,12 +36,15 @@ def get_video_url(content, index):
             pass
         elif index == 1:
             #url = "https://www.youtube.com/watch?v=AoGXdUePwro"
-            url = "https://www.youtube.com/watch?v=07XFuFlRvj8"
+            #url = "https://www.youtube.com/watch?v=07XFuFlRvj8"
+            url = "https://www.youtube.com/watch?v=eCz-IixxR_k"
         elif index == 2:
             #url = "https://www.youtube.com/watch?v=rQKyds1j5C0"
             url = "https://www.youtube.com/watch?v=ibGJXBCTgr4"
         elif index == 3:
-            url = "https://www.youtube.com/watch?v=07XFuFlRvj8"
+            #url = "https://www.youtube.com/watch?v=07XFuFlRvj8"
+            #url = "https://www.youtube.com/watch?v=Z75JCm293pI"
+            url = "https://www.youtube.com/watch?v=ADOvvWVwjW0"
     elif content == 'skit':
         if index == 0:
             pass
