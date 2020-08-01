@@ -94,7 +94,7 @@ function _set_algorithm(){
     if [ "$1" == "low" ];then
         algorithm=nemo_0.5_8
     else
-        algorithm=nemo_0.5_24
+        algorithm=nemo_0.5_16
     fi
 }
 

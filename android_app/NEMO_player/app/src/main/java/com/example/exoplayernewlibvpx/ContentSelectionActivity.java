@@ -18,6 +18,7 @@ public class ContentSelectionActivity extends AppCompatActivity {
     Spinner qualitySpinner;
     Spinner resolutionSpinner;
     Spinner modeSpinner;
+    Spinner loopbackSpinner;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,11 +44,17 @@ public class ContentSelectionActivity extends AppCompatActivity {
         modeSpinner = findViewById(R.id.select_mode);
         modeSpinner.setAdapter(modeAdapter);
 
+        ArrayAdapter<CharSequence> loopbackAdapter = ArrayAdapter.createFromResource(this, R.array.loopback, android.R.layout.simple_spinner_item);
+        loopbackAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        loopbackSpinner = findViewById(R.id.select_loopback);
+        loopbackSpinner.setAdapter(loopbackAdapter);
+
         findViewById(R.id.start).setOnClickListener((view)->{
                 Intent intent = new Intent(ContentSelectionActivity.this, PlayerActivity.class);
                 intent.putExtra("quality", qualitySpinner.getSelectedItem().toString());
                 intent.putExtra("resolution", resolutionSpinner.getSelectedItem().toString());
                 intent.putExtra("mode",modeSpinner.getSelectedItem().toString());
+                intent.putExtra("loopback",loopbackSpinner.getSelectedItem().toString());
                 startActivity(intent);
             }
         );

@@ -7,6 +7,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.util.Log;
 
 import com.google.android.exoplayer2.DefaultLoadControl;
 import com.google.android.exoplayer2.DefaultRenderersFactory;
@@ -30,7 +31,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 import static com.example.exoplayernewlibvpx.Constants.MESSAGE_EXO_STOP;
-import static com.example.exoplayernewlibvpx.Constants.ONE_MINUTE_MS;
 import static com.example.exoplayernewlibvpx.Constants.CONTENT_PATH;
 
 
@@ -48,7 +48,9 @@ public class PlayerActivity extends AppCompatActivity {
                 getIntent().getStringExtra("resolution"),
                 getIntent().getStringExtra("mode"));
 
-        loopExoPlayer(5);
+        int loopback = Integer.parseInt(getIntent().getStringExtra("loopback"));
+        Log.e("loopback", Integer.toString(loopback));
+        loopExoPlayer(loopback);
     }
 
     @Override
@@ -112,12 +114,12 @@ public class PlayerActivity extends AppCompatActivity {
         });
     }
 
-    private void loopExoPlayer(int minutes) {
+    private void loopExoPlayer(int seconds) {
         mSimpleExoPlayer.setRepeatMode(Player.REPEAT_MODE_ALL);
         mExoPlayerHandler = new ExoPlayerHandler();
         Message message = mExoPlayerHandler.obtainMessage();
         message.what = MESSAGE_EXO_STOP;
-        mExoPlayerHandler.sendMessageDelayed(message, minutes * ONE_MINUTE_MS);
+        mExoPlayerHandler.sendMessageDelayed(message, seconds * 1000);
     }
 
     private MediaSource createLocalMediaSource(String contentPath, String videoName) {

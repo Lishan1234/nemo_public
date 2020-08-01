@@ -561,21 +561,21 @@ DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
         if (resolution_ == 240) {
             sprintf(dnn_name, "NEMO_S_B8_F21_S4_deconv");
             sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
-            sprintf(cache_profile_name, "nemo_0.5_24");
+            sprintf(cache_profile_name, "nemo_0.5_16");
             sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
                     cache_profile_name);
         }
         else if (resolution_ == 360) {
             sprintf(dnn_name, "NEMO_S_B4_F18_S3_deconv");
             sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
-            sprintf(cache_profile_name, "nemo_0.5_24");
+            sprintf(cache_profile_name, "nemo_0.5_16");
             sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
                     cache_profile_name);
         }
         else if (resolution_ == 480) {
             sprintf(dnn_name, "NEMO_S_B4_F9_S2_deconv");
             sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
-            sprintf(cache_profile_name, "nemo_0.5_24");
+            sprintf(cache_profile_name, "nemo_0.5_16");
             sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
                     cache_profile_name);
         }
@@ -584,21 +584,21 @@ DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
         if (resolution_ == 240) {
             sprintf(dnn_name, "NEMO_S_B8_F32_S4_deconv");
             sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
-            sprintf(cache_profile_name, "nemo_0.5_24");
+            sprintf(cache_profile_name, "nemo_0.5_16");
             sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
                     cache_profile_name);
         }
         else if (resolution_ == 360) {
             sprintf(dnn_name, "NEMO_S_B4_F29_S3_deconv");
             sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
-            sprintf(cache_profile_name, "nemo_0.5_24");
+            sprintf(cache_profile_name, "nemo_0.5_16");
             sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
                     cache_profile_name);
         }
         else if (resolution_ == 480) {
             sprintf(dnn_name, "NEMO_S_B4_F18_S2_deconv");
             sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
-            sprintf(cache_profile_name, "nemo_0.5_24");
+            sprintf(cache_profile_name, "nemo_0.5_16");
             sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
                     cache_profile_name);
         }

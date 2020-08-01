@@ -24,12 +24,19 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"/>
 
-    <Button
-        android:layout_marginTop="20dp"
-        android:layout_gravity="center"
-        android:id="@+id/start"
-        android:text="start"
+    <Spinner
+        android:id="@+id/select_loopback"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="20dp" />
+
+    <Button
+        android:id="@+id/start"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="20dp"
+        android:text="start" />
 
 </LinearLayout>

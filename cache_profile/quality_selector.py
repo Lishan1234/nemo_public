@@ -52,8 +52,8 @@ num_filters_info= {
 
 algorithm_info = {
     'low': 'nemo_0.5_8',
-    'medium': 'nemo_0.5_24',
-    'high': 'nemo_0.5_24',
+    'medium': 'nemo_0.5_16',
+    'high': 'nemo_0.5_16',
 }
 
 class QualitySelector():
