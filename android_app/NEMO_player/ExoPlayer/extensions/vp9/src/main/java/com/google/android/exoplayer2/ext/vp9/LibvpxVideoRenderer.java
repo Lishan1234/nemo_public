@@ -164,6 +164,7 @@ public class LibvpxVideoRenderer extends BaseRenderer {
   public String quality;
   public int resolution;
   public int decodeMode;
+  public String algorithm;
 
   /**
    * @param scaleToFit Whether video frames should be scaled to fit when rendering.
@@ -202,7 +203,7 @@ public class LibvpxVideoRenderer extends BaseRenderer {
   /***NEMO***/
   public LibvpxVideoRenderer(boolean scaleToFit, long allowedJoiningTimeMs,
                              Handler eventHandler, VideoRendererEventListener eventListener,
-                             int maxDroppedFramesToNotify, String contentPath, String quality, int resolution, int decodeMode) {
+                             int maxDroppedFramesToNotify, String contentPath, String quality, int resolution, int decodeMode, String algorithm) {
     this(
             scaleToFit,
             allowedJoiningTimeMs,
@@ -217,6 +218,7 @@ public class LibvpxVideoRenderer extends BaseRenderer {
     this.quality = quality;
     this.resolution = resolution;
     this.decodeMode = decodeMode;
+    this.algorithm = algorithm;
   }
   /*** NEMO***/
 
@@ -781,7 +783,8 @@ public class LibvpxVideoRenderer extends BaseRenderer {
                   contentPath,
                   quality,
                   resolution,
-                  decodeMode);
+                  decodeMode,
+                  algorithm);
       decoder.setOutputMode(outputMode);
       TraceUtil.endSection();
       long decoderInitializedTimestamp = SystemClock.elapsedRealtime();

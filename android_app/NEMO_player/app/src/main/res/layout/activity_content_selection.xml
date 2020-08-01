@@ -4,16 +4,30 @@
     android:layout_height="match_parent">
 
     <Spinner
+        android:id="@+id/select_content"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="20dp" />
+
+    <Spinner
+        android:id="@+id/select_index"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="20dp" />
+
+    <Spinner
         android:layout_marginTop="20dp"
         android:layout_gravity="center"
-        android:id="@+id/select_device"
+        android:id="@+id/select_quality"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"/>
 
     <Spinner
         android:layout_marginTop="20dp"
         android:layout_gravity="center"
-        android:id="@+id/select_content"
+        android:id="@+id/select_resolution"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"/>
 
@@ -26,6 +40,13 @@
 
     <Spinner
         android:id="@+id/select_loopback"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="20dp" />
+
+    <Spinner
+        android:id="@+id/select_algorithm"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"

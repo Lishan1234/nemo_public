@@ -31,7 +31,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 import static com.example.exoplayernewlibvpx.Constants.MESSAGE_EXO_STOP;
-import static com.example.exoplayernewlibvpx.Constants.CONTENT_PATH;
+import static com.example.exoplayernewlibvpx.Constants.DATA_ROOT_PATH;
 
 
 public class PlayerActivity extends AppCompatActivity {
@@ -44,9 +44,14 @@ public class PlayerActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_player);
 
-        setupExoPlayer(getIntent().getStringExtra("quality"),
+        setupExoPlayer(
+                getIntent().getStringExtra("content"),
+                getIntent().getStringExtra("index"),
+                getIntent().getStringExtra("quality"),
                 getIntent().getStringExtra("resolution"),
-                getIntent().getStringExtra("mode"));
+                getIntent().getStringExtra("mode"),
+                getIntent().getStringExtra("algorithm")
+                );
 
         int loopback = Integer.parseInt(getIntent().getStringExtra("loopback"));
         Log.e("loopback", Integer.toString(loopback));
@@ -65,10 +70,16 @@ public class PlayerActivity extends AppCompatActivity {
 
     //TODO: video relative path, content path
 
-    private void setupExoPlayer(String quality, String resolution, String mode) {
-        String contentPath = CONTENT_PATH;
+    private void setupExoPlayer(String content, String index, String quality, String resolution, String mode, String algorithm) {
+        String contentPath = DATA_ROOT_PATH + File.separator + content + index;
         String videoName ="";
         int decodeMode = 0;
+
+        Log.e("loopback", contentPath);
+        Log.e("loopback", quality);
+        Log.e("loopback", resolution);
+        Log.e("loopback", mode);
+        Log.e("loopback", algorithm);
 
         if (mode.equals("Decode")) {
             decodeMode = 0;
@@ -87,7 +98,7 @@ public class PlayerActivity extends AppCompatActivity {
         }
 
         PlayerView playerView = findViewById(R.id.player);
-        DefaultRenderersFactory renderFactory = new DefaultRenderersFactory(this, contentPath, quality,  Integer.parseInt(resolution), decodeMode);
+        DefaultRenderersFactory renderFactory = new DefaultRenderersFactory(this, contentPath, quality,  Integer.parseInt(resolution), decodeMode, algorithm);
         renderFactory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER);
         mSimpleExoPlayer =
                 ExoPlayerFactory.newSimpleInstance(this,

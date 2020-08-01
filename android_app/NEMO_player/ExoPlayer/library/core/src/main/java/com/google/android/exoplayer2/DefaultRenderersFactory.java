@@ -89,6 +89,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
   public String quality;
   public int resolution;
   public int decodeMode;
+  public String algorithm;
 
   private final Context context;
   @Nullable private DrmSessionManager<FrameworkMediaCrypto> drmSessionManager;
@@ -128,12 +129,13 @@ public class DefaultRenderersFactory implements RenderersFactory {
 //  }
 
   /***NEMO***/
-  public DefaultRenderersFactory(Context context, String contentPath, String quality, int resolution, int decodeMode){
+  public DefaultRenderersFactory(Context context, String contentPath, String quality, int resolution, int decodeMode, String algorithm){
     this(context);
     this.contentPath = contentPath;
     this.quality = quality;
     this.resolution = resolution;
     this.decodeMode = decodeMode;
+    this.algorithm = algorithm;
   }
   /***NEMO***/
 
@@ -346,7 +348,8 @@ public class DefaultRenderersFactory implements RenderersFactory {
               String.class,
               String.class,
               int.class,
-              int.class    );
+              int.class,
+              String.class);
       // LINT.ThenChange(../../../../../../../proguard-rules.txt)
       Renderer renderer =
           (Renderer)
@@ -359,7 +362,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
                   contentPath,
                   quality,
                   resolution,
-                  decodeMode);
+                  decodeMode, algorithm);
       out.add(extensionRendererIndex++, renderer);
       Log.i(TAG, "Loaded LibvpxVideoRenderer.");
     } catch (ClassNotFoundException e) {

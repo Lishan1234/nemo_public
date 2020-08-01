@@ -15,10 +15,13 @@ import androidx.core.content.ContextCompat;
 
 public class ContentSelectionActivity extends AppCompatActivity {
 
+    Spinner contentSpinner;
+    Spinner indexSpinner;
     Spinner qualitySpinner;
     Spinner resolutionSpinner;
     Spinner modeSpinner;
     Spinner loopbackSpinner;
+    Spinner algorithmSpinner;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -29,15 +32,25 @@ public class ContentSelectionActivity extends AppCompatActivity {
 
         requestPermissions();
 
-        ArrayAdapter<CharSequence> deviceAdapter = ArrayAdapter.createFromResource(this, R.array.quality, android.R.layout.simple_spinner_item);
-        deviceAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        qualitySpinner = findViewById(R.id.select_device);
-        qualitySpinner.setAdapter(deviceAdapter);
-
-        ArrayAdapter<CharSequence> contentAdapter = ArrayAdapter.createFromResource(this, R.array.resolution, android.R.layout.simple_spinner_item);
+        ArrayAdapter<CharSequence> contentAdapter = ArrayAdapter.createFromResource(this, R.array.content, android.R.layout.simple_spinner_item);
         contentAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        resolutionSpinner = findViewById(R.id.select_content);
-        resolutionSpinner.setAdapter(contentAdapter);
+        contentSpinner = findViewById(R.id.select_content);
+        contentSpinner.setAdapter(contentAdapter);
+
+        ArrayAdapter<CharSequence> indexAdapter = ArrayAdapter.createFromResource(this, R.array.index, android.R.layout.simple_spinner_item);
+        indexAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        indexSpinner = findViewById(R.id.select_index);
+        indexSpinner.setAdapter(indexAdapter);
+
+        ArrayAdapter<CharSequence> qualityAdapter = ArrayAdapter.createFromResource(this, R.array.quality, android.R.layout.simple_spinner_item);
+        qualityAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        qualitySpinner = findViewById(R.id.select_quality);
+        qualitySpinner.setAdapter(qualityAdapter);
+
+        ArrayAdapter<CharSequence> resolutionAdapter = ArrayAdapter.createFromResource(this, R.array.resolution, android.R.layout.simple_spinner_item);
+        resolutionAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        resolutionSpinner = findViewById(R.id.select_resolution);
+        resolutionSpinner.setAdapter(resolutionAdapter);
 
         ArrayAdapter<CharSequence> modeAdapter = ArrayAdapter.createFromResource(this, R.array.mode, android.R.layout.simple_spinner_item);
         modeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -49,12 +62,20 @@ public class ContentSelectionActivity extends AppCompatActivity {
         loopbackSpinner = findViewById(R.id.select_loopback);
         loopbackSpinner.setAdapter(loopbackAdapter);
 
+        ArrayAdapter<CharSequence> alogrihtmAdapter = ArrayAdapter.createFromResource(this, R.array.algorithm, android.R.layout.simple_spinner_item);
+        alogrihtmAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        algorithmSpinner = findViewById(R.id.select_algorithm);
+        algorithmSpinner.setAdapter(alogrihtmAdapter);
+
         findViewById(R.id.start).setOnClickListener((view)->{
                 Intent intent = new Intent(ContentSelectionActivity.this, PlayerActivity.class);
+                intent.putExtra("content", contentSpinner.getSelectedItem().toString());
+                intent.putExtra("index", indexSpinner.getSelectedItem().toString());
                 intent.putExtra("quality", qualitySpinner.getSelectedItem().toString());
                 intent.putExtra("resolution", resolutionSpinner.getSelectedItem().toString());
                 intent.putExtra("mode",modeSpinner.getSelectedItem().toString());
                 intent.putExtra("loopback",loopbackSpinner.getSelectedItem().toString());
+                intent.putExtra("algorithm", algorithmSpinner.getSelectedItem().toString());
                 startActivity(intent);
             }
         );

@@ -470,7 +470,7 @@ static void _mkdir(const char *dir) {
 
 DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
              jboolean enableBufferManager, jstring content_path, jstring quality, jint resolution,
-             jint decode_mode) {
+             jint decode_mode, jstring algorithm) {
 
     JniCtx *context = new JniCtx(enableBufferManager);
     context->decoder = new vpx_codec_ctx_t();
@@ -511,11 +511,13 @@ DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
 
     const char *contentPath = env->GetStringUTFChars(content_path, NULL);
     const char *quality_ = env->GetStringUTFChars(quality, NULL);
+    const char *algorithm_ = env->GetStringUTFChars(algorithm, NULL);
     const int resolution_ = (int) resolution;
 
     const char * content_dir = contentPath;
     const char *input_video_name;
     int scale;
+    int num_anchor_points;
     char dnn_name[MAX_INPUT];
     char cache_profile_name[MAX_INPUT];
     char dnn_file[MAX_INPUT];
@@ -535,70 +537,73 @@ DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
     }
 
     if (strcmp(quality_, "low") == 0){
+        num_anchor_points = 8;
         if (resolution_ == 240) {
             sprintf(dnn_name, "NEMO_S_B4_F9_S4_deconv");
             sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
-            sprintf(cache_profile_name, "nemo_0.5_8");
+            sprintf(cache_profile_name, "nemo_%s_%d", algorithm_, num_anchor_points);
             sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
                     cache_profile_name);
         }
         else if (resolution_ == 360) {
             sprintf(dnn_name, "NEMO_S_B4_F8_S3_deconv");
             sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
-            sprintf(cache_profile_name, "nemo_0.5_8");
+            sprintf(cache_profile_name, "nemo_%s_%d", algorithm_, num_anchor_points);
             sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
                     cache_profile_name);
         }
         else if (resolution_ == 480) {
             sprintf(dnn_name, "NEMO_S_B4_F4_S2_deconv");
             sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
-            sprintf(cache_profile_name, "nemo_0.5_8");
+            sprintf(cache_profile_name, "nemo_%s_%d", algorithm_, num_anchor_points);
             sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
                     cache_profile_name);
         }
     }
     else if (strcmp(quality_, "medium") == 0){
+        num_anchor_points = 16;
         if (resolution_ == 240) {
             sprintf(dnn_name, "NEMO_S_B8_F21_S4_deconv");
             sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
-            sprintf(cache_profile_name, "nemo_0.5_16");
+            sprintf(cache_profile_name, "nemo_%s_%d", algorithm_, num_anchor_points);
             sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
                     cache_profile_name);
         }
         else if (resolution_ == 360) {
             sprintf(dnn_name, "NEMO_S_B4_F18_S3_deconv");
             sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
-            sprintf(cache_profile_name, "nemo_0.5_16");
+            sprintf(cache_profile_name, "nemo_%s_%d", algorithm_, num_anchor_points);
             sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
                     cache_profile_name);
         }
         else if (resolution_ == 480) {
             sprintf(dnn_name, "NEMO_S_B4_F9_S2_deconv");
             sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
-            sprintf(cache_profile_name, "nemo_0.5_16");
+            sprintf(cache_profile_name, "nemo_%s_%d", algorithm_, num_anchor_points);
             sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
                     cache_profile_name);
         }
     }
     else if (strcmp(quality_, "high") == 0){
+        num_anchor_points = 16;
         if (resolution_ == 240) {
             sprintf(dnn_name, "NEMO_S_B8_F32_S4_deconv");
             sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
-            sprintf(cache_profile_name, "nemo_0.5_16");
+            sprintf(cache_profile_name, "nemo_%s_%d", algorithm_, num_anchor_points);
             sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
                     cache_profile_name);
         }
         else if (resolution_ == 360) {
             sprintf(dnn_name, "NEMO_S_B4_F29_S3_deconv");
             sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
-            sprintf(cache_profile_name, "nemo_0.5_16");
+            sprintf(cache_profile_name, "nemo_%s_%d", algorithm_, num_anchor_points);
             sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
                     cache_profile_name);
         }
         else if (resolution_ == 480) {
             sprintf(dnn_name, "NEMO_S_B4_F18_S2_deconv");
             sprintf(dnn_file, "%s/checkpoint/%s/%s.dlc", content_dir, input_video_name, dnn_name);
-            sprintf(cache_profile_name, "nemo_0.5_16");
+            sprintf(cache_profile_name, "nemo_%s_%d", algorithm_, num_anchor_points);
             sprintf(cache_profile_file, "%s/profile/%s/%s/%s.profile", content_dir, input_video_name, dnn_name,
                     cache_profile_name);
         }
@@ -606,7 +611,6 @@ DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
 
     LOGE("contentPath: %s, quality_: %s, resolution: %d", contentPath, quality_, resolution_);
     LOGE("dnn_file: %s, cache_profile_file: %s", dnn_file, cache_profile_file);
-
 
     //setup log directories
     switch (nemo_cfg->decode_mode) {
