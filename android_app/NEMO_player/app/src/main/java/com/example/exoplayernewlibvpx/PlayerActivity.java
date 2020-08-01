@@ -53,9 +53,14 @@ public class PlayerActivity extends AppCompatActivity {
                 getIntent().getStringExtra("algorithm")
                 );
 
-        int loopback = Integer.parseInt(getIntent().getStringExtra("loopback"));
-        Log.e("loopback", Integer.toString(loopback));
-        loopExoPlayer(loopback);
+//        int loopback = Integer.parseInt(getIntent().getStringExtra("loopback"));
+        String loopback = getIntent().getStringExtra("loopback");
+        if(loopback.matches("None")) {
+            Log.e("loopback", "no loopback");
+        }
+        else{
+            loopExoPlayer(Integer.parseInt(loopback));
+        }
     }
 
     @Override
