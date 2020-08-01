@@ -145,7 +145,7 @@ class AnchorPointSelector():
         start_time = time.time()
         log_path0 = os.path.join(log_dir, 'quality_{}.txt'.format(algorithm_type))
         log_path1 = os.path.join(log_dir, 'quality_{}_8.txt'.format(algorithm_type))
-        log_path2 = os.path.join(log_dir, 'quality_{}_24.txt'.format(algorithm_type))
+        log_path2 = os.path.join(log_dir, 'quality_{}_16.txt'.format(algorithm_type))
         log_path3 = os.path.join(log_dir, 'quality_fast.txt')
         with open(log_path0, 'w') as f0, open(log_path1, 'w') as f1, open(log_path2, 'w') as f2, open(log_path3, 'w') as f3:
             for idx, anchor_point_set in enumerate(multiple_anchor_point_sets):
@@ -161,7 +161,7 @@ class AnchorPointSelector():
                 f0.write(quality_log)
                 if idx < 8:
                     f1.write(quality_log)
-                if idx < 24:
+                if idx < 16:
                     f2.write(quality_log)
                 if idx == 0:
                     f3.write(quality_log)
@@ -180,12 +180,12 @@ class AnchorPointSelector():
                     anchor_point_set_.set_cache_profile_name('{}_8'.format(algorithm_type))
                     anchor_point_set_.save_cache_profile()
 
-                    #case 3: limit #anchor points to 24
-                    if anchor_point_set.get_num_anchor_points() > 24:
-                        anchor_point_set_ = multiple_anchor_point_sets[23]
+                    #case 3: limit #anchor points to 16
+                    if anchor_point_set.get_num_anchor_points() > 16:
+                        anchor_point_set_ = multiple_anchor_point_sets[15]
                     else:
                         anchor_point_set_ = anchor_point_set
-                    anchor_point_set_.set_cache_profile_name('{}_24'.format(algorithm_type))
+                    anchor_point_set_.set_cache_profile_name('{}_16'.format(algorithm_type))
                     anchor_point_set_.save_cache_profile()
 
                     #case 4: FAST
@@ -445,7 +445,7 @@ class AnchorPointSelector():
         if algorithm_type == 'nemo':
             self._aggregate_per_chunk_results('{}_{}'.format(algorithm_type, self.quality_margin))
             self._aggregate_per_chunk_results('{}_{}_8'.format(algorithm_type, self.quality_margin))
-            self._aggregate_per_chunk_results('{}_{}_24'.format(algorithm_type, self.quality_margin))
+            self._aggregate_per_chunk_results('{}_{}_16'.format(algorithm_type, self.quality_margin))
             self._aggregate_per_chunk_results('fast')
         else:
             self._aggregate_per_chunk_results('{}_{}'.format(algorithm_type, self.quality_margin))
