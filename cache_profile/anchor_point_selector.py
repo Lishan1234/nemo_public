@@ -260,8 +260,8 @@ class AnchorPointSelector():
                                         num_skipped_frames, num_decoded_frames, postfix)
                 anchor_point_set.remove_cache_profile()
                 quality_diff = np.asarray(quality_dnn) - np.asarray(quality_cache)
-                quality_log = '{}\t{}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\n'.format(anchor_point_set.get_num_anchor_points(), len(frames), \
-                                         np.average(quality_cache), np.average(quality_dnn), np.average(quality_bilinear), np.average(anchor_point_set.estimated_quality))
+                quality_log = '{}\t{}\t{:.4f}\t{:.4f}\t{:.4f}\n'.format(anchor_point_set.get_num_anchor_points(), len(frames), \
+                                         np.average(quality_cache), np.average(quality_dnn), np.average(quality_bilinear))
                 f.write(quality_log)
 
                 #terminate
@@ -338,8 +338,8 @@ class AnchorPointSelector():
                                         num_skipped_frames, num_decoded_frames, postfix)
                 anchor_point_set.remove_cache_profile()
                 quality_diff = np.asarray(quality_dnn) - np.asarray(quality_cache)
-                quality_log = '{}\t{}\t{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\n'.format(anchor_point_set.get_num_anchor_points(), len(frames), \
-                                         np.average(quality_cache), np.average(quality_dnn), np.average(quality_bilinear), np.average(anchor_point_set.estimated_quality))
+                quality_log = '{}\t{}\t{:.4f}\t{:.4f}\t{:.4f}\n'.format(anchor_point_set.get_num_anchor_points(), len(frames), \
+                                         np.average(quality_cache), np.average(quality_dnn), np.average(quality_bilinear))
                 f.write(quality_log)
 
                 #terminate
