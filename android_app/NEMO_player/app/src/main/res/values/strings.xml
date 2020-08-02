@@ -40,6 +40,7 @@
 
     <string-array name = "loopback">
         <item>None</item>
+        <item>60</item>
         <item>100</item>
         <item>350</item>
         <item>3500</item>
