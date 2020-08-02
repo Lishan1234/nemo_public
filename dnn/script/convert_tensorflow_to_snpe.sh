@@ -21,7 +21,7 @@ EOF
 function _set_conda(){
     source ~/anaconda3/etc/profile.d/conda.sh
     conda deactivate
-    conda activate nemo_py3.4
+    conda activate nemo_py3.5
 }
 
 function _set_bitrate(){
@@ -92,7 +92,7 @@ function _set_num_filters(){
 
 [[ ($# -ge 1)  ]] || { echo "[ERROR] Invalid number of arguments. See -h for help."; exit 1;  }
 
-while getopts ":c:i:q:r:t:h" opt; do
+while getopts ":c:i:q:r:t:o:h" opt; do
     case $opt in
         h) _usage; exit 0;;
         c) contents+=("$OPTARG");;
