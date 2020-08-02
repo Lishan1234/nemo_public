@@ -7,4 +7,4 @@ function _set_conda(){
 }
 
 _set_conda
-python ${NEMO_ROOT}/evaluation/figure15_a.py --data_dir ${NEMO_ROOT}/data
+python ${NEMO_ROOT}/evaluation/figure16.py --data_dir ${NEMO_ROOT}/data

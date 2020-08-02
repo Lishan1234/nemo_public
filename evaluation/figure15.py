@@ -7,6 +7,7 @@ import json
 import numpy as np
 
 from nemo.tool.video import profile_video
+from nemo.tool.mobile import playback_time
 
 contents = ['product_review', 'how_to', 'vlogs', 'game_play', 'skit', 'haul', 'challenge','favorite', 'education',  'unboxing']
 indexes = [1, 2, 3]
@@ -110,9 +111,11 @@ if __name__ == '__main__':
     #log
     log_dir = os.path.join(args.data_dir, 'evaluation')
     os.makedirs(log_dir, exist_ok=True)
-    log_path= os.path.join(log_dir, 'figure15_a.txt')
+    log_path0= os.path.join(log_dir, 'figure15_a.txt')
+    log_path1= os.path.join(log_dir, 'figure15_b.txt')
+    log_path2= os.path.join(log_dir, 'figure15_c.txt')
 
-    with open(log_path, 'w') as f0:
+    with open(log_path0, 'w') as f0, open(log_path1, 'w') as f1, open(log_path2, 'w') as f2:
         video_name = video_name_info[resolution]
         video_path = os.path.join(args.data_dir, content, 'video', video_name)
         video_profile = profile_video(video_path)
@@ -136,6 +139,8 @@ if __name__ == '__main__':
             bilinear_avg_power = np.average(power)
             bilinear_total_energy = bilinear_avg_power * time * 60 #caution: translate 1 minute to 60 seconds
             bilinear_avg_energy = bilinear_total_energy / total_frame / 1000
+            bilinear_fps = total_frame / time
+            bilinear_battery_life = playback_time(np.average(current), device_name) / (fps / bilinear_fps) / 60
 
             #per-frame dnn
             dnn_metadata_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, device_name, 'power', 'metadata.txt')
@@ -145,6 +150,8 @@ if __name__ == '__main__':
             dnn_avg_power = np.average(power)
             dnn_total_energy = dnn_avg_power * time * 60 / 1000
             dnn_avg_energy = dnn_total_energy / total_frame
+            dnn_fps = total_frame / time
+            dnn_battery_life = playback_time(np.average(current), device_name) / (fps / dnn_fps) / 60
 
             #nemo
             nemo_metadata_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, algorithm_name, device_name, 'power', 'metadata.txt')
@@ -154,7 +161,10 @@ if __name__ == '__main__':
             nemo_avg_power = np.average(power)
             nemo_total_energy = nemo_avg_power * time * 60 / 1000
             nemo_avg_energy = nemo_total_energy / total_frame
+            nemo_fps = total_frame / time
+            nemo_battery_life = playback_time(np.average(current), device_name) / (fps / nemo_fps) / 60
 
-            f0.write('{}\t{}\t{}\t{}\n'.format(device_name, bilinear_avg_energy, dnn_avg_energy, nemo_avg_energy))
+            f0.write('{}\t{}\t{}\t{}\n'.format(device_name, bilinear_avg_energy, nemo_avg_energy, dnn_avg_energy))
+            f1.write('{}\t{}\t{}\t{}\n'.format(device_name, bilinear_battery_life, nemo_battery_life, dnn_battery_life))
 
-
+    #TODO: 15_c
