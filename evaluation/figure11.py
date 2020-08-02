@@ -71,6 +71,40 @@ def get_model_name(num_blocks, num_filters, resolution):
 
     return 'NEMO_S_B{}_F{}_S{}_deconv'.format(num_blocks, num_filters, scale)
 
+def load_nemo_fps(log_path1, log_path2):
+    nemo_fps = []
+
+    idx = 0
+    with open(log_path1, 'r') as f1, open(log_path2, 'r') as f2:
+        f1_lines = f1.readlines()
+        f2_lines = f2.readlines()
+        for f2_line in f2_lines:
+            f2_line = f2_line.split('\t')
+            num_frames = int(f2_line[2])
+
+            nemo_latency = 0
+            for f1_line in f1_lines[idx:idx+num_frames]:
+                f1_line = f1_line.split('\t')
+                nemo_latency += float(f1_line[2])
+
+            nemo_fps.append(num_frames / nemo_latency * 1000)
+
+            idx += num_frames
+
+    return nemo_fps
+
+def load_dnn_fps(log_path):
+    total_latency = 0
+    num_frames = 0
+    with open(log_path, 'r') as f:
+        lines = f.readlines()
+        for line in lines:
+            line = line.split('\t')
+            total_latency += float(line[2])
+            num_frames += 1
+
+    return (num_frames / total_latency) * 1000
+
 def load_nemo_quality(log_path):
     quality_cache = []
     quality_dnn = []
@@ -113,20 +147,15 @@ if __name__ == '__main__':
     log_file0 = os.path.join(log_dir, 'figure11.txt')
     with open(log_file0, 'w') as f0:
         for content_name in contents:
-            #bilinear
-            bilinear_quality_per_content = []
-
             #nemo
+            nemo_fps_per_content = []
             nemo_quality_per_content = []
-            nemo_quality_gain_per_content = []
 
             #dnn
-            dnn_quality_per_content = {}
-            dnn_quality_gain_per_content = {}
+            dnn_fps_per_content = {}
             model_qualities = ['low', 'medium', 'high']
             for model_quality in model_qualities:
-                dnn_quality_per_content[model_quality] = []
-                dnn_quality_gain_per_content[model_quality]  = []
+                dnn_fps_per_content[model_quality] = []
 
             for index in indexes:
                 content = '{}{}'.format(content_name, index)
@@ -141,13 +170,27 @@ if __name__ == '__main__':
                 num_filters = json_data[device_name]['num_filters']
                 algorithm_name = json_data[device_name]['algorithm_type']
                 model_name = get_model_name(num_blocks, num_filters, resolution)
+                nemo_quality_per_content.append(str(num_filters))
 
-                latency_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, algorithm_name, device_name, 'latency.txt')
-                if not os.path.exists(latency_log_path):
-                    f0.write('{}\t{}\t{} not exists\n'.format(content, model_name, algorithm_name))
+                latency_log_path = os.path.join(args.data_dir, content, 'log', video_name, get_model_name(num_blocks, num_filters, resolution), algorithm_name, device_name, 'latency.txt')
+                aps_log_path = os.path.join(args.data_dir, content, 'log', video_name, get_model_name(num_blocks, num_filters, resolution), 'quality_{}.txt'.format(algorithm_name))
+                nemo_fps = load_nemo_fps(latency_log_path, aps_log_path)
+                nemo_fps_per_content.extend(nemo_fps)
 
                 for model_quality in model_qualities:
                     model_name = get_model_name(num_blocks_info[model_quality][resolution], num_filters_info[model_quality][resolution], resolution)
                     latency_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, device_name, 'latency.txt')
-                    if not os.path.exists(latency_log_path):
-                        f0.write('{}\t{} not exists\n'.format(content, model_name))
+                    dnn_fps = load_dnn_fps(latency_log_path)
+                    dnn_fps_per_content[model_quality].append(dnn_fps)
+
+            f0.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(content_name,
+                                                          np.average(nemo_fps),
+                                                          np.average(dnn_fps_per_content['low']),
+                                                          np.average(dnn_fps_per_content['medium']),
+                                                          np.average(dnn_fps_per_content['high']),
+                                                          np.std(nemo_fps),
+                                                          np.std(dnn_fps_per_content['low']),
+                                                          np.std(dnn_fps_per_content['medium']),
+                                                          np.std(dnn_fps_per_content['high']),
+                                                          '\t'.join(nemo_quality_per_content)
+                                                            ))
