@@ -6,11 +6,11 @@ cat << EOF
 _usage: $(basename ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}) [-c CONTENTS] [-i INDEXES] [-q QUALITIES] [-r RESOLUTIONS] [-d DEVICE_ID] [-e DEVICE_DATA_DIR]
 
 mandatory arguments:
--c CONTENTS                 Specifies contents (e.g., product_review)
 -d DEVICE_ID                Specifies a device id
 -e DEVICE_DATA_DIR          Specifies device data directory (e.g., /sdcard/NEMO)
 
 optional multiple arguments:
+-c CONTENTS                 Specifies contents (e.g., product_review)
 -i INDEXES                  Specifies indexes (e.g., 0)
 -q QUALITIES                Specifies qualities (e.g., low)
 -r RESOLUTIONS              Specifies resolutions (e.g., 240)
@@ -113,11 +113,6 @@ while getopts ":c:i:q:r:t:d:e:h" opt; do
     esac
 done
 
-if [ -z "${contents+x}" ]; then
-    echo "[ERROR] contents is not set"
-    exit 1;
-fi
-
 if [ -z "${device_id+x}" ]; then
     echo "[ERROR] device_id is not set"
     exit 1;
@@ -126,6 +121,10 @@ fi
 if [ -z "${device_data_dir+x}" ]; then
     echo "[ERROR] device_data_dir is not set"
     exit 1;
+fi
+
+if [ -z "${contents+x}" ]; then
+    contents=("product_review" "how_to" "vlogs" "skit" "game_play" "haul" "challenge" "education" "favorite" "unboxing")
 fi
 
 if [ -z "${qualities+x}" ]; then
