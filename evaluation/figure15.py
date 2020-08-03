@@ -193,8 +193,6 @@ if __name__ == '__main__':
 
         f2.write('0.5\t{}\t{}\n'.format(nemo_avg_power, np.average(nemo_quality)))
 
-        sys.exit()
-
         nemo_quality_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, 'quality_nemo_0.75_16.txt')
         nemo_monsoon_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, 'nemo_0.75_16', device_name, 'power', 'monsoon.csv')
         time, current, power = load_monsoon_results(nemo_monsoon_log_path)
@@ -219,3 +217,11 @@ if __name__ == '__main__':
         nemo_quality, _, _ = load_nemo_quality(nemo_quality_log_path)
 
         f2.write('1.5\t{}\t{}\n'.format(nemo_avg_power, np.average(nemo_quality)))
+
+        nemo_quality_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, 'quality_nemo_2.0_16.txt')
+        nemo_monsoon_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, 'nemo_2.0_16', device_name, 'power', 'monsoon.csv')
+        time, current, power = load_monsoon_results(nemo_monsoon_log_path)
+        nemo_avg_power = np.average(power)/ 1000
+        nemo_quality, _, _ = load_nemo_quality(nemo_quality_log_path)
+
+        f2.write('2.0\t{}\t{}\n'.format(nemo_avg_power, np.average(nemo_quality)))
