@@ -31,6 +31,8 @@ function _set_bitrate(){
         bitrate=1600
     elif [ "$1" == 720 ];then
         bitrate=2640
+    elif [ "$1" == 1080 ];then
+        bitrate=4400
     fi
 }
 
