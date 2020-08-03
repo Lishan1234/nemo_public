@@ -124,6 +124,7 @@ if __name__ == '__main__':
             #nemo
             nemo_quality_per_content = []
             nemo_quality_gain_per_content = []
+            nemo_num_filters_per_content = []
 
             #dnn
             dnn_quality_per_content = {}
@@ -146,6 +147,7 @@ if __name__ == '__main__':
                 num_filters = json_data[device_name]['num_filters']
                 algorithm_name = json_data[device_name]['algorithm_type']
                 model_name = get_model_name(num_blocks, num_filters, resolution)
+                nemo_num_filters_per_content.append(str(num_filters))
 
                 nemo_log_path = os.path.join(log_dir, video_name, model_name, 'quality_{}.txt'.format(algorithm_name))
                 nemo_quality, dnn_quality, bilinear_quality = load_nemo_quality(nemo_log_path)
@@ -181,14 +183,15 @@ if __name__ == '__main__':
             std_low_quality_gain_per_content = np.std(dnn_quality_gain_per_content['low'])
             std_medium_quality_gain_per_content = np.std(dnn_quality_gain_per_content['medium'])
             std_high_quality_gain_per_content = np.std(dnn_quality_gain_per_content['high'])
-            log = '{}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(content_name, avg_nemo_quality_gain_per_content,
+            log = '{}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{}\n'.format(content_name, avg_nemo_quality_gain_per_content,
                                                             avg_low_quality_gain_per_content,
                                                             avg_medium_quality_gain_per_content,
                                                             avg_high_quality_gain_per_content,
                                                             std_nemo_quality_gain_per_content,
                                                             std_low_quality_gain_per_content,
                                                             std_medium_quality_gain_per_content,
-                                                            std_high_quality_gain_per_content)
+                                                            std_high_quality_gain_per_content,
+                                                            '\t'.join(nemo_num_filters_per_content))
             f0.write(log)
 
             avg_nemo_quality_per_content = np.average(nemo_quality_per_content)
@@ -199,14 +202,15 @@ if __name__ == '__main__':
             std_low_quality_per_content = np.std(dnn_quality_per_content['low'])
             std_medium_quality_per_content = np.std(dnn_quality_per_content['medium'])
             std_high_quality_per_content = np.std(dnn_quality_per_content['high'])
-            log = '{}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(content_name, avg_nemo_quality_per_content,
+            log = '{}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\t{}\n'.format(content_name, avg_nemo_quality_per_content,
                                                             avg_low_quality_per_content,
                                                             avg_medium_quality_per_content,
                                                             avg_high_quality_per_content,
                                                             std_nemo_quality_per_content,
                                                             std_low_quality_per_content,
                                                             std_medium_quality_per_content,
-                                                            std_high_quality_per_content)
+                                                            std_high_quality_per_content,
+                                                            '\t'.join(nemo_num_filters_per_content))
             f1.write(log)
 
         f0.write('nemo quality gain: min - {}, max - {}, avg - {}\n'.format(np.min(nemo_quality_gain_per_video), np.max(nemo_quality_gain_per_video), np.average(nemo_quality_gain_per_video)))
