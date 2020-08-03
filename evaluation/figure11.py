@@ -200,5 +200,5 @@ if __name__ == '__main__':
                                                           np.std(dnn_fps_per_content['high']),
                                                           '\t'.join(nemo_quality_per_content)
                                                             ))
-            f0.write('nemo fps: min - {}, max - {}, avg - {}\n'.format(np.min(nemo_fps_per_video), np.max(nemo_fps_per_video), np.average(nemo_fps_per_video)))
-            f0.write('nemo improvement: min - {}, max - {}, avg - {}\n'.format(np.min(nemo_improvement_per_video), np.max(nemo_improvement_per_video), np.average(nemo_improvement_per_video)))
+        f0.write('nemo fps: min - {}, max - {}, avg - {}\n'.format(np.min(nemo_fps_per_video), np.max(nemo_fps_per_video), np.average(nemo_fps_per_video)))
+        f0.write('nemo improvement: min - {}, max - {}, avg - {}\n'.format(np.min(nemo_improvement_per_video), np.max(nemo_improvement_per_video), np.average(nemo_improvement_per_video)))

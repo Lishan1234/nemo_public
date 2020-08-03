@@ -13,7 +13,7 @@ contents = ['product_review', 'how_to', 'vlogs', 'game_play', 'skit', 'haul', 'c
 indexes = [1, 2, 3]
 resolution = 240
 qualities = ['low', 'medium', 'high']
-device_names = ['samsung_a70', 'samsung_note8', 'samsung_s6', 'samsung_s10+']
+device_names = ['xiaomi_mi9', 'xiaomi_redmi_note7', 'lg_gpad5', 'samsung_a70', 'samsung_note8', 'samsung_s6', 'samsung_s10+']
 
 num_blocks_info= {
     'low': {
