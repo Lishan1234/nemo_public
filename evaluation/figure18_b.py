@@ -5,8 +5,7 @@ import operator
 
 import numpy as np
 
-contents = ['product_review', 'how_to', 'vlogs', 'game_play', 'skit', 'haul', 'challenge','favorite', 'education',  'unboxing']
-indexes = [1, 2, 3]
+contents = ['product_review', 'how_to', 'vlogs', 'game_play', 'skit', 'haul', 'challenge','favorite', 'education',  'unboxing'] indexes = [1, 2, 3]
 resolution = 240
 quality = 'high'
 device_name = 'xiaomi_mi9'
@@ -110,7 +109,7 @@ if __name__ == '__main__':
     #log
     log_dir = os.path.join(args.data_dir, 'evaluation')
     os.makedirs(log_dir, exist_ok=True)
-    log_path = os.path.join(log_dir, 'figure_18b.txt')
+    log_path = os.path.join(log_dir, 'figure18_b.txt')
 
     nemo_qualities = []
     fast_qualities = []
