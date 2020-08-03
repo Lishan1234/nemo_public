@@ -68,7 +68,7 @@ if [ -z "${contents+x}" ]; then
 fi
 
 if [ -z "${resolutions+x}" ]; then
-    resolutions=("1080")
+    resolutions=("240" "360" "480")
 fi
 
 if [ -z "${indexes+x}" ]; then
