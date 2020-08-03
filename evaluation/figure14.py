@@ -112,6 +112,11 @@ if __name__ == '__main__':
     log_file0 = os.path.join(log_dir, 'figure14_gain.txt')
     log_file1 = os.path.join(log_dir, 'figure14_absoulte.txt')
     with open(log_file0, 'w') as f0, open(log_file1, 'w') as f1:
+        nemo_quality_margin_per_video = []
+        nemo_quality_degradation_per_video = []
+        nemo_quality_per_video = []
+        nemo_quality_gain_per_video = []
+
         for content_name in contents:
             #bilinear
             bilinear_quality_per_content = []
@@ -145,11 +150,22 @@ if __name__ == '__main__':
                 nemo_num_filters_per_content.append(str(num_filters))
 
                 nemo_log_path = os.path.join(log_dir, video_name, model_name, 'quality_{}.txt'.format(algorithm_name))
-                nemo_quality, _, bilinear_quality = load_nemo_quality(nemo_log_path)
+                nemo_quality, dnn_quality, bilinear_quality = load_nemo_quality(nemo_log_path)
                 nemo_quality_gain = list(map(operator.sub, nemo_quality, bilinear_quality))
+                nemo_quality_margin = np.average(list(map(operator.sub, dnn_quality, nemo_quality)))
                 nemo_quality_per_content.extend(nemo_quality)
                 nemo_quality_gain_per_content.extend(nemo_quality_gain)
                 bilinear_quality_per_content.extend(bilinear_quality)
+
+                nemo_log_path = os.path.join(log_dir, video_name, model_name, 'quality_nemo_0.5.txt')
+                nemo_quality_, _, _= load_nemo_quality(nemo_log_path)
+                nemo_quality_degradation = np.average(list(map(operator.sub, nemo_quality_, nemo_quality)))
+
+                nemo_quality_per_video.append(np.average(nemo_quality))
+                nemo_quality_gain_per_video.append(np.average(nemo_quality_gain))
+                if nemo_quality_margin > 0:
+                    nemo_quality_margin_per_video.append(nemo_quality_margin)
+                nemo_quality_degradation_per_video.append(nemo_quality_degradation)
 
                 for model_quality in model_qualities:
                     model_name = get_model_name(num_blocks_info[model_quality][resolution], num_filters_info[model_quality][resolution], resolution)
@@ -197,3 +213,7 @@ if __name__ == '__main__':
                                                             '\t'.join(nemo_num_filters_per_content))
             f1.write(log)
 
+        f0.write('nemo quality gain: min - {}, max - {}, avg - {}\n'.format(np.min(nemo_quality_gain_per_video), np.max(nemo_quality_gain_per_video), np.average(nemo_quality_gain_per_video)))
+        f0.write('nemo quality margin: min - {}, max - {}, avg - {}\n'.format(np.min(nemo_quality_margin_per_video), np.max(nemo_quality_margin_per_video), np.average(nemo_quality_margin_per_video)))
+        f0.write('nemo quality degradation: min - {}, max - {}, avg - {}'.format(np.min(nemo_quality_degradation_per_video), np.max(nemo_quality_degradation_per_video), np.average(nemo_quality_degradation_per_video)))
+        f1.write('nemo quality: min - {}, max - {}, avg - {}'.format(np.min(nemo_quality_per_video), np.max(nemo_quality_per_video), np.average(nemo_quality_per_video)))

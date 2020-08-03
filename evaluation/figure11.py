@@ -146,6 +146,8 @@ if __name__ == '__main__':
     os.makedirs(log_dir, exist_ok=True)
     log_file0 = os.path.join(log_dir, 'figure11.txt')
     with open(log_file0, 'w') as f0:
+        nemo_fps_per_video = []
+        nemo_improvement_per_video = []
         for content_name in contents:
             #nemo
             nemo_fps_per_content = []
@@ -176,12 +178,16 @@ if __name__ == '__main__':
                 aps_log_path = os.path.join(args.data_dir, content, 'log', video_name, get_model_name(num_blocks, num_filters, resolution), 'quality_{}.txt'.format(algorithm_name))
                 nemo_fps = load_nemo_fps(latency_log_path, aps_log_path)
                 nemo_fps_per_content.extend(nemo_fps)
+                nemo_fps_per_video.append(np.average(nemo_fps))
 
                 for model_quality in model_qualities:
-                    model_name = get_model_name(num_blocks_info[model_quality][resolution], num_filters_info[model_quality][resolution], resolution)
-                    latency_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, device_name, 'latency.txt')
+                    model_name_ = get_model_name(num_blocks_info[model_quality][resolution], num_filters_info[model_quality][resolution], resolution)
+                    latency_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name_, device_name, 'latency.txt')
                     dnn_fps = load_dnn_fps(latency_log_path)
                     dnn_fps_per_content[model_quality].append(dnn_fps)
+
+                    if model_name == model_name_:
+                        nemo_improvement_per_video.append(np.average(nemo_fps) / dnn_fps)
 
             f0.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(content_name,
                                                           np.average(nemo_fps),
@@ -194,3 +200,5 @@ if __name__ == '__main__':
                                                           np.std(dnn_fps_per_content['high']),
                                                           '\t'.join(nemo_num_filters_per_content)
                                                             ))
+        f0.write('nemo fps: min - {}, max - {}, avg - {}\n'.format(np.min(nemo_fps_per_video), np.max(nemo_fps_per_video), np.average(nemo_fps_per_video)))
+        f0.write('nemo improvement: min - {}, max - {}, avg - {}\n'.format(np.min(nemo_improvement_per_video), np.max(nemo_improvement_per_video), np.average(nemo_improvement_per_video)))
