@@ -150,11 +150,10 @@ if __name__ == '__main__':
             nemo_chunk_quality = load_chunk_quality(nemo_log_path, -1)
             uniform_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, postfix, 'quality_uniform_0.5.txt')
             uniform_chunk_quality = load_chunk_quality(uniform_log_path, num_anchor_points[i] - 1)
-            #random_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, postfix, 'quality_random_0.5.txt')
-            #random_chunk_quality = load_chunk_quality(random_log_path, num_anchor_points[i] - 1)
+            random_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, postfix, 'quality_random_0.5.txt')
+            random_chunk_quality = load_chunk_quality(random_log_path, num_anchor_points[i] - 1)
 
-            #f_0.write('{}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(i, nemo_chunk_quality, uniform_chunk_quality, random_chunk_quality))
-            f_0.write('{}\t{:.2f}\t{:.2f}\n'.format(i, nemo_chunk_quality, uniform_chunk_quality))
+            f_0.write('{}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(i, nemo_chunk_quality, uniform_chunk_quality, random_chunk_quality))
 
         #frame quality
         postfix = 'chunk0004'
@@ -164,20 +163,13 @@ if __name__ == '__main__':
         uniform_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, postfix, 'uniform_0.5_3', 'quality.txt')
         uniform_frame_quality = load_frame_quality(uniform_log_path)
 
-        #random_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, postfix, 'random_0.5_3', 'quality.txt')
-        #random_frame_quality = load_frame_quality(random_log_path)
+        random_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, postfix, 'random_0.5_3', 'quality.txt')
+        random_frame_quality = load_frame_quality(random_log_path)
 
         dnn_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, postfix, 'quality.txt')
         dnn_frame_quality = load_frame_quality(dnn_log_path)
 
-        #count = 0
-        #for nq, uq, rq, dq in zip(nemo_frame_quality, uniform_frame_quality, random_frame_quality, dnn_frame_quality):
-        #    f_1.write('{}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(count, dq - nq, dq - uq, dq - rq))
-        #    count += 1
-
-
         count = 0
-        for nq, uq, dq in zip(nemo_frame_quality, uniform_frame_quality, dnn_frame_quality):
-            f_1.write('{}\t{:.2f}\t{:.2f}\n'.format(count, dq - nq, dq - uq))
-            print(nq, dq)
+        for nq, uq, rq, dq in zip(nemo_frame_quality, uniform_frame_quality, random_frame_quality, dnn_frame_quality):
+            f_1.write('{}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(count, dq - nq, dq - uq, dq - rq))
             count += 1
