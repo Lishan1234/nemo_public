@@ -5,7 +5,8 @@ import operator
 
 import numpy as np
 
-contents = ['product_review', 'how_to', 'vlogs', 'game_play', 'skit', 'haul', 'challenge','favorite', 'education',  'unboxing'] indexes = [1, 2, 3]
+contents = ['product_review', 'how_to', 'vlogs', 'game_play', 'skit', 'haul', 'challenge','favorite', 'education',  'unboxing']
+indexes = [1, 2, 3]
 resolution = 240
 quality = 'high'
 device_name = 'xiaomi_mi9'
@@ -109,7 +110,7 @@ if __name__ == '__main__':
     #log
     log_dir = os.path.join(args.data_dir, 'evaluation')
     os.makedirs(log_dir, exist_ok=True)
-    log_path = os.path.join(log_dir, 'figure18_b.txt')
+    log_path = os.path.join(log_dir, 'figure18b.txt')
 
     nemo_qualities = []
     fast_qualities = []
@@ -131,9 +132,9 @@ if __name__ == '__main__':
                 nemo_quality, dnn_quality = load_nemo_quality(nemo_log_path)
                 fast_quality, _ = load_nemo_quality(fast_log_path)
 
-                nemo_qualities.extend(nemo_quality)
-                fast_qualities.extend(nemo_quality)
-                dnn_qualities.extend(nemo_quality)
+                nemo_qualities.append(np.average(nemo_quality))
+                fast_qualities.append(np.average(nemo_quality))
+                dnn_qualities.append(np.average(nemo_quality))
 
 
         nemo_quality.sort()
@@ -145,7 +146,8 @@ if __name__ == '__main__':
         count = 0
         f0.write('0\t0\t0\t0\n')
         for nq, fq, pfq in zip(nemo_quality, fast_quality, dnn_quality):
-            f0.write('{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(count/len(nemo_quality), nq, fq, pfq))
-            f0.write('{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format((count+1)/len(nemo_quality), nq, fq, pfq))
+            if count % 10 == 0:
+                f0.write('{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\n'.format(count/len(nemo_quality), nq, fq, pfq))
+                f0.write('{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\n'.format((count+1)/len(nemo_quality), nq, fq, pfq))
             count += 1
         f0.write('nemo gain: min - {}, max - {}, avg - {}'.format(np.min(diff), np.max(diff), np.average(diff)))

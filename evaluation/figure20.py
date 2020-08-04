@@ -143,8 +143,7 @@ if __name__ == '__main__':
         num_anchor_points = load_num_anchor_points(nemo_log_path)
 
         #chunk quality
-        #for i in range(75):
-        for i in range(50):
+        for i in range(75):
             postfix = 'chunk{:04d}'.format(i)
             nemo_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, postfix, 'quality_nemo_0.5.txt')
             nemo_chunk_quality = load_chunk_quality(nemo_log_path, -1)
@@ -156,14 +155,14 @@ if __name__ == '__main__':
             f_0.write('{}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(i, nemo_chunk_quality, uniform_chunk_quality, random_chunk_quality))
 
         #frame quality
-        postfix = 'chunk0006'
-        nemo_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, postfix, 'nemo_0.5_3', 'quality.txt')
+        postfix = 'chunk0013'
+        nemo_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, postfix, 'nemo_0.5_8', 'quality.txt')
         nemo_frame_quality = load_frame_quality(nemo_log_path)
 
-        uniform_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, postfix, 'uniform_0.5_3', 'quality.txt')
+        uniform_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, postfix, 'uniform_0.5_8', 'quality.txt')
         uniform_frame_quality = load_frame_quality(uniform_log_path)
 
-        random_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, postfix, 'random_0.5_3', 'quality.txt')
+        random_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, postfix, 'random_0.5_8', 'quality.txt')
         random_frame_quality = load_frame_quality(random_log_path)
 
         dnn_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, postfix, 'quality.txt')

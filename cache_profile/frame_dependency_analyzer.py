@@ -70,6 +70,7 @@ class FDA():
         out_degree.sort()
         count = {x:out_degree.count(x) for x in out_degree}
         value, count = list(count.keys()), list(count.values())
+        print('average is {}'.format(np.average(out_degree)))
         cdf = []
         for i in range(len(count)):
             cdf.append(sum(count[0:i+1]) / sum(count))

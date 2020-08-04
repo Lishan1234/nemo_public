@@ -96,7 +96,7 @@ if __name__ == '__main__':
     #log
     log_dir = os.path.join(args.data_dir, 'evaluation')
     os.makedirs(log_dir, exist_ok=True)
-    log_path = os.path.join(log_dir, 'figure18_a.txt')
+    log_path = os.path.join(log_dir, 'figure18a.txt')
 
     nemo_num_anchor_points= []
     random_num_anchor_points= []
@@ -118,11 +118,11 @@ if __name__ == '__main__':
                 model_name = get_model_name(num_blocks, num_filters, resolution)
 
                 nemo_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, 'quality_nemo_0.5.txt')
-                nemo_num_anchor_points.extend(load_num_anchor_points(nemo_log_path))
+                nemo_num_anchor_points.append(np.average(load_num_anchor_points(nemo_log_path)))
                 uniform_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, 'quality_uniform_0.5.txt')
-                uniform_num_anchor_points.extend(load_num_anchor_points(uniform_log_path))
+                uniform_num_anchor_points.append(np.average(load_num_anchor_points(uniform_log_path)))
                 random_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, 'quality_random_0.5.txt')
-                random_num_anchor_points.extend(load_num_anchor_points(random_log_path))
+                random_num_anchor_points.append(np.average(load_num_anchor_points(random_log_path)))
 
 
         nemo_num_anchor_points.sort()
@@ -132,8 +132,9 @@ if __name__ == '__main__':
         count = 0
         f0.write('0\t0\t0\t0\n')
         for na, ua, ra in zip(nemo_num_anchor_points, uniform_num_anchor_points, random_num_anchor_points):
-            f0.write('{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(count/len(nemo_num_anchor_points), na, ua, ra))
-            f0.write('{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format((count+1)/len(nemo_num_anchor_points), na, ua, ra))
+            if count % 10 == 0:
+                f0.write('{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\n'.format(count/len(nemo_num_anchor_points), na, ua, ra))
+                f0.write('{:.4f}\t{:.4f}\t{:.4f}\t{:.4f}\n'.format((count+1)/len(nemo_num_anchor_points), na, ua, ra))
             count += 1
 
         avg_nemo_num_anchor_points = np.average(nemo_num_anchor_points)
