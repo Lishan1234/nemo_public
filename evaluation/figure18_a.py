@@ -77,7 +77,7 @@ def load_num_anchor_points(log_path):
 
         for line in lines:
             line = line.strip().split('\t')
-            num_anchor_points.append(float(line[1]))
+            num_anchor_points.append(float(line[1]) / float(line[2]) * 100)
 
     return num_anchor_points
 
@@ -109,6 +109,9 @@ if __name__ == '__main__':
                 video_dir = os.path.join(args.data_dir, content, 'video')
                 video_name = video_name_info[resolution]
                 log_dir = os.path.join(args.data_dir, content, 'log')
+
+                if content == 'product_review1' or content == 'vlogs1':
+                    continue
 
                 num_blocks = num_blocks_info[quality][resolution]
                 num_filters = num_filters_info[quality][resolution]

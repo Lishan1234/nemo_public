@@ -156,7 +156,7 @@ if __name__ == '__main__':
             f_0.write('{}\t{:.2f}\t{:.2f}\t{:.2f}\n'.format(i, nemo_chunk_quality, uniform_chunk_quality, random_chunk_quality))
 
         #frame quality
-        postfix = 'chunk0004'
+        postfix = 'chunk0006'
         nemo_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, postfix, 'nemo_0.5_3', 'quality.txt')
         nemo_frame_quality = load_frame_quality(nemo_log_path)
 
