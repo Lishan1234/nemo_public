@@ -98,9 +98,22 @@ function _set_algorithm(){
     fi
 }
 
+function _set_output_size(){
+    if [ "$1" == 1080 ];then
+        output_width=1920
+        output_height=1080
+    elif [ "$1" == 1440 ];then
+        output_width=2560
+        output_height=1440
+    elif [ "$1" == 2160 ];then
+        output_width=3840
+        output_height=2160
+    fi
+}
+
 [[ ($# -ge 1)  ]] || { echo "[ERROR] Invalid number of arguments. See -h for help."; exit 1;  }
 
-while getopts ":c:i:q:r:t:d:e:h" opt; do
+while getopts ":c:i:q:r:t:d:e:o:h" opt; do
     case $opt in
         h) _usage; exit 0;;
         e) device_data_dir="$OPTARG";;
@@ -108,7 +121,8 @@ while getopts ":c:i:q:r:t:d:e:h" opt; do
         i) indexes+=("$OPTARG");;
         q) qualities+=("$OPTARG");;
         r) resolutions+=("$OPTARG");;
-        d) device_id+="$OPTARG";;
+        d) device_id="$OPTARG";;
+        o) output_resolution="$OPTARG";;
         \?) exit 1;
     esac
 done
@@ -139,7 +153,12 @@ if [ -z "${indexes+x}" ]; then
     indexes=("1" "2" "3")
 fi
 
+if [ -z "${output_resolution+x}" ]; then
+    output_resolution=1080
+fi
+
 _set_conda
+_set_output_size ${output_resolution}
 
 for content in "${contents[@]}"
 do
@@ -153,7 +172,7 @@ do
                 _set_num_blocks ${resolution} ${quality}
                 _set_num_filters ${resolution} ${quality}
                 _set_algorithm ${quality}
-                CUDA_VISIBLE_DEVICES=${gpu_index} python ${NEMO_ROOT}/tool/load_data_to_device.py --data_dir ${NEMO_ROOT}/data --device_data_dir ${device_data_dir} --content ${content}${index} --video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --algorithm=${algorithm} --device_id=${device_id}
+                CUDA_VISIBLE_DEVICES=${gpu_index} python ${NEMO_ROOT}/tool/load_data_to_device.py --data_dir ${NEMO_ROOT}/data --device_data_dir ${device_data_dir} --content ${content}${index} --video_name ${resolution}p_${bitrate}kbps_s0_d300.webm --num_blocks ${num_blocks} --num_filters ${num_filters} --algorithm=${algorithm} --device_id=${device_id} --output_height=${output_height}
             done
         done
     done
