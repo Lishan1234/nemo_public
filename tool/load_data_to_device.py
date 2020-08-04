@@ -33,7 +33,6 @@ if __name__ == '__main__':
     parser.add_argument('--device_id', type=str, required=True)
 
     #codec
-    parser.add_argument('--output_width', type=int, default=1920)
     parser.add_argument('--output_height', type=int, default=1080)
 
     args = parser.parse_args()
