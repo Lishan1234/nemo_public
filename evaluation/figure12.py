@@ -6,6 +6,8 @@ import json
 
 import numpy as np
 
+from nemo.tool.mac import *
+
 contents = ['product_review', 'how_to', 'vlogs', 'game_play', 'skit', 'haul', 'challenge','favorite', 'education',  'unboxing']
 indexes = [1, 2, 3]
 resolution = 240
@@ -111,6 +113,26 @@ def load_anchor_point_fraction(log_path):
 
         return anchor_point_fraction
 
+WIDTH = 426
+HEIGHT = 240
+CHANNEL = 3
+
+def load_num_operations(log_path, model_name, gop):
+        anchor_point_fraction = []
+        num_nemo_mac = 0
+        num_dnn_mac = 0
+
+        with open(log_path, 'r') as f:
+            quality_lines = f.readlines()
+            for quality_line in quality_lines:
+                quality_line = quality_line.strip().split('\t')
+                num_anchor_points = int(quality_line[1])
+                num_frames = int(quality_line[2])
+                num_nemo_mac += num_anchor_points * count_mac_for_nemo_s(model_name, HEIGHT, WIDTH)
+                num_nemo_mac += (num_frames - num_anchor_points) * count_mac_for_cache(HEIGHT,WIDTH,CHANNEL)
+                num_dnn_mac += gop * count_mac_for_nemo_s(model_name, HEIGHT, WIDTH)
+
+        return num_dnn_mac / num_nemo_mac
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -126,6 +148,7 @@ if __name__ == '__main__':
     log_file = os.path.join(log_dir, 'figure12.txt')
 
     anchor_point_fraction = []
+    reduced_operation = []
     with open(log_file, 'w') as f0:
         for content_name in contents:
             for index in indexes:
@@ -140,6 +163,7 @@ if __name__ == '__main__':
                 model_name = get_model_name(num_blocks, num_filters, resolution)
                 nemo_log_path = os.path.join(args.data_dir, content, 'log', video_name, model_name, 'quality_{}.txt'.format(algorithm_name))
                 anchor_point_fraction.append(np.average(load_anchor_point_fraction(nemo_log_path)))
+                reduced_operation.append(load_num_operations(nemo_log_path, model_name, 120))
 
         anchor_point_fraction.sort()
         count = 0
@@ -148,3 +172,5 @@ if __name__ == '__main__':
             f0.write('{:.2f}\t{:.2f}\n'.format(count/len(anchor_point_fraction ), value))
             f0.write('{:.2f}\t{:.2f}\n'.format((count+1)/len(anchor_point_fraction ),value))
             count += 1
+
+        print("reduced operation: min - {}, max - {}, avg - {}".format(np.min(reduced_operation), np.max(reduced_operation), np.average(reduced_operation)))
